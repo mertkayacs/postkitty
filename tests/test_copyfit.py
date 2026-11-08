@@ -77,7 +77,7 @@ class TestRules:
         bsky = c.rules_for("bluesky")
         assert (bsky.unit, bsky.limit, bsky.bytes_max) == ("graphemes", 300, 3000)
         ig = c.rules_for("instagram")
-        assert (ig.limit, ig.hashtags_max, ig.mentions_max) == (2200, 30, 20)
+        assert (ig.limit, ig.hashtags_max, ig.mentions_max) == (2200, 5, 20)
         assert (c.rules_for("tiktok").unit, c.rules_for("tiktok").limit) == ("utf16", 2200)
         assert c.rules_for("linkedin").limit == 3000
         assert c.rules_for("threads").limit == 500
@@ -150,8 +150,9 @@ class TestFit:
         assert not report.ok and report.hashtags == 31
         assert any("hashtags" in note for note in report.notes)
 
-    def test_instagram_30_hashtags_pass(self):
-        assert c.fit("instagram", " ".join(f"#t{i}" for i in range(30))).ok
+    def test_instagram_allows_five_hashtags_and_not_six(self):
+        assert c.fit("instagram", " ".join(f"#t{i}" for i in range(5))).ok
+        assert not c.fit("instagram", " ".join(f"#t{i}" for i in range(6))).ok
 
     def test_instagram_mention_cap(self):
         assert not c.fit("instagram", " ".join(f"@u{i}" for i in range(21))).ok

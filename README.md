@@ -189,7 +189,7 @@ The board opens with the audience and tone of your post, the platforms ranked fo
 
 | Platform | Files | Copy limit |
 |---|---|---|
-| Instagram | Reel and Story 1080×1920, feed photo 1080×1350 | 2,200 characters, 30 hashtags |
+| Instagram | Reel and Story 1080×1920, feed photo 1080×1350 | 2,200 characters, 5 hashtags |
 | TikTok | Video 1080×1920 | 2,200 UTF-16 units |
 | YouTube Shorts | Short 1080×1920 | Title up to 100 characters |
 | X | Video 1920×1080, image 1600×900 | 280 weighted characters |

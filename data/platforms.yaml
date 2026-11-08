@@ -10,14 +10,17 @@ platforms:
     text:
       limit: {value: 2200, unit: codepoints, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
               source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
-      hashtags_max: {value: 30, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
-                     source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
+      hashtags_max: {value: 5, enforcement: hard, source_scope: secondary, checked_on: "2026-11-08",
+                     source_url: "https://www.socialmediatoday.com/news/instagram-implements-new-limits-on-hashtag-use/808309/"}
       mentions_max: {value: 20, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
                      source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
     playbook:
-      - {text: "Caption up to 2,200 characters, up to 30 hashtags and up to 20 mentions per the Instagram Graph API media reference.",
+      - {text: "Caption up to 2,200 characters and up to 20 mentions per the Instagram Graph API media reference.",
          source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/",
          source_scope: api, checked_on: "2026-11-08"}
+      - {text: "Up to 5 hashtags per post or reel: Instagram said in December 2025 that it is moving every caption to five, down from the 30 the Graph API reference still lists.",
+         source_url: "https://www.socialmediatoday.com/news/instagram-implements-new-limits-on-hashtag-use/808309/",
+         source_scope: secondary, checked_on: "2026-11-08"}
     targets:
       instagram_reel:
         kind: video
