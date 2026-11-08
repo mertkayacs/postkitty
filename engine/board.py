@@ -399,7 +399,7 @@ def merge_checks(checks: list[dict]) -> list[dict]:
         if side in ("min", "max"):
             row["limits"][side] = check.get("expected")
         status = check.get("status") or "pass"
-        if status == "fail" or (status == "advisory" and row["status"] == "pass"):
+        if status == "fail" or (status in ("advisory", "skipped") and row["status"] == "pass"):
             row["status"] = status
         if status != "pass" and check.get("message"):
             row["bad_messages"].append(str(check["message"]))
@@ -663,14 +663,18 @@ def checks_html(checks: list[dict]) -> str:
     rows = merge_checks(checks)
     if not rows:
         return ""
-    bad = [r for r in rows if r["status"] != "pass"]
+    bad = [r for r in rows if r["status"] not in ("pass", "skipped")]
+    skipped = sum(1 for r in rows if r["status"] == "skipped")
+    passed = len(rows) - len(bad) - skipped
     hard_fail = any(r["hard"] and r["status"] == "fail" for r in rows)
     if bad:
         head = f"{len(bad)} need attention" if len(bad) > 1 else "1 needs attention"
-        if len(rows) > len(bad):
-            head += f", {len(rows) - len(bad)} passed"
+        if passed:
+            head += f", {passed} passed"
     else:
-        head = f"{len(rows)} checks passed" if len(rows) > 1 else "1 check passed"
+        head = f"{passed} checks passed" if passed != 1 else "1 check passed"
+    if skipped:
+        head += f", {skipped} skipped"
     attn = ' class="attn"' if bad else ""
     return (
         f'<details class="checks"{" open" if hard_fail else ""}>'

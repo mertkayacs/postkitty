@@ -210,6 +210,7 @@ details > summary::-webkit-details-marker { display: none; }
 .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: var(--ok-fg); }
 .dot.advisory { background: var(--adv-fg); }
 .dot.fail, .dot.failed { background: var(--pk-terracotta); }
+.dot.skipped { background: var(--skip-fg); }
 .check-list .msg { font-size: 13px; line-height: 1.4; }
 .check-list .mono { font: 11.5px/1.45 var(--mono); color: var(--pk-muted); overflow-wrap: anywhere; }
 .check-list .mono a { color: inherit; }

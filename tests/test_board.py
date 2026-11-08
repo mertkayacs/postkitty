@@ -227,6 +227,22 @@ def test_check_values_are_human_readable():
     assert "<details class=\"checks\" open>" not in out
 
 
+def test_skipped_check_is_not_shown_as_passed():
+    from postkitty.engine.board import checks_html
+    checks = [
+        {"id": "image.width", "status": "pass", "hard": True, "measured": 1080, "expected": 1080,
+         "message": "The image width is exact."},
+        {"id": "frame.subjects_inside", "status": "skipped", "hard": False, "measured": None,
+         "expected": 1.0, "message": "Subject framing data is unavailable for this file."},
+    ]
+    out = checks_html(checks)
+    assert "Everyone stays inside the frame." not in out
+    assert "Subject framing data is unavailable for this file." in out
+    assert '<span class="dot skipped">' in out
+    assert "1 check passed, 1 skipped" in out
+    assert "2 checks passed" not in out
+
+
 def test_speaker_layout_note_is_readable() -> None:
     assert layout_note({"mode": "speaker", "note": "cuts to whoever is talking"}) == (
         "Follows the speaker: cuts to whoever is talking."
