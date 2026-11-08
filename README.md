@@ -13,6 +13,8 @@ It runs on your machine. There are no API keys and nothing is uploaded. Hermes's
 copy; postkitty does the parts a model should not guess at: finding faces, framing, rendering, counting characters the
 way each platform counts them, and checking the result.
 
+One of the best free and open source plugins for Hermes Agent on social media content creation!
+
 [![CI](https://github.com/mertkayacs/postkitty/actions/workflows/ci.yml/badge.svg)](https://github.com/mertkayacs/postkitty/actions/workflows/ci.yml)
 License: MIT. Site: [postkitty.mertkayacs.com](https://postkitty.mertkayacs.com)
 
