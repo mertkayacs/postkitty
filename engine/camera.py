@@ -500,11 +500,24 @@ def build_camera_path(
             scene_windows = [Box(0.0, 0.0, info.width, info.height)] * len(indices)
             accounting.append((_select_track(tracks, person, *scene), *scene, None))
         elif layout == "split":
+            panel_aspect = target.aspect * 2
             pair = split_scenes[scene]
             if pair is None:
                 selected_track = _select_track(tracks, person, *scene)
-                pair = (selected_track, selected_track)
-            panel_aspect = target.aspect * 2
+                if selected_track is not None and _points_in_scene(selected_track, *scene):
+                    pair = (selected_track, selected_track)
+            if pair is None:
+                # Nobody is in this shot: both panels show the centre of the frame.
+                panel_width, panel_height = _window_size(info.width, info.height, panel_aspect)
+                panel = Box(
+                    (info.width - panel_width) * (0.5 if anchor_x is None else anchor_x),
+                    (info.height - panel_height) / 2,
+                    panel_width,
+                    panel_height,
+                )
+                for index in indices:
+                    windows[index] = (panel, panel)
+                continue
             first = _panel_windows(
                 pair[0],
                 pair[1],

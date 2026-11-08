@@ -298,3 +298,22 @@ def test_split_panels_stay_inside_the_frame_for_large_faces() -> None:
             assert box.h <= InputInfo.height + 1e-6
             assert box.w <= InputInfo.width + 1e-6
             assert math.isclose(box.w / box.h, panel_aspect, rel_tol=1e-6)
+
+
+def test_split_survives_a_scene_without_faces() -> None:
+    left = _track(1, [(index / 5, 40.0) for index in range(10)])
+    right = _track(2, [(index / 5, 1120.0) for index in range(10)])
+
+    path = build_camera_path(
+        InputInfo(),
+        _scan([left, right], [(0.0, 2.0), (2.0, 4.0)]),
+        Target(1080, 1920),
+        (0.0, 4.0),
+    )
+
+    assert path.layout == "split"
+    assert len(path.windows) == 40
+    for top, bottom in path.windows:
+        for box in (top, bottom):
+            assert 0.0 <= box.x and box.x + box.w <= InputInfo.width + 1e-6
+            assert 0.0 <= box.y and box.y + box.h <= InputInfo.height + 1e-6
