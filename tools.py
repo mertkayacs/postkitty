@@ -544,6 +544,10 @@ def _platform_drafts(drafts: dict) -> tuple[dict[str, Any], dict[str, list[str]]
     platform_names = set(platforms.platform_names())
     for raw, draft in drafts.items():
         (name,) = _platform_names([raw])
+        if not (isinstance(draft, str) and draft.strip()) and not (
+            isinstance(draft, list) and draft and all(isinstance(part, str) and part.strip() for part in draft)
+        ):
+            raise ValueError(f"draft for {raw!r} must be a non-empty string, or a list of non-empty strings for a thread")
         is_platform = name in platform_names
         platform = name if is_platform else platforms.platform_for_target(name)
         priority = int(is_platform)
