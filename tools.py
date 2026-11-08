@@ -137,6 +137,13 @@ def _bool_arg(args: dict, key: str, default: bool) -> bool:
     return value
 
 
+def _input_path(raw: Any) -> Path:
+    path = Path(str(raw)).expanduser()
+    if path.is_dir():
+        raise ValueError(f"{raw} is a directory; give the image or video file itself")
+    return path
+
+
 def _open_job(args: dict) -> jobs.Job:
     if not args.get("job"):
         raise ValueError("'job' is required; run postkitty_scan first")
@@ -392,7 +399,7 @@ def scan(args: dict) -> dict:
     wanted = _platform_names(_list_arg(args, "platforms") or _config("default_platforms", []))
     infos, notes = [], []
     for index, path in enumerate(paths, start=1):
-        infos.append(probe.probe(Path(path), f"in{index}"))  # before create_job, so a bad path leaves no folder
+        infos.append(probe.probe(_input_path(path), f"in{index}"))  # before create_job: a bad path leaves no folder
     job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
     manifest = jobs.load_manifest(job)
     media, entries = _Media(job), []
@@ -605,7 +612,7 @@ def redo(args: dict) -> dict:
 @_safe
 def check(args: dict) -> dict:
     if args.get("path"):
-        path = Path(str(args["path"])).expanduser().resolve()
+        path = _input_path(args["path"]).resolve()
         job = _open_job(args) if args.get("job") else _job_for_ready_path(path)
         entry = _entry_for_path(job, path) if job else None
         target_id = args.get("target") or (entry or {}).get("id")
