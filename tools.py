@@ -100,6 +100,43 @@ def _platform_names(names: Any) -> list[str]:
     return out
 
 
+def _list_arg(args: dict, key: str) -> list:
+    """An optional list argument; a bare string or any other type is a clear error, never iterated."""
+    value = args.get(key)
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"argument '{key}' must be a list, got {type(value).__name__}")
+    return value
+
+
+def _dict_arg(args: dict, key: str) -> dict:
+    value = args.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"argument '{key}' must be an object, got {type(value).__name__}")
+    return value
+
+
+def _str_arg(args: dict, key: str) -> str:
+    value = args.get(key)
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"argument '{key}' must be a string, got {type(value).__name__}")
+    return value
+
+
+def _bool_arg(args: dict, key: str, default: bool) -> bool:
+    value = args.get(key)
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"argument '{key}' must be true or false, got {type(value).__name__}")
+    return value
+
+
 def _open_job(args: dict) -> jobs.Job:
     if not args.get("job"):
         raise ValueError("'job' is required; run postkitty_scan first")
@@ -348,11 +385,11 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict, merge_old: bool = Fal
 
 @_safe
 def scan(args: dict) -> dict:
-    paths = [str(p) for p in args.get("inputs") or []]
-    text = str(args.get("text") or "")
+    paths = [str(p) for p in _list_arg(args, "inputs")]
+    text = _str_arg(args, "text")
     if not paths and not text.strip():
         raise ValueError("give at least one input file or a draft text")
-    wanted = _platform_names(args.get("platforms") or _config("default_platforms", []))
+    wanted = _platform_names(_list_arg(args, "platforms") or _config("default_platforms", []))
     job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
     manifest = jobs.load_manifest(job)
     infos, notes = [], []
@@ -415,13 +452,13 @@ def _image_peek(job: jobs.Job, info: probe.InputInfo) -> str:
 def copy(args: dict) -> dict:
     job = _open_job(args)
     manifest = jobs.load_manifest(job)
-    split = args.get("split_threads", True) is not False
-    advice = args.get("advice")
-    if isinstance(advice, dict):
+    split = _bool_arg(args, "split_threads", True)
+    advice = _dict_arg(args, "advice")
+    if advice:
         manifest["advice"] = advice
         jobs.write_advice(job, advice)
     result: dict[str, Any] = {}
-    drafts, draft_notes = _platform_drafts(args.get("drafts") or {})
+    drafts, draft_notes = _platform_drafts(_dict_arg(args, "drafts"))
     for name, draft in drafts.items():
         report = copyfit.fit(name, draft, split_threads=split)
         rules = copyfit.rules_for(name)
@@ -445,7 +482,7 @@ def copy(args: dict) -> dict:
             details.update(fold=report.fold,
                            fold_note=f"about {report.fold_limit} characters show before 'more' (advisory)")
         result[name] = details
-    unknown = _write_alt(job, manifest, args.get("alt_text") or {})
+    unknown = _write_alt(job, manifest, _dict_arg(args, "alt_text"))
     jobs.save_manifest(job, manifest)
     return {"job": job.id, "all_ok": all(r["ok"] or r["enforcement"] != "hard" for r in result.values()),
             "platforms": result, "advice": str(job.advice_path) if advice else None,
@@ -525,17 +562,18 @@ def _override(args: dict) -> dict:
 @_safe
 def make(args: dict) -> dict:
     job = _open_job(args)
+    targets, overrides = _list_arg(args, "targets"), _dict_arg(args, "overrides")
     scan_doc = jobs.read_json(job.work / "scan.json") if (job.work / "scan.json").is_file() else {}
     planned = [t["id"] for t in scan_doc.get("targets", [])]
     if not planned:
         raise ValueError("this job has no media targets; run postkitty_scan with input files")
     ids = planned
-    if args.get("targets"):
-        wanted = _platform_names(args["targets"])
+    if targets:
+        wanted = _platform_names(targets)
         ids = [t for t in planned if t in wanted or platforms.get_target(t).platform in wanted]
         if not ids:
             raise ValueError(f"none of {wanted} is planned in this job; planned: {planned}")
-    return _build(job, ids, args.get("overrides") or {})
+    return _build(job, ids, overrides)
 
 
 @_safe

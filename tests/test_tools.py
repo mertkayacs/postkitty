@@ -35,6 +35,26 @@ def test_every_handler_returns_json_error_instead_of_raising(out_dir):
     assert "unknown platform" in call(tools.scan, text="hi", platforms=["myspace"])["error"]
 
 
+def test_wrong_argument_types_name_the_argument(out_dir, tmp_path, text_job):
+    photo = tmp_path / "p.jpg"
+    Image.new("RGB", (100, 100), "red").save(photo)
+    cases = [
+        (tools.scan, {"inputs": str(photo)}, "inputs"),
+        (tools.scan, {"text": "hi", "platforms": "instagram"}, "platforms"),
+        (tools.scan, {"text": ["a", "b"]}, "text"),
+        (tools.copy, {"job": text_job, "drafts": "hello"}, "drafts"),
+        (tools.copy, {"job": text_job, "alt_text": "hello"}, "alt_text"),
+        (tools.copy, {"job": text_job, "advice": "hello"}, "advice"),
+        (tools.copy, {"job": text_job, "drafts": {"x": "a"}, "split_threads": "no"}, "split_threads"),
+        (tools.make, {"job": text_job, "targets": "x"}, "targets"),
+        (tools.make, {"job": text_job, "overrides": ["x_image"]}, "overrides"),
+    ]
+    for handler, args, name in cases:
+        out = call(handler, **args)
+        assert f"'{name}'" in out["error"] and "Error:" not in out["error"], (name, out)
+        assert "Unexpected" not in out["hint"], (name, out)
+
+
 def test_text_only_scan(out_dir):
     out = call(tools.scan, text="Big news #launch @friend https://example.com", platforms=["x", "bluesky"])
     assert Path(out["job_dir"]).is_dir() and out["inputs"] == [] and out["plan"] == []
