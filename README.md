@@ -8,12 +8,12 @@
 <h1 align="center">One post in.<br>Every platform out.</h1>
 
 <p align="center">
-  A Hermes Agent plugin that turns a draft, your photos and a landscape video into posts ready to upload.<br>
-  <b>Eight platforms. Faces stay in frame, every file is checked, and it all runs on your machine.</b>
+  A Hermes Agent plugin for your text, photos and video. It fixes and rewrites your draft for each platform, keeps every face in frame, and checks every file before you post.<br>
+  <b>Eight platforms, every file checked, all on your machine.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/mertkayacs/postkitty/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/mertkayacs/postkitty/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <a href="https://github.com/mertkayacs/postkitty/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mertkayacs/postkitty/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3b82f6?style=flat-square"></a>
   <img alt="Python 3.11 or newer" src="https://img.shields.io/badge/Python%203.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="https://github.com/NousResearch/hermes-agent"><img alt="Hermes Agent plugin" src="https://img.shields.io/badge/Hermes%20Agent-plugin-1E2A44?style=flat-square"></a>
@@ -29,13 +29,10 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/hero-dark.webp">
-    <img src="docs/assets/readme/hero-light.webp" alt="The postkitty review board for one podcast post: the Instagram Reel, feed photo, Story and TikTok files, each marked Ready with its size, layout note, alt text and passed checks." width="960">
-  </picture>
+  <img src="docs/assets/readme/hero.jpg" alt="The postkitty review board for one podcast post: the Instagram Reel, feed photo, Story and TikTok files, each marked Ready with its size, layout note, alt text and passed checks." width="960">
 </p>
 
-postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent). It is for anyone who posts the same thing to several platforms and does not want to resize, trim and recount it by hand. You give Hermes a draft, some photos and a landscape video. You get back a folder of upload-ready files, copy for each platform, advice on where to post, and a review board that shows every file before you upload it.
+postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent). It is for anyone who posts the same thing to several platforms and does not want to rewrite, resize, trim and recount it by hand. You give Hermes a draft, some photos and a landscape video, or only the draft. You get back your text fixed and rewritten for each platform, upload-ready files, advice on where to post, and a review board that shows every file before you upload it.
 
 postkitty is free and open source under the MIT license.
 
@@ -43,80 +40,125 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 
 ---
 
-## Why postkitty
+## Your draft, fixed for every platform
+
+Paste a rough draft. postkitty fixes the spelling, grammar and punctuation, smooths out clumsy sentences and keeps your voice. Then it writes a version for each platform and counts it the way that platform does, so nothing gets cut off. This is one real run.
+
+**Your draft**
+
+> new episode of two builders is out!! maya and sam talks about how we shiped our app in one weekend, what we cut what broke at 2am and why the launch posts took longer then the code lol. its honestly the most usefull episode we did so far for anyone building on there own
+
+**X** · 245 of 280 weighted characters
+
+> New episode of Two Builders is out. Maya and Sam talk about how we shipped our app in one weekend: what we cut, what broke at 2am, and why the launch posts took longer than the code. Our most useful episode so far if you're building on your own.
+
+**Bluesky** · 221 of 300 graphemes
+
+> New Two Builders episode is out. Maya and Sam on shipping our app in one weekend: what we cut, what broke at 2am, and why the launch posts took longer than the code. Our most useful one yet if you're building on your own.
+
+**LinkedIn** · 319 of 3,000 characters
+
+> New episode of Two Builders is out.
+>
+> Maya and Sam talk about how we shipped our app in one weekend: what we cut, what broke at 2am, and why the launch posts took longer than the code.
+>
+> It's honestly the most useful episode we've done so far, especially if you're building on your own.
+>
+> #BuildInPublic #Startups #Podcast
+
+Threads and Instagram got their own versions in the same run.
+
+### Ask for a change
+
+Ask in plain words. This was the next message in the same session:
+
+> Make the LinkedIn post more formal, and turn the X post into a thread of two posts.
+
+**X thread, post 1** · 98 of 280 weighted characters
+
+> New episode of Two Builders is out. Maya and Sam talk about how we shipped our app in one weekend.
+
+**X thread, post 2** · 146 of 280 weighted characters
+
+> What we cut, what broke at 2am, and why the launch posts took longer than the code. Our most useful episode so far if you're building on your own.
+
+**LinkedIn, more formal** · 337 of 3,000 characters
+
+> We have released a new episode of Two Builders.
+>
+> Maya and Sam discuss how we shipped our app in one weekend: what we cut, what broke at 2am, and why the launch posts took longer to produce than the code.
+>
+> It is the most useful episode we have made so far, particularly for anyone building on their own.
+>
+> #BuildInPublic #Startups #Podcast
+
+You can also ask for a shorter or longer version, another hook or tone, or other hashtags. Every new version is counted again before it goes into `ready/`.
+
+<details>
+<summary><b>It works in your language: the same post in Turkish and German</b></summary>
+
+**Turkish draft**
+
+> two builders'ın yeni bölümü çıktı!! maya ve sam uygulamamızı bir hafta sonunda nasıl yayınladığımızı anlatıyo, neleri kestik gece 2de ne bozuldu ve lansman paylaşımları neden koddan uzun sürdü. kendi başına bir şey geliştiren herkez için şimdiye kadarki en faydalı bölüm bence
+
+**X** · 270 of 280 weighted characters
+
+> Two Builders'ın yeni bölümü çıktı! Maya ve Sam, uygulamamızı bir hafta sonunda nasıl yayınladığımızı anlatıyor: neleri kestik, gece 2'de ne bozuldu, lansman paylaşımları neden koddan uzun sürdü. Kendi başına geliştiren herkes için şimdiye kadarki en faydalı bölüm bence.
+
+**German draft**
+
+> neue folge von two builders ist drausen!! maya und sam erzählen wie wir unsere app an einem wochenende gelauncht haben, was wir gestrichen haben was um 2 uhr nachts kaputt ging und warum die launch posts länger gedauert haben als der code. ehrlich die nützlichste folge bis jetzt für alle die alleine was bauen
+
+**X** · 235 of 280 weighted characters
+
+> Neue Folge von Two Builders ist da. Maya und Sam erzählen, wie wir unsere App an einem Wochenende gelauncht haben: was wir gestrichen haben, was um 2 Uhr nachts kaputt ging und warum die Launch-Posts länger gedauert haben als der Code.
+
+</details>
+
+<sub>The copy comes from the model your Hermes uses. These runs used Claude Sonnet 5.5, and postkitty counted and checked every version.</sub>
+
+## What it does
 
 Each platform has its own sizes, length limits and way of counting characters. postkitty handles all of that on your machine, with no API keys, and nothing is uploaded.
 
-|  |  |
-|---|---|
-| <img src="docs/assets/readme/icons/scan-face.svg" width="18" height="18" alt=""> **Faces stay in frame** | Every crop is planned around the faces the YuNet detector finds. A clip of two people talking becomes a split screen, and a wide group photo gets a blurred band so nobody is cut off. |
-| <img src="docs/assets/readme/icons/list-checks.svg" width="18" height="18" alt=""> **Checked before it is ready** | Every file is checked against the platform's published limits. Failures are repaired, and only passing files go into `ready/`. |
-| <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> **Copy counted the platform's way** | Each draft is counted with its platform's own rule, such as weighted characters on X, graphemes on Bluesky and UTF-16 units on TikTok. Long posts are split into threads. |
-| <img src="docs/assets/readme/icons/message-square-text.svg" width="18" height="18" alt=""> **Advice on where to post** | Hermes ranks the platforms for your post and saves the topic, audience and tips in `advice.md`. |
-| <img src="docs/assets/readme/icons/layout-grid.svg" width="18" height="18" alt=""> **One board to review** | `board.html` shows every file in a frame of its real shape, with its copy, alt text and checks. Ask for a change and Hermes makes only that file again. |
-| <img src="docs/assets/readme/icons/lock.svg" width="18" height="18" alt=""> **Private by default** | postkitty reads only the files you name and writes only inside its job folder and its own data folder. It sends no telemetry, and photos lose their location and camera metadata. |
+- <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> **Text.** Fixes spelling, grammar and clumsy sentences, then writes a version for each platform. Each one is counted with that platform's own rule, such as weighted characters on X, graphemes on Bluesky and UTF-16 units on TikTok. Long posts can become threads.
+- <img src="docs/assets/readme/icons/scan-face.svg" width="18" height="18" alt=""> **Photos.** Every crop is planned around the faces the YuNet detector finds. A wide group photo gets a blurred band so nobody is cut off. Location and camera metadata are removed.
+- <img src="docs/assets/readme/icons/video.svg" width="18" height="18" alt=""> **Video.** A landscape clip becomes a vertical video that follows the person talking, or a split screen when two people talk. Each clip is trimmed to the platform's length and gets a cover frame.
+- <img src="docs/assets/readme/icons/list-checks.svg" width="18" height="18" alt=""> **Checks.** Every file is checked against the platform's published limits. Failures are repaired, and only passing files go into `ready/`.
+- <img src="docs/assets/readme/icons/message-square-text.svg" width="18" height="18" alt=""> **Advice.** Hermes ranks the platforms for your post and saves the topic, audience and tips in `advice.md`.
+- <img src="docs/assets/readme/icons/layout-grid.svg" width="18" height="18" alt=""> **One board to review.** `board.html` shows every file in a frame of its real shape, with its copy, alt text and checks. Ask for a change and Hermes makes only that file again.
+- <img src="docs/assets/readme/icons/lock.svg" width="18" height="18" alt=""> **Private by default.** postkitty reads only the files you name and writes only inside its job folder and its own data folder. It sends no telemetry.
 
 ## A quick tour
 
 <p align="center">
-  <img src="docs/assets/readme/tour.webp" alt="A short loop of postkitty reframing landscape clips for vertical video: the frame follows a potter as she moves, two podcast hosts become a split screen, then scenes from public-domain films and cartoons get the same treatment." width="900">
+  <picture>
+    <source srcset="docs/assets/readme/tour.webp" type="image/webp">
+    <img src="docs/assets/readme/tour.jpg" alt="A short loop of postkitty reframing landscape clips for vertical video: the frame follows a potter as she moves, two podcast hosts become a split screen, then scenes from public-domain films and cartoons get the same treatment." width="900">
+  </picture>
 </p>
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/hermes-dark.webp">
-        <img src="docs/assets/readme/hermes-light.webp" alt="A Hermes terminal session: a request to get an episode post ready for five platforms, the postkitty_scan, postkitty_copy and postkitty_make calls with their times, and the ranked platforms in the reply.">
-      </picture>
-      <h3>Ask in plain words</h3>
-      Name the platforms and your files and paste the draft. Hermes calls the postkitty tools and replies with the platforms ranked for your post.
-    </td>
-    <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/faces-dark.webp">
-        <img src="docs/assets/readme/faces-light.webp" alt="The original team photo with the center-crop area marked, the 4:5 center crop that cuts off the two people at the edges, and the postkitty 4:5 image that keeps all five people.">
-      </picture>
-      <h3>Every face stays in frame</h3>
-      A center crop of this team photo cuts off the two people at the edges. The postkitty feed image keeps all five.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/copy-dark.webp">
-        <img src="docs/assets/readme/copy-light.webp" alt="The Copy section of the review board: the Instagram draft at 216 of 2200 characters with a marker where the feed cuts it off, and the TikTok draft at 128 of 2200 UTF-16 units.">
-      </picture>
-      <h3>Copy for every platform</h3>
-      Each draft shows its count against the platform's limit and where the feed cuts it off, with a button to copy it.
-    </td>
-    <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/advice-dark.webp">
-        <img src="docs/assets/readme/advice-light.webp" alt="The advice panel of the review board: the post&#x27;s topic, audience and tone, a ranked list of Instagram, TikTok, YouTube, LinkedIn and X with a reason for each, and tips.">
-      </picture>
-      <h3>See where it fits</h3>
-      The board opens with the audience and tone of your post, the platforms ranked for it, and tips.
-    </td>
-  </tr>
-</table>
+### Ask in plain words
+
+Name the platforms and your files and paste the draft. Hermes calls the postkitty tools and replies with the platforms ranked for your post.
+
+<p align="center"><img src="docs/assets/readme/hermes.jpg" alt="A Hermes terminal session: a request to get an episode post ready for five platforms, the postkitty_scan, postkitty_copy and postkitty_make calls with their times, and the ranked platforms in the reply." width="720"></p>
+
+### Every face stays in frame
+
+A center crop of this team photo cuts off the two people at the edges. The postkitty feed image keeps all five.
+
+<p align="center"><img src="docs/assets/readme/faces.jpg" alt="The original team photo with the center-crop area marked, the 4:5 center crop that cuts off the two people at the edges, and the postkitty 4:5 image that keeps all five people." width="720"></p>
+
+### See where it fits
+
+The board opens with the audience and tone of your post, the platforms ranked for it, and tips.
+
+<p align="center"><img src="docs/assets/readme/advice.jpg" alt="The advice panel of the review board: the post's topic, audience and tone, a ranked list of Instagram, TikTok, YouTube, LinkedIn and X with a reason for each, and tips." width="720"></p>
 
 <p align="center"><sub>The board and terminal shots come from one real run on a demo podcast clip and team photo. The people in the demo footage and photos are AI-generated.</sub></p>
 
-## Features
-
-| Output | What it is |
-|---|---|
-| Video | A landscape clip becomes a vertical video that follows the person talking, or a split screen for two people. Trimmed to each platform's length, with a cover frame. |
-| Photos | Every crop keeps every face in frame. Location and camera metadata are removed. |
-| Copy | A draft for each platform, counted with that platform's own rule. Long posts are split into threads. |
-| Advice | Topic, audience, a ranking of platforms and tips, saved as `advice.md`. |
-| Checks | Every file is checked against the platform's published limits and repaired when it fails. Only passing files go into `ready/`. |
-| Review board | Every file in a frame of its real shape, with its copy and checks, in one page you open in a browser. |
-
-Ask for a change ("keep him in frame on the LinkedIn video") and Hermes re-renders just that file.
-
-### Platforms
+## Platforms
 
 | Platform | Files | Copy limit |
 |---|---|---|
@@ -146,6 +188,8 @@ Make this post ready for Instagram, TikTok, YouTube Shorts and LinkedIn.
 clip.mp4 is the video, team.jpg is our team.
 My draft: New episode is out...
 ```
+
+Text alone works too: paste a draft and name the platforms.
 
 postkitty needs Hermes Agent 0.22.7 or newer and `ffmpeg` with `ffprobe` on your PATH. Type `/postkitty` in a Hermes chat to list every target with its size and main limits.
 
