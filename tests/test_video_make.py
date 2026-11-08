@@ -234,3 +234,23 @@ def test_render_reuses_matching_master(tmp_path: Path) -> None:
 
     assert first.file.read_bytes() == second.file.read_bytes()
     assert len(list((tmp_path / "work" / "render").glob("reuse-*.mp4"))) == 1
+
+
+def test_split_panels_have_even_heights_for_odd_half_targets(tmp_path: Path) -> None:
+    # 1350 / 2 is odd; ffmpeg 6.1 corrupted its heap scaling 4:2:0 panels to 675 rows.
+    import re
+
+    from engine.video_make import _crop_filter
+
+    @dataclass(frozen=True)
+    class Info:
+        width: int = 1920
+        height: int = 1080
+
+    target = Target("linkedin_video", 1080, 1350)
+    windows = [(_box(0.0, 0.0, 1728.0, 1080.0), _box(192.0, 0.0, 1728.0, 1080.0))]
+    plan = VideoPlan(target.id, "split", (0.0, 1.0), 0.5, "split proof", windows)
+    heights = [int(h) for h in re.findall(r"scale=1080:(\d+)", _crop_filter(Info(), plan, target, 24.0, tmp_path / "c.txt"))]
+    assert len(heights) == 2
+    assert sum(heights) == 1350
+    assert all(height % 2 == 0 for height in heights)

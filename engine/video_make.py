@@ -237,7 +237,8 @@ def _crop_filter(
     if plan.layout == "split":
         top = _window_values(plan.windows[0][0], info.width, info.height)
         bottom = _window_values(plan.windows[0][1], info.width, info.height)
-        panel_height = target.height // 2
+        # 4:2:0 frames need even panel heights; ffmpeg 6.1 corrupts its heap scaling to an odd height (1350 / 2).
+        panel_height = _even(target.height / 2)
         return (
             f"{prefix},split=2[topin][bottomin];"
             f"[topin]crop@top={top[0]}:{top[1]}:{top[2]}:{top[3]},"
@@ -453,7 +454,8 @@ def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
     if plan.layout == "split":
         top = _window_values(plan.windows[index][0], info.width, info.height)
         bottom = _window_values(plan.windows[index][1], info.width, info.height)
-        panel_height = target.height // 2
+        # 4:2:0 frames need even panel heights; ffmpeg 6.1 corrupts its heap scaling to an odd height (1350 / 2).
+        panel_height = _even(target.height / 2)
         return (
             f"[0:v]split=2[topin][bottomin];"
             f"[topin]crop={top[0]}:{top[1]}:{top[2]}:{top[3]},"
