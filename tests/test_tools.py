@@ -288,6 +288,7 @@ def stub_image_engine(monkeypatch):
     image_make = types.ModuleType("postkitty.engine.image_make")
     image_make.plan_image = lambda info, faces_doc, target, override=None: FakeLayout(
         (override or {}).get("layout") or "crop")
+    image_make.load_srgb = lambda path: Image.open(path).convert("RGB")
 
     def render_image(info, layout, target, out_path):
         renders.append((target.id, layout.mode))
@@ -521,6 +522,22 @@ def test_people_count_matches_the_persons_focus_can_select(out_dir, tmp_path):
     assert people == 1
     assert last["targets"][0]["status"] in {"ready", "repaired"}, last
     assert "not present" in beyond["error"]
+
+
+def test_image_peek_keeps_16_bit_tones(tmp_path):
+    import numpy as np
+    from postkitty.engine import probe
+
+    path = tmp_path / "scan.png"
+    ramp = np.linspace(0, 65535, 200 * 100, dtype=np.float64).reshape(100, 200)
+    Image.fromarray(ramp.astype(np.uint16)).save(path)
+    (tmp_path / "work").mkdir()
+
+    peek = tools._image_peek(SimpleNamespace(work=tmp_path / "work"), probe.probe(path, "in1"))
+
+    with Image.open(peek) as image:
+        mean = float(np.asarray(image.convert("L")).mean())
+    assert 110 < mean < 145
 
 
 def test_scan_reuses_shared_detections_without_building_a_detector(out_dir, tmp_path, monkeypatch):

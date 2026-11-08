@@ -470,13 +470,10 @@ def _drop_targets(job: jobs.Job, manifest: dict) -> None:
 
 
 def _image_peek(job: jobs.Job, info: probe.InputInfo) -> str:
-    from PIL import Image, ImageOps
-
     out = job.work / "peek.jpg"
-    with Image.open(info.path) as image:
-        thumb = ImageOps.exif_transpose(image).convert("RGB")
-        thumb.thumbnail((1280, 1280))
-        thumb.save(out, quality=85)
+    thumb = _engine("image").image_make.load_srgb(info.path).convert("RGB")
+    thumb.thumbnail((1280, 1280))
+    thumb.save(out, quality=85)
     return str(out)
 
 

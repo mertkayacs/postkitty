@@ -182,11 +182,10 @@ def detect_image(info: InputInfo, detector: Detector, cache_dir: Path) -> dict:
 
     import cv2
     import numpy as np
-    from PIL import Image, ImageOps
 
-    with Image.open(info.path) as source:
-        image = ImageOps.exif_transpose(source).convert("RGB")
-        image_bgr = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
+    from .image_make import load_srgb
+
+    image_bgr = cv2.cvtColor(np.asarray(load_srgb(info.path).convert("RGB")), cv2.COLOR_RGB2BGR)
     detected = detector.detect(image_bgr)
     document = {
         "schema": "postkitty.faces/1",

@@ -49,9 +49,7 @@ def _subjects(info: Any, document: dict) -> tuple[list[Box], list[Box]]:
             face_boxes,
         )
 
-    with Image.open(info.path) as opened:
-        image = ImageOps.exif_transpose(opened).convert("RGB")
-        bgr = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
+    bgr = cv2.cvtColor(np.asarray(load_srgb(info.path).convert("RGB")), cv2.COLOR_RGB2BGR)
     salient = saliency_box(bgr)
     return ([salient] if salient is not None else [], [])
 
@@ -235,6 +233,12 @@ def _srgb(image: Image.Image) -> Image.Image:
     return rgb
 
 
+def load_srgb(path: Path) -> Image.Image:
+    """Open a source the way every stage must see it: oriented, 8-bit, sRGB, alpha kept."""
+    with Image.open(path) as opened:
+        return _srgb(ImageOps.exif_transpose(opened))
+
+
 def _crop(image: Image.Image, box: Box, size: tuple[int, int]) -> Image.Image:
     bounded = box.clamp(*image.size).to_int()
     return image.crop(
@@ -396,9 +400,8 @@ def render_image(
     out_path: Path,
 ) -> Any:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with Image.open(info.path) as opened:
-        image = _srgb(ImageOps.exif_transpose(opened))
-        has_alpha = bool(getattr(info, "has_alpha", False) or "A" in image.getbands())
+    image = load_srgb(info.path)
+    has_alpha = bool(getattr(info, "has_alpha", False) or "A" in image.getbands())
     rendered, engine = _render_pixels(image, info, layout, target, out_path)
     formats = {str(value).lower() for value in _limit(target, "formats", ["jpeg", "png"])}
     use_png = has_alpha and "png" in formats

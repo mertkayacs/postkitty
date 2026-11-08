@@ -143,6 +143,21 @@ def test_detect_image_redetects_over_a_corrupt_cache(tmp_path: Path, content: st
     assert load_faces(cache / "source-hash.json") == document
 
 
+def test_detect_image_scales_16_bit_sources_before_detection(tmp_path: Path) -> None:
+    path = tmp_path / "scan.png"
+    ramp = np.linspace(0, 65535, 100 * 80, dtype=np.float64).reshape(80, 100)
+    Image.fromarray(ramp.astype(np.uint16)).save(path)
+    seen: list[float] = []
+
+    def detection(image: np.ndarray) -> list[Face]:
+        seen.append(float(image.mean()))
+        return []
+
+    detect_image(InputInfo(path, "scan-hash"), FakeDetector(detection), tmp_path / "faces")
+
+    assert seen and 110 < seen[0] < 145
+
+
 def test_saliency_finds_bright_object() -> None:
     image = np.zeros((200, 300, 3), dtype=np.uint8)
     cv2.rectangle(image, (190, 60), (260, 150), (255, 255, 255), -1)
