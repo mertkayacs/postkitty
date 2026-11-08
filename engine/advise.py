@@ -124,13 +124,14 @@ def fit_facts(
         if text:
             text_facts = _text_facts(name, text)
             entry_text = text_facts
-            if text_facts["ok"]:
+            if text_facts["split"]:
+                facts.append(
+                    f"Copy is over the {text_facts['limit']} {text_facts['unit']} limit and splits into a "
+                    f"thread of {text_facts['parts']} posts (longest {text_facts['count']})."
+                )
+            elif text_facts["ok"]:
                 facts.append(
                     f"Copy fits: {text_facts['count']} of {text_facts['limit']} {text_facts['unit']}."
-                )
-            elif text_facts["split"]:
-                facts.append(
-                    f"Copy is over the limit and would split into {text_facts['parts']} parts."
                 )
             else:
                 facts.append(

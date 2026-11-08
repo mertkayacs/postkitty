@@ -16,6 +16,15 @@ def test_text_only_gives_text_facts_for_every_platform():
     assert facts["instagram"]["text"]["ok"] is True
 
 
+def test_split_copy_is_reported_as_a_thread_not_as_fitting():
+    text = " ".join(f"Sentence number {i} is here." for i in range(16))
+    facts = advise.fit_facts([], text)
+    x = facts["x"]
+    assert x["text"]["ok"] and x["text"]["split"] and x["text"]["parts"] == 2
+    assert not any(fact.startswith("Copy fits") for fact in x["facts"])
+    assert any("thread of 2 posts" in fact for fact in x["facts"]), x["facts"]
+
+
 def test_video_facts_flag_trim_and_vertical_hint():
     facts = advise.fit_facts([info("video", 1920, 1080, 200.0)], None)
     x_video = facts["x"]["targets"][0]
