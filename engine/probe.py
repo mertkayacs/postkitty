@@ -84,7 +84,10 @@ def _image_info(path: Path, input_id: str, sha: str) -> InputInfo:
             except Exception:
                 orientation = 1
     except Exception as exc:
-        raise ProbeError(f"Could not read image {path.name}: {exc}") from exc
+        hint = ""
+        if path.suffix.lower() in {".heic", ".avif"}:
+            hint = " HEIC and AVIF photos need the pillow-heif package, or export the photo as JPEG."
+        raise ProbeError(f"Could not read image {path.name}: {exc}.{hint}") from exc
 
     rotation = 0
     if orientation == 3:

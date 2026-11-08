@@ -42,6 +42,13 @@ def test_missing_and_unsupported(tmp_path):
         probe.probe(odd, "in1")
 
 
+def test_unreadable_heic_tells_the_user_what_to_do(tmp_path):
+    photo = tmp_path / "IMG_0001.heic"
+    photo.write_bytes(b"not a heic file")
+    with pytest.raises(probe.ProbeError, match="pillow-heif"):
+        probe.probe(photo, "in1")
+
+
 def test_corrupt_image(tmp_path):
     bad = tmp_path / "bad.jpg"
     bad.write_bytes(b"not an image")
