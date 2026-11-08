@@ -349,6 +349,25 @@ def test_palette_png_keeps_its_transparency(tmp_path: Path) -> None:
         assert rendered.getpixel((50, 50))[:3] == (255, 0, 0)
 
 
+def test_sixteen_bit_grayscale_keeps_its_tones(tmp_path: Path) -> None:
+    source = tmp_path / "scan.png"
+    ramp = np.linspace(0, 65535, 200 * 100, dtype=np.float64).reshape(100, 200)
+    Image.fromarray(ramp.astype(np.uint16)).save(source)
+    with Image.open(source) as opened:
+        assert opened.mode == "I;16"
+    info = InputInfo(source, "scan", 200, 100)
+
+    result = render_image(
+        info, Layout("crop", [Box(0, 0, 200, 100)], "ramp"), Target("x", 200, 100), tmp_path / "scan.jpg"
+    )
+
+    with Image.open(result.file) as rendered:
+        pixels = np.asarray(rendered.convert("L"))
+    assert pixels[0, 0] < 10
+    assert pixels[-1, -1] > 245
+    assert 110 < pixels[50, 100] < 145
+
+
 def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
     source = tmp_path / "rotated.jpg"
     image = Image.new("RGB", (100, 50), "blue")

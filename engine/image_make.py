@@ -213,6 +213,10 @@ def plan_image(
 def _srgb(image: Image.Image) -> Image.Image:
     if image.mode in {"P", "PA"} and "transparency" in image.info:
         image = image.convert("RGBA")
+    if image.mode.startswith("I"):
+        # Pillow clips 16-bit grayscale to 255 on convert("RGB"); scale it to 8 bits first.
+        scaled = np.clip(np.asarray(image, dtype=np.float64) / 257.0, 0, 255)
+        image = Image.fromarray(scaled.round().astype(np.uint8), "L")
     alpha = image.getchannel("A") if "A" in image.getbands() else None
     rgb = image.convert("RGB")
     profile = image.info.get("icc_profile")
