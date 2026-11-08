@@ -151,6 +151,42 @@ def test_minimum_failures_say_the_value_is_too_low(tmp_path: Path) -> None:
         assert "below" in checks[key].message
 
 
+def test_checker_measures_a_rotated_phone_clip_at_its_display_size(tmp_path: Path) -> None:
+    # Phones store landscape pixels with a rotate tag; players and platforms show them as portrait.
+    import subprocess
+
+    from engine.probe import probe
+
+    flat = tmp_path / "flat.mp4"
+    subprocess.run(
+        [
+            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "-f", "lavfi", "-i", "testsrc2=s=320x180:r=20:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(flat),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    portrait = tmp_path / "portrait.mp4"
+    subprocess.run(
+        [
+            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "-display_rotation", "-90", "-i", str(flat), "-c", "copy", str(portrait),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    info = probe(portrait, "check")
+    assert (info.width, info.height) == (180, 320)
+    result = checks_mod.RenderResult(
+        "portrait", portrait, info.width, info.height, info.duration, portrait.stat().st_size
+    )
+
+    checks = {check.id: check for check in check_video(result, Target("portrait", 180, 320))}
+
+    assert checks["video.width"].status == "pass"
+    assert checks["video.height"].status == "pass"
+
+
 def test_repairs_are_registered() -> None:
     assert check_video in checks_mod._CHECKERS["video"]
     assert repair_mod._STRATEGIES.keys() >= {

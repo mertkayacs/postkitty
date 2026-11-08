@@ -74,7 +74,7 @@ def _probe(path: Path) -> dict[str, Any]:
             "-show_entries",
             (
                 "stream=index,codec_type,codec_name,profile,pix_fmt,width,height,"
-                "avg_frame_rate,bit_rate,sample_rate"
+                "avg_frame_rate,bit_rate,sample_rate:stream_side_data=rotation:stream_tags=rotate"
             ),
             "-of",
             "json",
@@ -85,6 +85,22 @@ def _probe(path: Path) -> dict[str, Any]:
         text=True,
     )
     return json.loads(completed.stdout)
+
+
+def _display_size(video: dict[str, Any]) -> tuple[int, int]:
+    """Width and height as shown: phone clips store landscape pixels with a rotate tag."""
+    rotation = 0.0
+    for raw in [(video.get("tags") or {}).get("rotate")] + [
+        item.get("rotation") for item in video.get("side_data_list") or []
+    ][:1]:
+        try:
+            rotation = float(raw)
+        except (TypeError, ValueError):
+            continue
+    width, height = int(video["width"]), int(video["height"])
+    if int(rotation) % 180 == 90:
+        return height, width
+    return width, height
 
 
 def _fps(value: str) -> float:
@@ -172,8 +188,7 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
         )
     )
 
-    for dimension in ("width", "height"):
-        measured = int(video[dimension])
+    for dimension, measured in zip(("width", "height"), _display_size(video), strict=True):
         expected = getattr(target, dimension)
         checks.append(
             _check(
@@ -326,10 +341,11 @@ def _refresh(result: RenderResult) -> RenderResult:
     )
     extra = dict(result.extra)
     extra["probe"] = probe
+    width, height = _display_size(video)
     return replace(
         result,
-        width=int(video["width"]),
-        height=int(video["height"]),
+        width=width,
+        height=height,
         duration=float(probe["format"]["duration"]),
         bytes=int(probe["format"]["size"]),
         extra=extra,
