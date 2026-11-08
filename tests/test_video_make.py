@@ -313,6 +313,44 @@ def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypat
     assert int(command[command.index("-b:a") + 1]) <= 0.95 * 128000
 
 
+def test_near_silent_audio_is_not_normalised_and_is_flagged(tmp_path: Path, monkeypatch: Any) -> None:
+    # Room tone at about -70 dBFS was boosted 55 dB to -14 LUFS with status ready and no advisory.
+    import engine.video_make as video_make
+
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
+    target = Target("tiktok", 180, 320)
+    scan = VideoScan(
+        scenes=[(0.0, 1.0)],
+        tracks=[],
+        faces={"sample_fps": 5.0, "frames": []},
+        audio_rms=[(0.0, -69.0), (0.5, -71.0)],
+    )
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        Path(command[-1]).write_bytes(b"video")
+
+    monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_probe_render", lambda path: {
+        "streams": [{"codec_type": "video", "width": 180, "height": 320}],
+        "format": {"duration": "1.0", "size": "5"},
+    })
+    monkeypatch.setattr(video_make, "_sharpest_cover", lambda *args: 0.5)
+
+    plan = plan_video(info, scan, target)
+    result = render_video(info, plan, target, tmp_path / "quiet.mp4", tmp_path / "work")
+
+    graph = seen["command"][seen["command"].index("-filter_complex") + 1]
+    assert "loudnorm" not in graph and "[0:a]" in graph
+    assert result.extra["quiet_audio"] is True
+
+    loud = plan_video(info, VideoScan([(0.0, 1.0)], [], {"sample_fps": 5.0, "frames": []}, [(0.0, -22.0)]), target)
+    render_video(info, loud, target, tmp_path / "loud.mp4", tmp_path / "work")
+    assert "loudnorm" in seen["command"][seen["command"].index("-filter_complex") + 1]
+
+
 def test_cover_at_the_trim_end_still_writes_a_frame(tmp_path: Path) -> None:
     # ffmpeg seeks past the last frame, exits 0 and writes nothing; the job then points at a missing cover.
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)

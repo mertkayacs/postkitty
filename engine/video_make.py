@@ -25,6 +25,7 @@ class VideoPlan:
     note: str
     windows: list[Any]
     subjects_inside: float = 1.0
+    normalize_audio: bool = True
 
 
 def _limit(target: Any, key: str, default: Any = None) -> Any:
@@ -170,6 +171,8 @@ def plan_video(
             raise ValueError("cover_at must be inside the trim")
     else:
         cover_at = _sharpest_cover(info, scan, trim)
+    # Room tone at -70 dBFS must not be boosted 55 dB to the platform loudness.
+    levels = [dbfs for t, dbfs in scan.audio_rms if trim[0] <= t < trim[1]]
     return VideoPlan(
         target=target.id,
         layout=camera.layout,
@@ -178,6 +181,7 @@ def plan_video(
         note=camera.note,
         windows=camera.windows,
         subjects_inside=camera.subjects_inside,
+        normalize_audio=not levels or max(levels) >= -50.0,
     )
 
 
@@ -297,6 +301,7 @@ def _plan_key(
             "windows": windows,
             "loudness_lufs": loudness_lufs,
             "audio_bitrate": audio_bitrate,
+            "normalize_audio": plan.normalize_audio,
         },
         separators=(",", ":"),
     )
@@ -344,7 +349,7 @@ def _render_result(
         bytes=int(probe["format"]["size"]),
         layout={"mode": plan.layout, "note": plan.note},
         subjects_inside=plan.subjects_inside,
-        extra={"trim": list(plan.trim), "probe": probe},
+        extra={"trim": list(plan.trim), "probe": probe, "quiet_audio": not plan.normalize_audio},
     )
 
 
@@ -394,9 +399,11 @@ def render_video(
             "-filter_complex",
             filter_graph
             + (
-                f";[0:a]loudnorm=I={loudness_lufs:g}:TP=-1.5:LRA=11,aresample=48000[a]"
-                if info.has_audio
-                else ""
+                ""
+                if not info.has_audio
+                else f";[0:a]loudnorm=I={loudness_lufs:g}:TP=-1.5:LRA=11,aresample=48000[a]"
+                if plan.normalize_audio
+                else ";[0:a]aresample=48000[a]"
             ),
             "-map",
             "[v]",

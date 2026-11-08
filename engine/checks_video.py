@@ -312,6 +312,19 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 )
             )
 
+    if result.extra.get("quiet_audio"):
+        checks.append(
+            _check(
+                "audio.level",
+                target,
+                "below -50 dBFS",
+                "speech level",
+                False,
+                "The audio is nearly silent, so it was kept at its own level instead of being normalised.",
+                default_hard=False,
+            )
+        )
+
     if result.subjects_inside is None:
         checks.append(
             _skipped(

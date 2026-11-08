@@ -324,3 +324,14 @@ def test_audio_bitrate_repair_brings_a_reused_render_under_the_cap(tmp_path: Pat
     after = {item.id: item for item in check_video(repaired, target)}
     assert after["audio.bitrate_max"].status == "pass"
     assert after["video.codec"].status == "pass" and after["video.width"].status == "pass"
+
+
+def test_quiet_audio_render_gets_an_advisory(tmp_path: Path) -> None:
+    result, target = _render(tmp_path)
+    result.extra["quiet_audio"] = True
+
+    checks = {check.id: check for check in check_video(result, target)}
+
+    assert checks["audio.level"].status == "advisory"
+    assert "nearly silent" in checks["audio.level"].message
+    assert checks_mod.hard_pass(list(checks.values()))
