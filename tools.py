@@ -614,7 +614,10 @@ def make(args: dict) -> dict:
     scan_doc = jobs.read_json(job.work / "scan.json") if (job.work / "scan.json").is_file() else {}
     planned = [t["id"] for t in scan_doc.get("targets", [])]
     if not planned:
-        raise ValueError("this job has no media targets; run postkitty_scan with input files")
+        files = sorted(_rel(job, p) for p in job.ready.rglob("*.txt")) if job.ready.is_dir() else []
+        return {"job": job.id, "job_dir": str(job.root), "targets": [], "files": files,
+                "note": "This job is text only, so there is nothing to render; the copy files listed are already "
+                        "in ready/. Run postkitty_scan with input files to get media targets."}
     ids = planned
     if targets:
         wanted = _platform_names(targets)

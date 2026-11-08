@@ -149,7 +149,8 @@ other drafts stay as they are.
 - Do not run image or video work yourself with `terminal` (no ffmpeg or OpenCV calls). Use the tools.
 - Use `postkitty_check` only for an external file when the user asks whether it will upload.
 - Do not reuse a stale job after the user changes the inputs; run `postkitty_scan` again with `job` unset.
-- A text-only job has no media targets; `postkitty_make` will say so. That is fine, copy files are already in `ready/`.
+- A text-only job has no media targets; `postkitty_make` returns an empty table, a `note` and the copy `files`
+  already in `ready/`. That is fine; list those files, do not search for them with `terminal`.
 
 ## Verification
 
