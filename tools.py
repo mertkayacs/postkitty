@@ -630,7 +630,9 @@ def make(args: dict) -> dict:
 @_safe
 def redo(args: dict) -> dict:
     job = _open_job(args)
-    (target,) = _platform_names([args.get("target")])
+    if not args.get("target"):
+        raise ValueError("argument 'target' is required; give the target id, for example tiktok")
+    (target,) = _platform_names([args["target"]])
     override = _override(args)
     if not override:
         raise ValueError("give at least one of layout, focus, trim, cover_at")

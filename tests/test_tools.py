@@ -133,6 +133,31 @@ def test_drafts_accept_targets_and_prefer_platform_keys(out_dir, text_job):
     assert "fold_note" not in out["platforms"]["x"]
 
 
+def test_two_target_drafts_for_one_platform_say_which_one_was_ignored(out_dir, text_job):
+    out = call(tools.copy, job=text_job, drafts={"x_video": "first", "x_image": "second"})
+    x = out["platforms"]["x"]
+    assert x["parts"][0]["text"] == "second"
+    assert x["notes"] == ["Used the x_image target draft for x; the x_video draft was ignored."]
+
+
+def test_redo_without_target_names_the_missing_argument(out_dir, text_job):
+    out = call(tools.redo, job=text_job, layout="pad")
+    assert "'target' is required" in out["error"]
+
+
+def test_redo_rejects_the_unknown_seam_key(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    assert "seam" not in tools._OVERRIDE_KEYS
+    assert "give at least one" in call(tools.redo, job=job, target="x_image", seam=0.5)["error"]
+
+
+def test_check_on_a_job_without_ready_media_says_so(out_dir, text_job):
+    out = call(tools.check, job=text_job)
+    assert out["targets"] == {} and out["all_pass"] is False and "no ready media" in out["note"]
+
+
 def test_alt_text_by_target_and_file(out_dir, text_job):
     job = out_dir / text_job
     (job / "ready/instagram").mkdir(parents=True, exist_ok=True)
