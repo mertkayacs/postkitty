@@ -2,7 +2,7 @@ name: postkitty
 version: "0.1.0"
 manifest_version: 2
 api_version: 1
-description: One post in, every platform out. Turns photos, landscape video and a draft into checked upload-ready files, copy and advice for Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook.
+description: One post in, every platform out. Fixes and rewrites your draft for each platform, crops photos and reframes landscape video with every face in frame, and checks every file for Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook.
 author: Mert Kaya
 license: MIT
 homepage: https://github.com/mertkayacs/postkitty
