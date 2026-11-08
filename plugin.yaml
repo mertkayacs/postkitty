@@ -1,0 +1,37 @@
+name: postkitty
+version: "0.1.0"
+manifest_version: 2
+api_version: 1
+description: One post in, every platform out. Turns photos, landscape video and a draft into checked upload-ready files, copy and advice for Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook.
+author: Mert Kaya
+license: MIT
+homepage: https://github.com/mertkayacs/postkitty
+requires_hermes: ">=0.22.7"
+tags: [social-media, video, images, copywriting, content-creation]
+provides_tools:
+  - postkitty_scan
+  - postkitty_copy
+  - postkitty_make
+  - postkitty_redo
+  - postkitty_check
+python_dependencies:
+  - "opencv-contrib-python-headless>=4.10,<5"
+  - "numpy>=2.0,<3"
+  - "Pillow>=10.0,<14"
+  - "regex>=2024.1.1,<2027"
+config_schema:
+  output_dir:
+    type: str
+    default: ""
+    label: "Output folder"
+    description: "Where job folders are written. Empty means ./postkitty in the session working directory."
+  default_platforms:
+    type: list
+    default: []
+    label: "Default platforms"
+    description: "Platforms to make when none are named. Empty means every platform that fits the input."
+  loudness_lufs:
+    type: float
+    default: -14
+    label: "Loudness target (LUFS)"
+    description: "Integrated loudness target for video audio."
