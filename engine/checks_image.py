@@ -25,6 +25,10 @@ except ImportError:
         checked_on: str | None = None
 
 
+# Output pixels per source pixel above which an enlarged image reads as blurry.
+UPSCALE_SOFT = 1.5
+
+
 def _spec(target: Any, key: str) -> Any | None:
     return target.limits.get(key)
 
@@ -163,6 +167,25 @@ def check_image(result: Any, target: Any) -> list[Check]:
                 subjects_inside >= 1.0,
                 "Every kept subject is inside the image.",
                 "At least one kept subject is cut.",
+            )
+        )
+    upscale = (result.extra or {}).get("upscale")
+    if isinstance(upscale, (int, float)):
+        # Advisory only: a soft image still uploads, but the user should know before posting it.
+        soft = float(upscale) > UPSCALE_SOFT
+        checks.append(
+            Check(
+                id="image.upscale_max",
+                target=target.id,
+                status="advisory" if soft else "pass",
+                hard=False,
+                measured=round(float(upscale), 2),
+                expected=UPSCALE_SOFT,
+                message=(
+                    f"The source window is enlarged {float(upscale):.1f} times; the image will look soft."
+                    if soft
+                    else "The source is large enough for this size."
+                ),
             )
         )
     stripped = _metadata_stripped(result.file)

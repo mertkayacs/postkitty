@@ -90,6 +90,24 @@ def test_checker_reports_format_size_subject_and_metadata_failures(
     assert checks["image.metadata_stripped"].status == "fail"
 
 
+def test_checker_warns_about_a_strongly_upscaled_output(tmp_path: Path) -> None:
+    path = tmp_path / "image.jpg"
+    Image.new("RGB", (100, 100), "navy").save(path, quality=90)
+    target = Target("image", 100, 100)
+
+    def upscale_check(extra: dict[str, Any]) -> Any | None:
+        result = _result(path)
+        result.extra = extra
+        return next((c for c in check_image(result, target) if c.id == "image.upscale_max"), None)
+
+    soft = upscale_check({"upscale": 16.9})
+    assert soft is not None
+    assert soft.status == "advisory" and not soft.hard
+    assert "16.9" in soft.message
+    assert upscale_check({"upscale": 1.2}).status == "pass"
+    assert upscale_check({}) is None
+
+
 def test_size_repair_lowers_jpeg_quality(tmp_path: Path) -> None:
     path = tmp_path / "noise.jpg"
     Image.effect_noise((300, 300), 100).convert("RGB").save(path, quality=92)

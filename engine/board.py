@@ -219,6 +219,7 @@ PASS_TEXT = {
     "image.aspect": "The aspect ratio is exact.",
     "image.format": "The image format is supported.",
     "image.metadata_stripped": "Image metadata is stripped.",
+    "image.upscale": "The source is large enough for this size.",
     "image.bytes": "The file size is within the limit.",
 }
 

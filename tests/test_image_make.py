@@ -393,6 +393,22 @@ def test_seam_carves_height_when_the_source_is_taller_than_the_target(
     assert 34 <= width <= 46
 
 
+def test_render_reports_how_much_the_source_window_is_upscaled(tmp_path: Path) -> None:
+    source = tmp_path / "tiny.png"
+    Image.new("RGB", (64, 64), "green").save(source)
+    info = InputInfo(source, "tiny", 64, 64)
+
+    tiny = render_image(
+        info, Layout("crop", [Box(0, 0, 64, 64)], "tiny"), Target("square", 1080, 1080), tmp_path / "tiny.jpg"
+    )
+    same = render_image(
+        info, Layout("crop", [Box(0, 0, 64, 64)], "same"), Target("small", 64, 64), tmp_path / "same.jpg"
+    )
+
+    assert abs(tiny.extra["upscale"] - 1080 / 64) < 0.01
+    assert same.extra["upscale"] == 1.0
+
+
 def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
     source = tmp_path / "rotated.jpg"
     image = Image.new("RGB", (100, 50), "blue")

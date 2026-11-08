@@ -307,6 +307,23 @@ def _split(image: Image.Image, boxes: list[Box], size: tuple[int, int]) -> Image
     return result
 
 
+def _upscale(image: Image.Image, layout: Layout, size: tuple[int, int]) -> float:
+    """Output pixels per source pixel in the window that was enlarged most; 1.0 when nothing grew."""
+    windows = [box.clamp(*image.size).to_int() for box in layout.boxes] or [
+        Box(0.0, 0.0, float(image.width), float(image.height))
+    ]
+    if layout.mode == "split":
+        panel_height = max(1, ((size[1] - 6) // 2) // 2 * 2)
+        factors = [max(size[0] / box.w, panel_height / box.h) for box in windows if box.area]
+    elif layout.mode == "pad":
+        factors = [min(size[0] / box.w, size[1] / box.h) for box in windows if box.area]
+    elif layout.mode == "seam":
+        factors = [max(size[0] / image.width, size[1] / image.height)]
+    else:
+        factors = [max(size[0] / box.w, size[1] / box.h) for box in windows if box.area]
+    return round(max(1.0, *factors), 2)
+
+
 def _render_pixels(
     image: Image.Image,
     info: Any,
@@ -414,5 +431,6 @@ def render_image(
             "format": output_format,
             "quality": quality,
             "seam_engine": engine,
+            "upscale": _upscale(image, layout, (target.width, target.height)),
         },
     )
