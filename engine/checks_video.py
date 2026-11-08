@@ -341,6 +341,7 @@ def _transcode(
     duration: float | None = None,
     fps: float | None = None,
     audio_bitrate: int = 128000,
+    copy_video: bool = False,
 ) -> RenderResult:
     temporary = result.file.with_name(result.file.stem + ".repair.mp4")
     command = [
@@ -362,20 +363,23 @@ def _transcode(
         command.extend(["-t", str(duration)])
     if fps is not None:
         command.extend(["-vf", f"fps={fps},format=yuv420p"])
-    command.extend(["-c:v", "libx264", "-profile:v", "high", "-preset", "medium"])
-    if video_bitrate is None:
-        command.extend(["-crf", "20"])
+    if copy_video:
+        command.extend(["-c:v", "copy"])
     else:
-        command.extend(
-            [
-                "-b:v",
-                str(video_bitrate),
-                "-maxrate",
-                str(video_bitrate),
-                "-bufsize",
-                str(video_bitrate * 2),
-            ]
-        )
+        command.extend(["-c:v", "libx264", "-profile:v", "high", "-preset", "medium"])
+        if video_bitrate is None:
+            command.extend(["-crf", "20"])
+        else:
+            command.extend(
+                [
+                    "-b:v",
+                    str(video_bitrate),
+                    "-maxrate",
+                    str(video_bitrate),
+                    "-bufsize",
+                    str(video_bitrate * 2),
+                ]
+            )
     command.extend(
         [
             "-c:a",
@@ -424,6 +428,15 @@ def repair_bitrate(
     return _transcode(result, video_bitrate=bitrate, audio_bitrate=audio_maximum)
 
 
+def repair_audio_bitrate(
+    result: RenderResult, target: Any, check: Check, rerender: dict[str, Any]
+) -> RenderResult:
+    # AAC lands a little above its nominal rate, so stay under the platform cap. The video is untouched.
+    return _transcode(
+        result, audio_bitrate=int(int(check.expected) * 0.94), copy_video=True
+    )
+
+
 def repair_size(
     result: RenderResult, target: Any, check: Check, rerender: dict[str, Any]
 ) -> RenderResult | None:
@@ -469,6 +482,7 @@ def repair_subjects(
 register_checker("video", check_video)
 register("video.bytes_max", repair_size)
 register("video.bitrate_max", repair_bitrate)
+register("audio.bitrate_max", repair_audio_bitrate)
 register("video.duration_max", repair_duration)
 register("video.fps_max", repair_fps)
 register("frame.subjects_inside", repair_subjects)

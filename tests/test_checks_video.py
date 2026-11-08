@@ -178,3 +178,35 @@ def test_fps_repair_caps_real_output(tmp_path: Path) -> None:
     )
 
     assert fps_check.status == "pass"
+
+
+def test_audio_bitrate_repair_brings_a_reused_render_under_the_cap(tmp_path: Path) -> None:
+    # A tiktok render at 160k was reused for instagram_reel and its audio.bitrate_max failure was final.
+    import subprocess
+
+    from engine.checks_video import repair_audio_bitrate
+
+    source = tmp_path / "source.mp4"
+    subprocess.run(
+        [
+            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "-f", "lavfi", "-i", "testsrc2=s=320x180:r=20:d=2",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(source),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    info = InputInfo(source, "audio-cap", 320, 180, 2.0, 20.0, has_audio=True)
+    plan = VideoPlan("tiktok", "crop", (0.0, 2.0), 1.0, "proof", [Box(0.0, 0.0, 320.0, 180.0)] * 40)
+    result = render_video(info, plan, Target("tiktok", 320, 180), tmp_path / "out.mp4", tmp_path / "work")
+    target = Target("instagram_reel", 320, 180, {"audio_bps_max": Spec(128000)})
+    check = next(item for item in check_video(result, target) if item.id == "audio.bitrate_max")
+    assert check.status == "fail"
+
+    repaired = repair_audio_bitrate(result, target, check, {})
+
+    assert repair_mod._STRATEGIES["audio.bitrate_max"] is repair_audio_bitrate
+    after = {item.id: item for item in check_video(repaired, target)}
+    assert after["audio.bitrate_max"].status == "pass"
+    assert after["video.codec"].status == "pass" and after["video.width"].status == "pass"
