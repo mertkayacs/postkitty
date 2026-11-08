@@ -19,10 +19,10 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
-POSSY_SVG = (
+PUCCI_SVG = (
     '<svg viewBox="168 8 688 688" xmlns="http://www.w3.org/2000/svg" '
-    'width="688" height="688" aria-label="Possy, the postkitty mascot">'
-    '<title>Possy, the postkitty mascot</title>'
+    'width="688" height="688" aria-label="Pucci, the postkitty mascot">'
+    '<title>Pucci, the postkitty mascot</title>'
     '<g transform="translate(61 54) scale(.88)" stroke="#1E2A44" stroke-width="14" '
     'stroke-linecap="round" stroke-linejoin="round">'
     '<g id="body">'
@@ -819,7 +819,7 @@ def build_header(ctx: Ctx) -> str:
     path = str(ctx.job_dir.resolve())
     return (
         '<header class="header"><div class="wrap">'
-        f'<div class="possy-mark">{POSSY_SVG}</div>'
+        f'<div class="pucci-mark">{PUCCI_SVG}</div>'
         '<div class="title-group">'
         f'<h1>{esc(board_title(manifest))}</h1>'
         f'<p class="meta">{esc(meta_text)}</p>'
@@ -971,7 +971,7 @@ def build_footer(ctx: Ctx) -> str:
             links.append(f'<a href="{name}">{name}</a>')
     return (
         '<footer class="footer"><div class="wrap">'
-        f'<div class="possy-mark">{POSSY_SVG}</div>'
+        f'<div class="pucci-mark">{PUCCI_SVG}</div>'
         '<span>Made with postkitty</span>'
         f'<nav aria-label="Job files">{"".join(links)}</nav>'
         '</div></footer>'
@@ -1220,7 +1220,7 @@ def write_board(job_dir: Path, manifest: dict) -> dict:
     """
     job_dir = Path(job_dir)
     job_dir.mkdir(parents=True, exist_ok=True)
-    mark_path = TEMPLATES / "possy-mark-64.png"
+    mark_path = TEMPLATES / "pucci-mark-64.png"
 
     cache: dict = {}
 

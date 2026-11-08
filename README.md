@@ -153,7 +153,7 @@ the real YuNet detector, and `hermes plugins validate` against a pinned Hermes r
 
 ## Credits
 
-Possy, the kitten, is the mascot. Built on [OpenCV](https://opencv.org) and the
+Pucci, the kitten, is the mascot. Built on [OpenCV](https://opencv.org) and the
 [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) face detector, [FFmpeg](https://ffmpeg.org),
 [Pillow](https://python-pillow.org), [NumPy](https://numpy.org), the counting rules of
 [twitter-text](https://github.com/twitter/twitter-text) and the [AT Protocol lexicons](https://github.com/bluesky-social/atproto),
