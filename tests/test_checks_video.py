@@ -31,6 +31,7 @@ class Target:
     width: int
     height: int
     limits: dict[str, Spec] = field(default_factory=dict)
+    kind: str = "video"
 
 
 @dataclass(frozen=True)
@@ -216,6 +217,35 @@ def test_unpublished_defaults_are_advisory_for_a_user_file(tmp_path: Path) -> No
     strict_checks = {check.id: check for check in check_video(result, strict)}
     assert strict_checks["video.profile"].status == "fail"
     assert strict_checks["audio.sample_rate"].status == "fail"
+
+
+def test_low_frame_rate_is_repaired_into_the_platform_range(tmp_path: Path) -> None:
+    # A 15 fps screen recording failed tiktok and instagram_reel (fps_min 23) with nothing to repair it.
+    import subprocess
+
+    source = tmp_path / "slow.mp4"
+    subprocess.run(
+        [
+            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "-f", "lavfi", "-i", "testsrc2=s=320x180:r=15:d=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(source),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    info = InputInfo(source, "slow", 320, 180, 2.0, 15.0)
+    plan = VideoPlan("tiktok", "crop", (0.0, 2.0), 1.0, "proof", [Box(0.0, 0.0, 320.0, 180.0)] * 30)
+    target = Target("tiktok", 320, 180, {"fps_min": Spec(23), "fps_max": Spec(60)})
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "work")
+    before = {item.id: item for item in check_video(result, target)}
+    assert before["video.fps_min"].status == "fail"
+
+    repaired, after, repairs = repair_mod.check_and_repair(result, target, {})
+
+    assert [item["check"] for item in repairs if item["ok"]] == ["video.fps_min"]
+    found = {item.id: item for item in after}
+    assert found["video.fps_min"].status == "pass"
+    assert found["video.fps_max"].status == "pass"
+    assert 23 <= found["video.fps_min"].measured <= 60
 
 
 def test_repairs_are_registered() -> None:

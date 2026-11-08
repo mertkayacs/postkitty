@@ -497,6 +497,16 @@ def repair_fps(
     return _transcode(result, fps=float(check.expected))
 
 
+def repair_fps_min(
+    result: RenderResult, target: Any, check: Check, rerender: dict[str, Any]
+) -> RenderResult:
+    # Re-time a slow source to 30 fps when the platform range allows it, else to its minimum.
+    minimum = float(check.expected)
+    maximum = _value(_spec(target, "fps_max"))
+    fps = 30.0 if minimum <= 30.0 and (maximum is None or float(maximum) >= 30.0) else minimum
+    return _transcode(result, fps=fps)
+
+
 def repair_subjects(
     result: RenderResult, target: Any, check: Check, rerender: dict[str, Any]
 ) -> RenderResult | None:
@@ -509,4 +519,5 @@ register("video.bitrate_max", repair_bitrate)
 register("audio.bitrate_max", repair_audio_bitrate)
 register("video.duration_max", repair_duration)
 register("video.fps_max", repair_fps)
+register("video.fps_min", repair_fps_min)
 register("frame.subjects_inside", repair_subjects)
