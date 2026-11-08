@@ -240,11 +240,60 @@ def _iou(a: TrackPoint, b: dict[str, Any]) -> float:
     return intersection / union if union else 0.0
 
 
-def _linkable(a: TrackPoint, b: dict[str, Any]) -> tuple[bool, float]:
+def _touches_edge(box: TrackPoint | dict[str, Any], width: int, height: int) -> bool:
+    return (
+        box.x <= 1.0
+        or box.y <= 1.0
+        or box.x + box.w >= width - 1.0
+        or box.y + box.h >= height - 1.0
+        if isinstance(box, TrackPoint)
+        else box["x"] <= 1.0
+        or box["y"] <= 1.0
+        or box["x"] + box["w"] >= width - 1.0
+        or box["y"] + box["h"] >= height - 1.0
+    )
+
+
+def _linkable(
+    points: list[TrackPoint],
+    b: dict[str, Any],
+    t: float,
+    width: int,
+    height: int,
+) -> tuple[bool, float]:
+    a = points[-1]
     overlap = _iou(a, b)
-    distance = math.hypot(a.cx - (b["x"] + b["w"] / 2), a.cy - (b["y"] + b["h"] / 2))
-    width = max(a.w, b["w"])
-    return overlap >= 0.3 or distance < 0.5 * width, overlap - distance / max(width, 1.0)
+    b_cx = b["x"] + b["w"] / 2
+    b_cy = b["y"] + b["h"] / 2
+    distance = math.hypot(a.cx - b_cx, a.cy - b_cy)
+    face_width = max(a.w, b["w"])
+    predicted_distance = distance
+    if len(points) >= 2 and a.t > points[-2].t:
+        previous = points[-2]
+        scale = (t - a.t) / (a.t - previous.t)
+        predicted_distance = math.hypot(
+            a.cx + (a.cx - previous.cx) * scale - b_cx,
+            a.cy + (a.cy - previous.cy) * scale - b_cy,
+        )
+    edge_link = (
+        (_touches_edge(a, width, height) or _touches_edge(b, width, height))
+        and distance < 1.5 * max(a.w, a.h, b["w"], b["h"])
+    )
+    edge_history_link = (
+        any(_touches_edge(point, width, height) for point in points[-2:])
+        and distance < 0.55 * max(a.w, a.h, b["w"], b["h"])
+    )
+    escaped_edge = _touches_edge(a, width, height) and not _touches_edge(
+        b, width, height
+    )
+    best_distance = min(distance, predicted_distance)
+    linkable = (
+        overlap >= 0.3
+        or best_distance < 0.5 * face_width
+        or edge_link
+        or edge_history_link
+    )
+    return linkable, overlap - best_distance / max(face_width, 1.0) + 3 * escaped_edge
 
 
 def _scene_index(t: float, scenes: list[tuple[float, float]]) -> int:
@@ -256,24 +305,28 @@ def _scene_index(t: float, scenes: list[tuple[float, float]]) -> int:
 
 def _build_tracks(faces: dict[str, Any], scenes: list[tuple[float, float]]) -> list[Track]:
     sample_fps = float(faces["sample_fps"])
+    width = int(faces["width"])
+    height = int(faces["height"])
     max_gap = 2.1 / sample_fps
     pending: list[list[TrackPoint]] = []
 
     for frame in faces["frames"]:
         t = float(frame["t"])
-        candidates: list[tuple[float, int, int]] = []
+        candidates: list[tuple[int, float, int, int]] = []
         for track_index, points in enumerate(pending):
             last = points[-1]
             if t - last.t > max_gap or _scene_index(t, scenes) != _scene_index(last.t, scenes):
                 continue
             for face_index, face in enumerate(frame["faces"]):
-                linkable, score = _linkable(last, face)
+                linkable, score = _linkable(points, face, t, width, height)
                 if linkable:
-                    candidates.append((score, track_index, face_index))
+                    candidates.append(
+                        (int(len(points) > 1), score, track_index, face_index)
+                    )
 
         used_tracks: set[int] = set()
         used_faces: set[int] = set()
-        for _, track_index, face_index in sorted(candidates, reverse=True):
+        for _, _, track_index, face_index in sorted(candidates, reverse=True):
             if track_index in used_tracks or face_index in used_faces:
                 continue
             face = frame["faces"][face_index]

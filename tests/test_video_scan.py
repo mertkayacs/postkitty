@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from engine.video_scan import make_peek, scan_video
+from engine.video_scan import _build_tracks, make_peek, scan_video
 
 
 @dataclass(frozen=True)
@@ -122,6 +122,35 @@ def test_scan_tracks_faces_and_reuses_cache(tmp_path: Path) -> None:
 
     cached = scan_video(info, FailingDetector(), tmp_path / "work")
     assert cached == scan
+
+
+def test_track_keeps_partial_edge_face_with_moving_subject() -> None:
+    def face(x: float, y: float, w: float, h: float, score: float) -> dict[str, float]:
+        return {"x": x, "y": y, "w": w, "h": h, "score": score}
+
+    faces = {
+        "width": 1920,
+        "height": 1080,
+        "sample_fps": 5.0,
+        "frames": [
+            {"t": 0.0, "faces": [face(0.4, 76.4, 55.6, 80.1, 0.65)]},
+            {
+                "t": 0.2,
+                "faces": [
+                    face(32.2, 209.4, 111.8, 149.0, 0.91),
+                    face(0.7, 75.2, 57.1, 94.1, 0.62),
+                ],
+            },
+            {"t": 0.4, "faces": [face(105.6, 208.2, 115.2, 149.2, 0.91)]},
+            {"t": 0.6, "faces": [face(212.8, 224.9, 119.2, 150.9, 0.92)]},
+        ],
+    }
+
+    tracks = _build_tracks(faces, [(0.0, 1.0)])
+
+    assert len(tracks) == 1
+    assert [point.t for point in tracks[0].points] == [0.0, 0.2, 0.4, 0.6]
+    assert tracks[0].points[1].x == 32.2
 
 
 def test_scan_detects_a_hard_scene_cut(tmp_path: Path) -> None:
