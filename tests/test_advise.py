@@ -24,6 +24,14 @@ def test_video_facts_flag_trim_and_vertical_hint():
     assert tiktok["layout_hint"] == "pad" and tiktok["source_aspect"] == round(1920 / 1080, 4)
 
 
+def test_fit_facts_use_the_actual_scan_plan_layout():
+    plans = [{"id": "tiktok", "layout": "split"}]
+
+    facts = advise.fit_facts([info("video", 1920, 1080, 15.0)], None, plans=plans)
+
+    assert facts["tiktok"]["targets"][0]["layout_hint"] == "split"
+
+
 def test_image_only_input_skips_video_targets():
     facts = advise.fit_facts([info("image", 3000, 2000)], None)
     ids = {t["id"] for p in facts.values() for t in p["targets"]}

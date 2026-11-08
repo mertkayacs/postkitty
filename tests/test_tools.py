@@ -5,6 +5,7 @@ import sys
 import types
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PIL import Image
@@ -40,6 +41,16 @@ def test_text_only_scan(out_dir):
     assert set(out["fit"]) == {"x", "bluesky"} and out["peek"] is None
     manifest = json.loads((Path(out["job_dir"]) / "manifest.json").read_text())
     assert manifest["text"]["chars"] == len("Big news #launch @friend https://example.com")
+
+
+def test_full_frame_plan_uses_same_shape_note():
+    info = tools.probe.InputInfo("in1", Path("video.mp4"), "video", "0" * 64, 1920, 1080, 5.0, 30.0, True, 0, False)
+    window = SimpleNamespace(x=0.0, y=0.0, w=1920.0, h=1080.0)
+    plan = SimpleNamespace(layout="crop", note="single-subject camera path", windows=[window], trim=(0.0, 5.0))
+
+    summary = tools._plan_summary(info, plan, tools.platforms.get_target("x_video"))
+
+    assert summary["note"] == "Same shape as the source; the full frame is kept."
 
 
 def test_text_only_scan_then_copy_end_to_end(out_dir, text_job):

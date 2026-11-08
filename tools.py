@@ -193,10 +193,24 @@ def _mode(plan: Any) -> str:
 def _plan_summary(info: probe.InputInfo, plan: Any, target: platforms.TargetSpec) -> dict:
     if plan is None:
         return advise.plan_hint(info, target)
-    out = {"layout": _mode(plan), "note": getattr(plan, "note", "")}
+    out = {"layout": _mode(plan), "note": _plan_note(info, plan)}
     if getattr(plan, "trim", None):
         out.update(trim=list(plan.trim), cover_at=getattr(plan, "cover_at", None))
     return out
+
+
+def _plan_note(info: probe.InputInfo, plan: Any) -> str:
+    windows = getattr(plan, "windows", None)
+    if windows and _mode(plan) == "crop" and all(
+        not isinstance(window, (list, tuple))
+        and abs(window.x) <= 1.0
+        and abs(window.y) <= 1.0
+        and window.w >= info.width - 1.0
+        and window.h >= info.height - 1.0
+        for window in windows
+    ):
+        return "Same shape as the source; the full frame is kept."
+    return getattr(plan, "note", "")
 
 
 def _stem(target: platforms.TargetSpec) -> str:
@@ -250,8 +264,10 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
     result, found, repairs = repair.check_and_repair(
         result, target, {"overrides": dict(override), "render": rerender, "job": job, "info": info})
     ok = checks.hard_pass(found)
+    layout = dict(result.layout or {"mode": _mode(plan)})
+    layout["note"] = _plan_note(info, plan)
     entry.update(checks=[c.to_dict() for c in found], repairs=repairs, width=result.width, height=result.height,
-                 duration=result.duration, layout=result.layout or {"mode": _mode(plan), "note": getattr(plan, "note", "")},
+                 duration=result.duration, layout=layout,
                  trim=list(getattr(plan, "trim", []) or []) or None, subjects_inside=result.subjects_inside)
     if ok:
         dest = jobs.ready_dir(job, target.platform) / f"{_stem(target)}{result.file.suffix}"
@@ -376,7 +392,7 @@ def scan(args: dict) -> dict:
     jobs.write_json(job.work / "scan.json", {"targets": plans, "inputs": entries, "peek": peek, "notes": notes})
     jobs.save_manifest(job, manifest)
     return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,
-            "fit": advise.fit_facts(infos, text or None, wanted or None),
+            "fit": advise.fit_facts(infos, text or None, wanted or None, plans),
             "text": copyfit.text_stats(text) if text else None, "peek": peek, "notes": notes}
 
 

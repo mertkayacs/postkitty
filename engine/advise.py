@@ -77,10 +77,12 @@ def fit_facts(
     infos: Iterable[InputInfo],
     text: str | None = None,
     wanted: list[str] | None = None,
+    plans: Iterable[dict] | None = None,
 ) -> dict[str, dict]:
     """Per-platform target facts: sizes, aspect match, trim and text fit. ``wanted`` limits platforms or target ids."""
     info_list = list(infos)
     wanted_set = set(wanted or [])
+    planned_layouts = {plan["id"]: plan["layout"] for plan in plans or []}
 
     result: dict[str, dict] = {}
     for name, platform in platforms.load_platforms().items():
@@ -105,7 +107,7 @@ def fit_facts(
                     if source is not None and source.height
                     else None
                 ),
-                "layout_hint": hint["layout"],
+                "layout_hint": planned_layouts.get(target.id, hint["layout"]),
                 "note": hint["note"],
             }
             trim = hint.get("trim")
