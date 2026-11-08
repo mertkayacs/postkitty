@@ -269,7 +269,19 @@ def _pad_filter(target: Any, fps: float) -> str:
     )
 
 
-def _plan_key(info: Any, plan: VideoPlan, target: Any, loudness_lufs: float) -> str:
+def _audio_bitrate(info: Any, target: Any) -> str | None:
+    if not info.has_audio:
+        return None
+    audio_cap = _limit(target, "audio_bps_max")
+    if audio_cap is not None:
+        # AAC lands a little above its nominal rate, so stay under the platform cap.
+        return str(int(int(audio_cap) * 0.94))
+    return "128k" if target.id in {"instagram_reel", "facebook_reel"} else "160k"
+
+
+def _plan_key(
+    info: Any, plan: VideoPlan, target: Any, loudness_lufs: float, audio_bitrate: str | None
+) -> str:
     windows = []
     for window in plan.windows:
         items = window if plan.layout == "split" else (window,)
@@ -284,6 +296,7 @@ def _plan_key(info: Any, plan: VideoPlan, target: Any, loudness_lufs: float) -> 
             "trim": plan.trim,
             "windows": windows,
             "loudness_lufs": loudness_lufs,
+            "audio_bitrate": audio_bitrate,
         },
         separators=(",", ":"),
     )
@@ -348,7 +361,8 @@ def render_video(
     fps = min(float(info.fps), 60.0)
     render_dir = work_dir / "render"
     render_dir.mkdir(parents=True, exist_ok=True)
-    key = _plan_key(info, plan, target, loudness_lufs)
+    audio_bitrate = _audio_bitrate(info, target)
+    key = _plan_key(info, plan, target, loudness_lufs, audio_bitrate)
     master = render_dir / f"reuse-{key}.mp4"
     commands_path = render_dir / f"reuse-{key}.commands"
     if not master.exists():
@@ -387,13 +401,7 @@ def render_video(
             "-map",
             "[v]",
         ]
-        if info.has_audio:
-            audio_cap = _limit(target, "audio_bps_max")
-            if audio_cap is not None:
-                # AAC lands a little above its nominal rate, so stay under the platform cap.
-                audio_bitrate = str(int(int(audio_cap) * 0.94))
-            else:
-                audio_bitrate = "128k" if target.id in {"instagram_reel", "facebook_reel"} else "160k"
+        if audio_bitrate is not None:
             command.extend(
                 [
                     "-map",

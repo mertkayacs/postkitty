@@ -324,3 +324,33 @@ def test_cover_at_the_trim_end_still_writes_a_frame(tmp_path: Path) -> None:
     assert cover.is_file() and cover.stat().st_size > 0
     facts = _probe(cover)
     assert (facts["streams"][0]["width"], facts["streams"][0]["height"]) == (180, 180)
+
+
+def test_render_reuse_respects_the_audio_cap_of_the_new_target(tmp_path: Path, monkeypatch: Any) -> None:
+    # A tiktok render (no audio cap, 160k) was reused for instagram_reel and failed its 128k audio cap.
+    import engine.video_make as video_make
+
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
+    plan = VideoPlan("tiktok", "crop", (0.0, 1.0), 0.5, "proof", [_box(110.0, 0.0, 100.0, 180.0)] * 10)
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        Path(command[-1]).write_bytes(b"video")
+
+    monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_probe_render", lambda path: {
+        "streams": [{"codec_type": "video", "width": 180, "height": 320}],
+        "format": {"duration": "1.0", "size": "5"},
+    })
+
+    render_video(info, plan, Target("tiktok", 180, 320), tmp_path / "tiktok.mp4", tmp_path / "work")
+    render_video(
+        info, plan, Target("instagram_reel", 180, 320, {"audio_bps_max": Spec(128000)}),
+        tmp_path / "reel.mp4", tmp_path / "work",
+    )
+
+    assert len(commands) == 2
+    reel = commands[1]
+    assert int(reel[reel.index("-b:a") + 1]) <= 0.95 * 128000
