@@ -28,7 +28,7 @@ _ENGINES = {
     "image": ("faces", "image_make", "checks_image"),
     "video": ("faces", "video_scan", "video_make", "checks_video"),
 }
-_OVERRIDE_KEYS = ("layout", "focus", "trim", "cover_at", "seam")
+_OVERRIDE_KEYS = ("layout", "focus", "trim", "cover_at")
 
 
 class Unavailable(Exception):
