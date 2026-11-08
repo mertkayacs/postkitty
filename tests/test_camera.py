@@ -270,3 +270,31 @@ def test_speaker_option_does_not_change_auto_or_split() -> None:
     assert automatic.layout == "split"
     assert automatic.windows == split.windows
     assert automatic.subjects_inside == split.subjects_inside
+
+
+def _sized_track(person: int, x: float, face_height: float, start: float) -> Track:
+    return Track(
+        id=person,
+        person=person,
+        points=tuple(
+            TrackPoint(start + index / 5, x, 100.0, face_height * 0.75, face_height, 0.99)
+            for index in range(10)
+        ),
+    )
+
+
+def test_split_panels_stay_inside_the_frame_for_large_faces() -> None:
+    left = _sized_track(1, 40.0, 400.0, 0.0)
+    right = _sized_track(2, 900.0, 400.0, 0.0)
+
+    path = build_camera_path(
+        InputInfo(), _scan([left, right], [(0.0, 2.0)]), Target(1080, 1920), (0.0, 2.0)
+    )
+
+    assert path.layout == "split"
+    panel_aspect = 1080 / 1920 * 2
+    for top, bottom in path.windows:
+        for box in (top, bottom):
+            assert box.h <= InputInfo.height + 1e-6
+            assert box.w <= InputInfo.width + 1e-6
+            assert math.isclose(box.w / box.h, panel_aspect, rel_tol=1e-6)

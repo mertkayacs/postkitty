@@ -228,12 +228,10 @@ def _panel_windows(
 ) -> list[Any]:
     points = _points_in_scene(track, *scene)
     other_points = _points_in_scene(other, *scene)
-    minimum_height = 2.4 * max(point.h for point in points)
-    maximum_height = min(
-        4.0 * min(point.h for point in points),
-        float(height),
-        width / aspect,
-    )
+    # A panel can never be taller or wider than the source, or the rendered crop loses its aspect.
+    frame_height = min(float(height), width / aspect)
+    minimum_height = min(2.4 * max(point.h for point in points), frame_height)
+    maximum_height = min(4.0 * min(point.h for point in points), frame_height)
     maximum_height = max(maximum_height, minimum_height)
 
     representative = _representative(track, *scene)
