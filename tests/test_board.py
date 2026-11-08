@@ -269,6 +269,30 @@ def test_platform_names_are_cased(tmp_path):
     assert platform_name("linkedin") == "LinkedIn"
 
 
+def test_contact_sheet_keeps_thumbnail_aspect_and_centers_it(tmp_path):
+    import numpy as np
+    from postkitty.engine.board import TEMPLATES, write_contact_png
+    job_dir = tmp_path / "job"
+    (job_dir / "ready" / "x").mkdir(parents=True)
+    _make_image(job_dir / "ready" / "x" / "image.jpg", (1920, 1080), "orange")
+    manifest = {"job": "wide", "created": "", "targets": [
+        {"id": "x_image", "platform": "x", "kind": "image", "status": "ready",
+         "file": "ready/x/image.jpg", "width": 1920, "height": 1080}]}
+
+    path = write_contact_png(job_dir, manifest, TEMPLATES / "pucci-mark-64.png")
+
+    with Image.open(path) as sheet:
+        pixels = np.asarray(sheet.convert("RGB")).astype(int)
+    orange = (pixels[..., 0] > 230) & (100 < pixels[..., 1]) & (pixels[..., 1] < 200) & (pixels[..., 2] < 60)
+    rows, columns = np.nonzero(orange)
+    width = columns.max() - columns.min() + 1
+    height = rows.max() - rows.min() + 1
+    assert abs(width / height - 16 / 9) < 0.05
+    assert width > 300
+    tile_center = 40 + ((1600 - 80 - 48) // 3) / 2
+    assert abs((columns.max() + columns.min()) / 2 - tile_center) < 3
+
+
 def test_write_board_handles_empty_job(tmp_path):
     job_dir = tmp_path / "job"
     manifest = {"schema": "postkitty.manifest/1", "job": "empty",

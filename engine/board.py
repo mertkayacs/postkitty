@@ -1089,9 +1089,11 @@ def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
     mark_size = 40
 
     def thumb_box(aspect: float) -> tuple[int, int]:
+        # aspect is width / height: a landscape target gets a wide box, a portrait one a tall box.
         max_h = 240
-        h = min(max_h, tile_w * aspect)
-        w = h / aspect if aspect else tile_w
+        thumb_w = tile_w - 28
+        h = min(max_h, thumb_w / aspect) if aspect else max_h
+        w = h * aspect if aspect else thumb_w
         return int(w), int(h)
 
     rows = 0
