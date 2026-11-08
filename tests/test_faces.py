@@ -163,6 +163,34 @@ def test_get_detector_uses_recording(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert isinstance(detector, ReplayDetector)
 
 
+def test_get_detector_loads_the_shared_model_not_a_per_job_copy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from engine import faces as faces_module
+
+    requested: list[object] = []
+
+    def fake_model(cache_dir: Path | None = None) -> Path:
+        requested.append(cache_dir)
+        return tmp_path / "shared" / "model.onnx"
+
+    class Stub:
+        name = "stub"
+
+        def __init__(self, model_path: Path | None = None) -> None:
+            requested.append(model_path)
+
+    monkeypatch.delenv("POSTKITTY_DETECTIONS", raising=False)
+    monkeypatch.setattr(faces_module, "get_yunet_model", fake_model)
+    monkeypatch.setattr(faces_module, "YuNetDetector", Stub)
+    job_faces = tmp_path / "job" / "work" / "faces"
+
+    get_detector(job_faces)
+
+    assert job_faces not in requested
+    assert requested[0] is None
+
+
 @pytest.mark.real_detector
 @pytest.mark.skipif(
     os.environ.get("POSTKITTY_REAL_DETECTOR") != "1",

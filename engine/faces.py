@@ -209,4 +209,6 @@ def get_detector(cache_dir: Path) -> Detector:
     replay_path = os.environ.get("POSTKITTY_DETECTIONS")
     if replay_path:
         return ReplayDetector(Path(replay_path))
-    return YuNetDetector(get_yunet_model(cache_dir))
+    # cache_dir holds this job's detections; the model lives in the shared model cache, fetched once.
+    del cache_dir
+    return YuNetDetector(get_yunet_model())
