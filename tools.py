@@ -379,7 +379,8 @@ def _verify_unchanged(info: probe.InputInfo) -> None:
         raise ValueError(f"input {info.id} ({info.path.name}) changed since the scan; run postkitty_scan again")
 
 
-def _build(job: jobs.Job, ids: list[str], overrides: dict, merge_old: bool = False) -> dict:
+def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
+    """Render ``ids``; overrides stored by earlier redo or make calls stay and new ones merge over them."""
     manifest = jobs.load_manifest(job)
     infos = _infos(manifest)
     scan = jobs.read_json(job.work / "scan.json")
@@ -392,7 +393,7 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict, merge_old: bool = Fal
     for tid in ids:
         if tid not in planned:
             raise ValueError(f"target {tid!r} is not planned in this job; planned: {sorted(planned)}")
-        override = {**(old.get(tid, {}).get("override", {}) if merge_old else {}), **(overrides.get(tid) or {})}
+        override = {**old.get(tid, {}).get("override", {}), **(overrides.get(tid) or {})}
         built.append(_entry(job, by_id[planned[tid]], platforms.get_target(tid), override, media, masters,
                             old.get(tid)))
     merged = {**old, **{e["id"]: e for e in built}}
@@ -637,7 +638,7 @@ def redo(args: dict) -> dict:
     override = _override(args)
     if not override:
         raise ValueError("give at least one of layout, focus, trim, cover_at")
-    return _build(job, [target], {target: override}, merge_old=True)
+    return _build(job, [target], {target: override})
 
 
 @_safe

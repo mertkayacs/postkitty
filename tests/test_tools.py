@@ -165,7 +165,9 @@ def test_alt_text_by_target_and_file(out_dir, text_job):
     out = call(tools.copy, job=text_job, alt_text={"x_image": "A red door.", "feed.jpg": "A cat on a sofa.", "nope": "?"})
     assert out["alt_text_unmatched"] == ["nope"]
     assert "A red door." in (job / "ready/x/alt.txt").read_text()
-    assert "A cat on a sofa." in (job / "ready/instagram/alt.txt").read_text()
+    assert (job / "ready/instagram/alt.txt").read_text() == "instagram_feed:\nA cat on a sofa.\n"
+    manifest = json.loads((job / "manifest.json").read_text())
+    assert set(manifest["alt_text"]) == {"x_image", "instagram_feed"}
 
 
 def test_alt_text_accepts_input_name_and_ready_path(out_dir, tmp_path, stub_image_engine):
@@ -336,6 +338,62 @@ def test_image_flow_make_redo_check(out_dir, tmp_path, stub_image_engine):
 
     assert call(tools.check, job=job)["all_pass"] is True
     assert "give at least one" in call(tools.redo, job=job, target="x_image")["error"]
+
+
+def test_make_keeps_overrides_stored_by_redo(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x", "linkedin"])["job"]
+    assert call(tools.redo, job=job, target="x_image", layout="pad")["targets"][0]["layout"]["mode"] == "pad"
+
+    made = {row["target"]: row for row in call(tools.make, job=job)["targets"]}
+    assert made["x_image"]["layout"]["mode"] == "pad" and made["linkedin_image"]["layout"]["mode"] == "crop"
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+    assert next(t for t in manifest["targets"] if t["id"] == "x_image")["override"] == {"layout": "pad"}
+
+    call(tools.make, job=job, overrides={"x_image": {"focus": "left"}})
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+    assert next(t for t in manifest["targets"] if t["id"] == "x_image")["override"] == {"layout": "pad", "focus": "left"}
+
+
+def test_photo_scanned_for_a_video_platform_explains_the_mismatch(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    scan = call(tools.scan, inputs=[str(photo)], platforms=["tiktok", "youtube_shorts"])
+    assert scan["plan"] == []
+    assert "tiktok takes video; the inputs are photos" in scan["notes"]
+    assert "youtube_shorts takes video; the inputs are photos" in scan["notes"]
+    made = call(tools.make, job=scan["job"])
+    assert "tiktok takes video" in made["error"] and "text only" not in made["error"]
+
+
+def test_copy_rejects_empty_and_non_string_drafts(out_dir, text_job):
+    for value in (None, {"text": "hi"}, 42, "", "   ", [1, 2], [], ["ok", ""]):
+        out = call(tools.copy, job=text_job, drafts={"x": value})
+        assert "draft for 'x'" in out["error"], (value, out)
+    assert not (out_dir / text_job / "ready/x/post.txt").exists()
+    assert call(tools.copy, job=text_job, drafts={"x": ["first", "second"]})["platforms"]["x"]["ok"]
+
+
+def test_alt_text_file_name_matching_two_targets_is_ambiguous(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x", "bluesky"])["job"]
+    call(tools.make, job=job)
+    ready = out_dir / job / "ready/x/image.jpg"
+
+    out = call(tools.copy, job=job, alt_text={"image.jpg": "which one?"})
+    assert "image.jpg" in out["error"] and "x_image" in out["error"] and "bluesky_image" in out["error"]
+    assert not (out_dir / job / "ready/x/alt.txt").exists()
+
+    out = call(tools.copy, job=job, alt_text={"x_image": "A door.", str(ready): "A window."})
+    assert "x_image" in out["error"] and "twice" in out["error"]
+
+    out = call(tools.copy, job=job, alt_text={str(ready): "A door."})
+    assert out["alt_text_unmatched"] is None
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+    assert manifest["alt_text"] == {"x_image": "A door."}
+    assert (out_dir / job / "ready/x/alt.txt").read_text() == "x_image:\nA door.\n"
 
 
 def test_make_rejects_unknown_override_targets_and_keys(out_dir, tmp_path, stub_image_engine):
