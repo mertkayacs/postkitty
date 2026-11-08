@@ -84,8 +84,6 @@ def _focus(value: str | None) -> tuple[int | None, float | None]:
             person = int(value.removeprefix("person:"))
         except ValueError as error:
             raise ValueError("focus person must be a positive integer") from error
-        if person <= 0:
-            raise ValueError("focus person must be a positive integer")
         return person, None
     anchors = {"left": 0.0, "center": 0.5, "right": 1.0}
     if value in anchors:
@@ -467,6 +465,11 @@ def build_camera_path(
         raise ValueError(f"unsupported video layout: {layout_override}")
 
     person, anchor_x = _focus(focus)
+    if person is not None and not 1 <= person <= len(scan.tracks):
+        count = len(scan.tracks)
+        raise ValueError(
+            f"focus person is not present; the video has {count} {'person' if count == 1 else 'people'}"
+        )
     fps = min(float(info.fps), 60.0)
     frame_count = max(1, round((trim[1] - trim[0]) * fps))
     times = [trim[0] + index / fps for index in range(frame_count)]
@@ -491,6 +494,12 @@ def build_camera_path(
         layout = "split"
     else:
         layout = "crop"
+    # A requested layout the footage cannot support is reported as what was actually used.
+    unmet = "no face was found" if not scan.tracks else "{} needs two people in one shot"
+    fallback_note = ""
+    if layout_override == "split" and layout != "split":
+        fallback_note = f"{unmet.format('split')}; used crop instead of split"
+    speaker_segments_found = False
 
     Box, _, _ = _geometry()
     # The render crops both panels at one fixed size (sendcmd only moves x and y), so every
@@ -596,6 +605,7 @@ def build_camera_path(
                 )
                 accounting.append((selected_track, *scene, None))
             else:
+                speaker_segments_found = True
                 segments = [
                     (
                         _on_frame(start, scene, trim[0], fps),
@@ -665,7 +675,12 @@ def build_camera_path(
                 subject_count += 1
                 inside_count += int(_inside(rendered, _face_box(point)))
 
-    if layout == "split":
+    if layout == "speaker" and not speaker_segments_found:
+        layout = "crop"
+        fallback_note = f"{unmet.format('speaker')}; used crop instead of speaker"
+    if fallback_note:
+        note = fallback_note
+    elif layout == "split":
         note = "two subjects cannot share one vertical window"
     elif layout == "speaker":
         suffix = "cut" if speaker_cuts == 1 else "cuts"

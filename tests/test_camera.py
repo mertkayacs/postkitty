@@ -300,6 +300,31 @@ def test_split_panels_stay_inside_the_frame_for_large_faces() -> None:
             assert math.isclose(box.w / box.h, panel_aspect, rel_tol=1e-6)
 
 
+def test_focus_on_a_missing_person_is_an_error_that_counts_people() -> None:
+    import pytest
+
+    left = _track(1, [(index / 5, 40.0) for index in range(10)])
+    right = _track(2, [(index / 5, 1120.0) for index in range(10)])
+    scan = _scan([left, right], [(0.0, 2.0)])
+
+    with pytest.raises(ValueError, match="not present.*2 people"):
+        build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), focus="person:99")
+    with pytest.raises(ValueError, match="not present"):
+        build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), focus="person:0")
+    with pytest.raises(ValueError, match="not present.*0 people"):
+        build_camera_path(InputInfo(), _scan([], [(0.0, 2.0)]), Target(1080, 1920), (0.0, 2.0), focus="person:1")
+
+
+def test_unusable_layout_request_falls_back_to_crop_with_a_note() -> None:
+    nobody = _scan([], [(0.0, 2.0)])
+    one = _scan([_track(1, [(index / 5, 40.0) for index in range(10)])], [(0.0, 2.0)])
+
+    for scan, layout in ((nobody, "split"), (nobody, "speaker"), (one, "split")):
+        path = build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), layout_override=layout)
+        assert path.layout == "crop"
+        assert layout in path.note and "crop" in path.note
+
+
 def test_split_survives_a_scene_without_faces() -> None:
     left = _track(1, [(index / 5, 40.0) for index in range(10)])
     right = _track(2, [(index / 5, 1120.0) for index in range(10)])
