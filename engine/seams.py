@@ -133,8 +133,17 @@ def _python_resize(
 ) -> Image.Image:
     source = np.asarray(image.convert("RGB"))
     source_height, source_width = source.shape[:2]
-    if width > source_width:
-        raise ValueError("python seam carving cannot enlarge image width")
+    if width > source_width or height > source_height:
+        raise ValueError("python seam carving cannot enlarge an image")
+    if height < source_height and width == source_width:
+        # Seams run top to bottom, so carve rows by working on the transposed image.
+        transposed = _python_resize(
+            image.transpose(Image.Transpose.TRANSPOSE),
+            height,
+            width,
+            [Box(box.y, box.x, box.h, box.w) for box in protect_boxes],
+        )
+        return transposed.transpose(Image.Transpose.TRANSPOSE)
     mask = _protect_mask((source_width, source_height), protect_boxes)
     if source_width > 1000:
         analysis_width = 1000

@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw
 
-from engine import image_make
+from engine import image_make, seams
 from engine.framing import Box, Layout, subject_box
 from engine.image_make import plan_image, render_image
 
@@ -366,6 +366,31 @@ def test_sixteen_bit_grayscale_keeps_its_tones(tmp_path: Path) -> None:
     assert pixels[0, 0] < 10
     assert pixels[-1, -1] > 245
     assert 110 < pixels[50, 100] < 145
+
+
+def test_seam_carves_height_when_the_source_is_taller_than_the_target(
+    monkeypatch: object, tmp_path: Path
+) -> None:
+    source = tmp_path / "square.png"
+    image = Image.new("RGB", (400, 400), "navy")
+    ImageDraw.Draw(image).ellipse((175, 60, 224, 109), fill="red")
+    image.save(source)
+    monkeypatch.setattr(seams.shutil, "which", lambda name: None)
+    info = InputInfo(source, "square", 400, 400)
+    target = Target("x_image", 320, 180)
+    layout = plan_image(info, _faces([Box(175, 60, 50, 50)]), target, {"layout": "seam"})
+
+    result = render_image(info, layout, target, tmp_path / "seam.jpg")
+
+    with Image.open(result.file) as rendered:
+        pixels = np.asarray(rendered)
+    red = (pixels[..., 0] > 150) & (pixels[..., 1] < 100)
+    rows, columns = np.nonzero(red)
+    width = columns.max() - columns.min() + 1
+    height = rows.max() - rows.min() + 1
+    assert layout.mode == "seam"
+    assert 0.9 <= width / height <= 1.1
+    assert 34 <= width <= 46
 
 
 def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:

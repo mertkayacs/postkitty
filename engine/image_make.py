@@ -322,12 +322,14 @@ def _render_pixels(
     if layout.mode == "split":
         return _split(image, layout.boxes, size), None
 
+    # Carve whichever side is too long for the target aspect; the other side stays as it is.
     target_width = min(info.width, max(1, round(info.height * target.aspect)))
+    target_height = min(info.height, max(1, round(info.width / target.aspect)))
     with tempfile.TemporaryDirectory(dir=out_path.parent) as directory:
         source = Path(directory) / "oriented.png"
         carved = Path(directory) / "carved.png"
         image.convert("RGB").save(source, format="PNG")
-        seam_resize(source, carved, target_width, info.height, layout.boxes)
+        seam_resize(source, carved, target_width, target_height, layout.boxes)
         engine = seam_engine(carved)
         with Image.open(carved) as opened:
             result = opened.convert("RGB").resize(size, Image.Resampling.LANCZOS)
