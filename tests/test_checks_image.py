@@ -108,6 +108,26 @@ def test_checker_warns_about_a_strongly_upscaled_output(tmp_path: Path) -> None:
     assert upscale_check({}) is None
 
 
+def test_metadata_is_advisory_for_a_file_postkitty_did_not_frame(tmp_path: Path) -> None:
+    path = tmp_path / "photo.jpg"
+    exif = Image.Exif()
+    exif[0x010F] = "Camera Maker"
+    Image.new("RGB", (100, 100), "navy").save(path, quality=90, exif=exif)
+    target = Target("image", 100, 100)
+
+    def metadata_check(subjects_inside: float | None) -> Any:
+        result = _result(path, subjects_inside)
+        result.extra = {}
+        return next(c for c in check_image(result, target) if c.id == "image.metadata_stripped")
+
+    user_file = metadata_check(None)
+    assert user_file.status == "advisory" and not user_file.hard
+    assert "EXIF" in user_file.message and "location" in user_file.message
+    assert "output" not in user_file.message
+    own_render = metadata_check(1.0)
+    assert own_render.status == "fail" and own_render.hard
+
+
 def test_size_repair_lowers_jpeg_quality(tmp_path: Path) -> None:
     path = tmp_path / "noise.jpg"
     Image.effect_noise((300, 300), 100).convert("RGB").save(path, quality=92)

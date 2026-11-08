@@ -189,6 +189,24 @@ def check_image(result: Any, target: Any) -> list[Check]:
             )
         )
     stripped = _metadata_stripped(result.file)
+    if subjects_inside is None:
+        # A user's own file: platforms accept EXIF, so this is a privacy heads-up, never a failure.
+        checks.append(
+            Check(
+                id="image.metadata_stripped",
+                target=target.id,
+                status="pass" if stripped else "advisory",
+                hard=False,
+                measured=stripped,
+                expected=True,
+                message=(
+                    "Image metadata is stripped."
+                    if stripped
+                    else "The file carries EXIF or other metadata, which can include the camera and location."
+                ),
+            )
+        )
+        return checks
     checks.append(
         _check(
             "image.metadata_stripped",
