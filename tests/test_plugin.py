@@ -109,3 +109,10 @@ def test_plugin_import_and_text_flow_never_load_cv2_numpy_or_pillow(tmp_path):
 
 def test_tool_results_are_json_strings():
     assert isinstance(tools.scan({}), str) and isinstance(json.loads(tools.check({})), dict)
+
+
+def test_copy_schema_documents_accepted_key_types():
+    properties = tools.SCHEMAS["postkitty_copy"]["parameters"]["properties"]
+
+    assert "target id" in properties["drafts"]["description"]
+    assert "input file name or ready file path" in properties["alt_text"]["description"]
