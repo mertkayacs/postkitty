@@ -137,6 +137,39 @@ def test_check_reports_dimension_failure(out_dir, tmp_path):
     assert "target" in call(tools.check, path=str(ok))["error"]
 
 
+def test_check_reuses_framing_data_for_job_and_ready_path(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+
+    def framing(res, target):
+        status = "skipped" if res.subjects_inside is None else "pass"
+        return [checks.Check("frame.subjects_inside", target.id, status, True, res.subjects_inside, 1.0, "framing")]
+
+    checks.register_checker("image", framing)
+    call(tools.make, job=job)
+    ready = out_dir / job / "ready/x/image.jpg"
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+
+    assert manifest["targets"][0]["subjects_inside"] == 1.0
+    assert call(tools.check, job=job)["targets"]["x_image"]["checks"] == "all checks pass"
+    assert call(tools.check, path=str(ready))["checks"] == "all checks pass"
+
+
+def test_check_explains_skipped_framing_for_external_file(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "external.jpg"
+    Image.new("RGB", (1600, 900), "orange").save(photo)
+
+    def framing(res, target):
+        return [checks.Check("frame.subjects_inside", target.id, "skipped", False, None, 1.0, "old message")]
+
+    checks.register_checker("image", framing)
+    result = call(tools.check, path=str(photo), target="x_image")
+    frame = next(item for item in result["checks"] if item["id"] == "frame.subjects_inside")
+
+    assert frame["message"] == "Subject framing was skipped because this file was not made by postkitty."
+
+
 # --- media flow with stub engines (no OpenCV, no models) ---------------------------------------------------
 
 @dataclass

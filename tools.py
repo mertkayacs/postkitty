@@ -252,7 +252,7 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
     ok = checks.hard_pass(found)
     entry.update(checks=[c.to_dict() for c in found], repairs=repairs, width=result.width, height=result.height,
                  duration=result.duration, layout=result.layout or {"mode": _mode(plan), "note": getattr(plan, "note", "")},
-                 trim=list(getattr(plan, "trim", []) or []) or None)
+                 trim=list(getattr(plan, "trim", []) or []) or None, subjects_inside=result.subjects_inside)
     if ok:
         dest = jobs.ready_dir(job, target.platform) / f"{_stem(target)}{result.file.suffix}"
         shutil.copy2(result.file, dest)
@@ -488,16 +488,48 @@ def redo(args: dict) -> dict:
 @_safe
 def check(args: dict) -> dict:
     if args.get("path"):
-        return _check_file(Path(str(args["path"])).expanduser(), args.get("target"), None)
+        path = Path(str(args["path"])).expanduser().resolve()
+        job = _open_job(args) if args.get("job") else _job_for_ready_path(path)
+        entry = _entry_for_path(job, path) if job else None
+        target_id = args.get("target") or (entry or {}).get("id")
+        framed = entry if entry and target_id == entry["id"] else None
+        return _check_file(path, target_id, (framed or {}).get("layout"), _subjects_inside(framed))
     job = _open_job(args)
     out = {}
     for entry in jobs.load_manifest(job).get("targets", []):
         if entry.get("file"):
-            out[entry["id"]] = _check_file(job.root / entry["file"], entry["id"], entry.get("layout"))
+            out[entry["id"]] = _check_file(
+                job.root / entry["file"], entry["id"], entry.get("layout"), _subjects_inside(entry)
+            )
     return {"job": job.id, "targets": out, "all_pass": all(v["pass"] for v in out.values())}
 
 
-def _check_file(path: Path, target_id: Any, layout: dict | None) -> dict:
+def _job_for_ready_path(path: Path) -> jobs.Job | None:
+    for parent in path.parents:
+        if parent.name == "ready" and (parent.parent / "manifest.json").is_file():
+            return jobs.open_job(parent.parent.parent, parent.parent.name)
+    return None
+
+
+def _entry_for_path(job: jobs.Job, path: Path) -> dict | None:
+    for entry in jobs.load_manifest(job).get("targets", []):
+        if entry.get("file") and (job.root / entry["file"]).resolve() == path:
+            return entry
+    return None
+
+
+def _subjects_inside(entry: dict | None) -> float | None:
+    if not entry:
+        return None
+    if "subjects_inside" in entry:
+        return entry["subjects_inside"]
+    for check in entry.get("checks", []):
+        if check.get("id") == "frame.subjects_inside" and check.get("status") != "skipped":
+            return check.get("measured")
+    return None
+
+
+def _check_file(path: Path, target_id: Any, layout: dict | None, subjects_inside: float | None = None) -> dict:
     if not target_id:
         raise ValueError("'target' is required with 'path'")
     (tid,) = _platform_names([target_id])
@@ -509,8 +541,11 @@ def _check_file(path: Path, target_id: Any, layout: dict | None) -> dict:
         pass
     result = checks.RenderResult(target=tid, file=info.path, width=info.width, height=info.height,
                                  duration=info.duration, bytes=info.path.stat().st_size, layout=layout or {},
-                                 subjects_inside=None, extra={})
+                                 subjects_inside=subjects_inside, extra={})
     found = checks.run_checks(result, target)
+    for item in found:
+        if item.id == "frame.subjects_inside" and item.status == "skipped":
+            item.message = "Subject framing was skipped because this file was not made by postkitty."
     return {"target": tid, "file": str(info.path), "pass": checks.hard_pass(found),
             "checks": [c.to_dict() for c in found if c.status != "pass"] or "all checks pass"}
 
