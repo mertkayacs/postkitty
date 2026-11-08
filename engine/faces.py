@@ -172,7 +172,11 @@ def faces_at(document: dict, t: float) -> list[Face]:
 def detect_image(info: InputInfo, detector: Detector, cache_dir: Path) -> dict:
     cache_path = cache_dir / f"{info.sha256}.json"
     if cache_path.exists():
-        document = load_faces(cache_path)
+        try:
+            document = load_faces(cache_path)
+        except (ValueError, OSError):
+            # A truncated or foreign cache file is worth no more than a missing one: detect again.
+            document = {}
         if document.get("source_sha256") == info.sha256:
             return document
 

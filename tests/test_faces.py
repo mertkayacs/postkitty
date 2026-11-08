@@ -122,6 +122,27 @@ def test_detect_image_caches_fake_results(tmp_path: Path) -> None:
     assert faces_at(first, 0.0)[0].box == Box(10, 10, 20, 30)
 
 
+@pytest.mark.parametrize(
+    "content",
+    ["", '{"schema": "postkitty.faces/1", "fra', '{"schema": "something/9"}'],
+    ids=["empty", "truncated", "other-schema"],
+)
+def test_detect_image_redetects_over_a_corrupt_cache(tmp_path: Path, content: str) -> None:
+    path = tmp_path / "source.png"
+    Image.new("RGB", (100, 80), "navy").save(path)
+    info = InputInfo(path, "source-hash")
+    cache = tmp_path / "faces"
+    cache.mkdir()
+    (cache / "source-hash.json").write_text(content, encoding="utf-8")
+
+    document = detect_image(
+        info, FakeDetector(lambda image: [Face(Box(10, 10, 20, 30), 0.95)]), cache
+    )
+
+    assert faces_at(document, 0.0)[0].box == Box(10, 10, 20, 30)
+    assert load_faces(cache / "source-hash.json") == document
+
+
 def test_saliency_finds_bright_object() -> None:
     image = np.zeros((200, 300, 3), dtype=np.uint8)
     cv2.rectangle(image, (190, 60), (260, 150), (255, 255, 255), -1)
