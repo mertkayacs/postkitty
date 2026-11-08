@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.venv/
+/postkitty/
+/work/
+*.egg-info/
+.DS_Store
+STATE.md
+research/

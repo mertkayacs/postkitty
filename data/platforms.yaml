@@ -1,0 +1,217 @@
+# Platform specs used by postkitty checks.
+# Every limit carries its source, scope and check date. enforcement: hard blocks ready/ and triggers a repair;
+# enforcement: recommendation produces an advisory note only.
+schema: postkitty.platforms/1
+checked_on: "2026-11-07"
+
+platforms:
+  instagram:
+    label: Instagram
+    text:
+      limit: {value: 2200, unit: codepoints, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+              source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
+      hashtags_max: {value: 30, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                     source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
+      mentions_max: {value: 20, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                     source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
+    targets:
+      instagram_reel:
+        kind: video
+        width: 1080
+        height: 1920
+        containers: {value: [mp4, mov], enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                     source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        video_codecs: {value: [h264, hevc], enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                       source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        audio_sample_rate: {value: 48000, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                            source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        fps_min: {value: 23, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                  source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        fps_max: {value: 60, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                  source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        duration_min: {value: 3, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                       source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        duration_max: {value: 900, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                       source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        bytes_max: {value: 1000000000, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                    source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        video_bps_max: {value: 25000000, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                        source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        audio_bps_max: {value: 128000, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                        source_url: "https://www.postman.com/meta/instagram/folder/830j7my/reels-publishing"}
+        safe_area: {value: {top: 0.14, bottom: 0.35, side: 0.06}, enforcement: recommendation, source_scope: secondary,
+                    checked_on: "2026-11-07",
+                    source_url: "https://illumin.service-now.com/kb/en/meta-instagram-reels-creative-specs?id=kb_article_view&sysparm_article=KB0015971"}
+      instagram_feed:
+        kind: image
+        width: 1080
+        height: 1350
+        formats: {value: [jpeg], enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                  source_url: "https://www.postman.com/meta/instagram/overview"}
+        aspect_range: {value: ["3:4", "1.91:1"], enforcement: recommendation, source_scope: secondary, checked_on: "2026-11-07",
+                       source_url: "https://knowledge.hubspot.com/social/image-size-requirements-for-social-posts"}
+      instagram_story:
+        kind: image_or_video
+        width: 1080
+        height: 1920
+        duration_max: {value: 60, enforcement: recommendation, source_scope: secondary, checked_on: "2026-11-07",
+                       source_url: "https://knowledge.hubspot.com/social/image-size-requirements-for-social-posts"}
+        safe_area: {value: {top: 0.14, bottom: 0.20, side: 0.0}, enforcement: recommendation, source_scope: secondary,
+                    checked_on: "2026-11-07",
+                    source_url: "https://illumin.service-now.com/kb/en/meta-instagram-stories-creative-specs?id=kb_article_view&sysparm_article=KB0015970"}
+
+  tiktok:
+    label: TikTok
+    text:
+      limit: {value: 2200, unit: utf16, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+              source_url: "https://developers.tiktok.com/doc/content-posting-api-reference-direct-post"}
+    targets:
+      tiktok:
+        kind: video
+        width: 1080
+        height: 1920
+        containers: {value: [mp4, webm, mov], enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                     source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        video_codecs: {value: [h264, hevc, vp8, vp9], enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                       source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        fps_min: {value: 23, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                  source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        fps_max: {value: 60, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                  source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        dimension_min: {value: 360, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                        source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        dimension_max: {value: 4096, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                        source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        duration_max: {value: 600, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                       source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        bytes_max: {value: 4000000000, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+                    source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+
+  youtube:
+    label: YouTube Shorts
+    text:
+      limit: {value: 100, unit: codepoints, enforcement: recommendation, source_scope: secondary, checked_on: null,
+              source_url: null, note: "title length; lane F to verify"}
+    targets:
+      youtube_shorts:
+        kind: video
+        width: 1080
+        height: 1920
+        duration_max: {value: 180, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                       source_url: "https://support.google.com/youtube/answer/15424877"}
+        video_bps_max: {value: 8000000, enforcement: recommendation, source_scope: official, checked_on: "2026-11-07",
+                        source_url: "https://support.google.com/youtube/answer/1722171"}
+
+  x:
+    label: X
+    text:
+      limit: {value: 280, unit: x_weighted, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+              source_url: "https://github.com/twitter/twitter-text/blob/master/config/v3.json"}
+    targets:
+      x_video:
+        kind: video
+        width: 1920
+        height: 1080
+        duration_max: {value: 140, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                       source_url: "https://help.x.com/en/using-x/x-videos", note: "accounts without Premium"}
+        bytes_max: {value: 536870912, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                    source_url: "https://help.x.com/en/using-x/x-videos"}
+      x_image:
+        kind: image
+        width: 1600
+        height: 900
+        formats: {value: [jpeg, png, gif], enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                  source_url: "https://help.x.com/en/using-x/posting-gifs-and-pictures"}
+        bytes_max: {value: 5242880, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                    source_url: "https://help.x.com/en/using-x/posting-gifs-and-pictures"}
+
+  linkedin:
+    label: LinkedIn
+    text:
+      limit: {value: 3000, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+              source_url: "https://www.linkedin.com/help/linkedin/answer/a528176"}
+    targets:
+      linkedin_video:
+        kind: video
+        width: 1080
+        height: 1350
+        duration_min: {value: 3, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                       source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        duration_max: {value: 900, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                       source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        bytes_min: {value: 75000, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                    source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        bytes_max: {value: 5000000000, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                    source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        fps_min: {value: 10, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                  source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        fps_max: {value: 60, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                  source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        video_bps_max: {value: 30000000, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                        source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+        aspect_min: {value: 0.4167, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                     source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587", note: "1:2.4"}
+        aspect_max: {value: 2.4, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                     source_url: "https://www.linkedin.com/help/linkedin/answer/a7174587"}
+      linkedin_image:
+        kind: image
+        width: 1080
+        height: 1080
+        aspect_options: {value: ["1:1", "1.91:1"], enforcement: recommendation, source_scope: ad, checked_on: "2026-11-07",
+                         source_url: "https://www.linkedin.com/help/linkedin/answer/a426534"}
+
+  threads:
+    label: Threads
+    text:
+      limit: {value: 500, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+              source_url: "https://about.fb.com/news/2023/07/introducing-threads-new-app-text-sharing/"}
+    targets:
+      threads_video:
+        kind: video
+        width: 1080
+        height: 1920
+        duration_max: {value: 300, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                       source_url: "https://about.fb.com/news/2023/07/introducing-threads-new-app-text-sharing/"}
+      threads_image:
+        kind: image
+        width: 1080
+        height: 1350
+
+  bluesky:
+    label: Bluesky
+    text:
+      limit: {value: 300, unit: graphemes, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+              source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json"}
+      bytes_max: {value: 3000, unit: utf8_bytes, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                  source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json"}
+    targets:
+      bluesky_video:
+        kind: video
+        width: 1080
+        height: 1920
+        bytes_max: {value: 300000000, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                    source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/embed/video.json"}
+        duration_max: {value: 600, enforcement: recommendation, source_scope: official, checked_on: "2026-11-07",
+                       source_url: "https://github.com/bluesky-social/social-app/blob/main/src/lib/constants.ts",
+                       note: "client constant"}
+      bluesky_image:
+        kind: image
+        width: 1080
+        height: 1350
+        bytes_max: {value: 2000000, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+                    source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/embed/images.json"}
+
+  facebook:
+    label: Facebook
+    text:
+      limit: {value: 63206, unit: codepoints, enforcement: recommendation, source_scope: secondary, checked_on: null,
+              source_url: null, note: "lane F to verify"}
+    targets:
+      facebook_reel:
+        kind: video
+        width: 1080
+        height: 1920
+      facebook_feed:
+        kind: image
+        width: 1080
+        height: 1350
