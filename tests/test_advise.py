@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 from engine import advise
@@ -31,6 +32,19 @@ def test_video_facts_flag_trim_and_vertical_hint():
     assert x_video["id"] == "x_video" and x_video["trim"] == [0.0, 140.0] and x_video["layout_hint"] == "crop"
     tiktok = facts["tiktok"]["targets"][0]
     assert tiktok["layout_hint"] == "pad" and tiktok["source_aspect"] == round(1920 / 1080, 4)
+
+
+def test_video_facts_flag_short_clips_and_low_frame_rates():
+    short = advise.fit_facts([info("video", 1920, 1080, 0.5)], None, ["instagram_reel", "linkedin_video"])
+    reel = short["instagram"]["targets"][0]
+    assert reel["id"] == "instagram_reel" and reel["duration_min"] == 3
+    assert any("0.5 s" in fact and "at least 3 s" in fact for fact in short["instagram"]["facts"]), short["instagram"]
+    assert any("at least 3 s" in fact for fact in short["linkedin"]["facts"])
+
+    slow = replace(info("video", 1920, 1080, 4.0), fps=15.0)
+    facts = advise.fit_facts([slow], None, ["tiktok"])
+    assert facts["tiktok"]["targets"][0]["fps_min"] == 23
+    assert any("15 fps" in fact and "at least 23 fps" in fact for fact in facts["tiktok"]["facts"]), facts["tiktok"]
 
 
 def test_fit_facts_use_the_actual_scan_plan_layout():

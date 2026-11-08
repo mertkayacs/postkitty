@@ -47,6 +47,11 @@ def plan_hint(info: InputInfo | None, target) -> dict:
     trim = _trim(info, target)
     if trim and info and info.duration and trim[1] < info.duration:
         note = f"{note} Trim the first {trim[1]:.1f} s or pick a better window.".strip()
+    if info is not None and info.kind == "video":
+        for key, measured, unit in (("duration_min", info.duration, "s"), ("fps_min", info.fps, "fps")):
+            spec = target.limits.get(key)
+            if spec is not None and measured is not None and measured < float(spec.value):
+                note = f"{note} The source is {measured:g} {unit}; {target.id} needs at least {float(spec.value):g} {unit}."
     return {
         "layout": layout,
         "note": note,
@@ -113,9 +118,10 @@ def fit_facts(
             trim = hint.get("trim")
             if trim:
                 entry["trim"] = trim
-            duration_max = target.limits.get("duration_max")
-            if duration_max is not None:
-                entry["duration_max"] = duration_max.value
+            for key in ("duration_max", "duration_min", "fps_min"):
+                spec = target.limits.get(key)
+                if spec is not None:
+                    entry[key] = spec.value
             targets.append(entry)
 
         if not targets and not text:
