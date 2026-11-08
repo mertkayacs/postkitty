@@ -317,3 +317,22 @@ def test_split_survives_a_scene_without_faces() -> None:
         for box in (top, bottom):
             assert 0.0 <= box.x and box.x + box.w <= InputInfo.width + 1e-6
             assert 0.0 <= box.y and box.y + box.h <= InputInfo.height + 1e-6
+
+
+def test_split_panels_keep_one_size_across_scenes() -> None:
+    wide = [_sized_track(1, 40.0, 100.0, 0.0), _sized_track(2, 1120.0, 100.0, 0.0)]
+    tight = [_sized_track(3, 40.0, 160.0, 2.0), _sized_track(4, 1000.0, 160.0, 2.0)]
+
+    path = build_camera_path(
+        InputInfo(),
+        _scan(wide + tight, [(0.0, 2.0), (2.0, 4.0)]),
+        Target(1080, 1920),
+        (0.0, 4.0),
+    )
+
+    assert path.layout == "split"
+    # The render crops both panels at one fixed size (sendcmd only moves x and y), so every
+    # scene must use the same panel size.
+    assert len({(round(top.w, 3), round(top.h, 3)) for top, _ in path.windows}) == 1
+    assert len({(round(bottom.w, 3), round(bottom.h, 3)) for _, bottom in path.windows}) == 1
+    assert path.subjects_inside == 1.0

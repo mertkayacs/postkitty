@@ -225,6 +225,7 @@ def _panel_windows(
     width: int,
     height: int,
     aspect: float,
+    panel_height: float | None = None,
 ) -> list[Any]:
     points = _points_in_scene(track, *scene)
     other_points = _points_in_scene(other, *scene)
@@ -233,11 +234,18 @@ def _panel_windows(
     minimum_height = min(2.4 * max(point.h for point in points), frame_height)
     maximum_height = min(4.0 * min(point.h for point in points), frame_height)
     maximum_height = max(maximum_height, minimum_height)
+    if panel_height is None:
+        heights = [
+            maximum_height - (maximum_height - minimum_height) * step / 20
+            for step in range(21)
+        ]
+    else:
+        minimum_height = panel_height
+        heights = [panel_height]
 
     representative = _representative(track, *scene)
     other_representative = _representative(other, *scene)
-    for step in range(21):
-        window_height = maximum_height - (maximum_height - minimum_height) * step / 20
+    for window_height in heights:
         window_width = window_height * aspect
         box = _panel_box(
             representative,
@@ -485,6 +493,26 @@ def build_camera_path(
         layout = "crop"
 
     Box, _, _ = _geometry()
+    # The render crops both panels at one fixed size (sendcmd only moves x and y), so every
+    # split shot shares the tallest panel any shot needs.
+    panel_aspect = target.aspect * 2
+    split_pairs: dict[tuple[float, float], tuple[Track, Track] | None] = {}
+    panel_height = 0.0
+    if layout == "split":
+        for scene in scenes:
+            pair = split_scenes[scene]
+            if pair is None:
+                selected_track = _select_track(_present_tracks(scan, *scene), person, *scene)
+                if selected_track is not None and _points_in_scene(selected_track, *scene):
+                    pair = (selected_track, selected_track)
+            split_pairs[scene] = pair
+            for track, other in ((pair[0], pair[1]), (pair[1], pair[0])) if pair else ():
+                box = _panel_windows(
+                    track, other, [scene[0]], scene, info.width, info.height, panel_aspect
+                )[0]
+                panel_height = max(panel_height, box.h)
+        if not panel_height:
+            panel_height = _window_size(info.width, info.height, panel_aspect)[1]
     windows: list[Any] = [Box(0.0, 0.0, info.width, info.height)] * frame_count
     inside_count = 0
     subject_count = 0
@@ -500,15 +528,10 @@ def build_camera_path(
             scene_windows = [Box(0.0, 0.0, info.width, info.height)] * len(indices)
             accounting.append((_select_track(tracks, person, *scene), *scene, None))
         elif layout == "split":
-            panel_aspect = target.aspect * 2
-            pair = split_scenes[scene]
-            if pair is None:
-                selected_track = _select_track(tracks, person, *scene)
-                if selected_track is not None and _points_in_scene(selected_track, *scene):
-                    pair = (selected_track, selected_track)
+            pair = split_pairs[scene]
             if pair is None:
                 # Nobody is in this shot: both panels show the centre of the frame.
-                panel_width, panel_height = _window_size(info.width, info.height, panel_aspect)
+                panel_width = panel_height * panel_aspect
                 panel = Box(
                     (info.width - panel_width) * (0.5 if anchor_x is None else anchor_x),
                     (info.height - panel_height) / 2,
@@ -526,6 +549,7 @@ def build_camera_path(
                 info.width,
                 info.height,
                 panel_aspect,
+                panel_height,
             )
             second = _panel_windows(
                 pair[1],
@@ -535,6 +559,7 @@ def build_camera_path(
                 info.width,
                 info.height,
                 panel_aspect,
+                panel_height,
             )
             scene_windows = list(zip(first, second, strict=True))
             accounting.extend(
