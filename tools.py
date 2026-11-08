@@ -508,6 +508,7 @@ def copy(args: dict) -> dict:
         jobs.write_advice(job, advice)
     result: dict[str, Any] = {}
     drafts, draft_notes = _platform_drafts(_dict_arg(args, "drafts"))
+    unknown = _write_alt(job, manifest, _dict_arg(args, "alt_text"))  # may reject keys before any draft is written
     for name, draft in drafts.items():
         report = copyfit.fit(name, draft, split_threads=split)
         rules = copyfit.rules_for(name)
@@ -531,7 +532,6 @@ def copy(args: dict) -> dict:
             details.update(fold=report.fold,
                            fold_note=f"about {report.fold_limit} characters show before 'more' (advisory)")
         result[name] = details
-    unknown = _write_alt(job, manifest, _dict_arg(args, "alt_text"))
     jobs.save_manifest(job, manifest)
     return {"job": job.id, "all_ok": all(r["ok"] or r["enforcement"] != "hard" for r in result.values()),
             "platforms": result, "advice": str(job.advice_path) if advice else None,
@@ -565,13 +565,17 @@ def _platform_drafts(drafts: dict) -> tuple[dict[str, Any], dict[str, list[str]]
 def _write_alt(job: jobs.Job, manifest: dict, alt: dict) -> list[str]:
     by_platform: dict[str, dict[str, str]] = {}
     unknown = []
+    sources: dict[str, str] = {}
     for key, text in alt.items():
         matches = _alt_matches(job, manifest, key)
         if not matches:
             unknown.append(key)
             continue
-        for platform, target_key in matches:
-            by_platform.setdefault(platform, {})[target_key] = str(text).strip()
+        for platform, target_id in matches:
+            if target_id in sources:
+                raise ValueError(f"alt text for {target_id} was given twice ({sources[target_id]!r} and {key!r}); keep one")
+            sources[target_id] = key
+            by_platform.setdefault(platform, {})[target_id] = str(text).strip()
     manifest.setdefault("alt_text", {}).update({k: v for d in by_platform.values() for k, v in d.items()})
     for platform, items in by_platform.items():
         lines = "\n\n".join(f"{key}:\n{text}" for key, text in items.items())
@@ -580,8 +584,10 @@ def _write_alt(job: jobs.Job, manifest: dict, alt: dict) -> list[str]:
 
 
 def _alt_matches(job: jobs.Job, manifest: dict, key: str) -> list[tuple[str, str]]:
+    """Resolve an alt text key to ``(platform, target_id)`` pairs: a target id, an input file name (every
+    target made from it), or a ready file by path or name. A bare name found for several targets is an error."""
     try:
-        return [(platforms.platform_for_target(key), key)]
+        return [(platforms.platform_for_target(key), platforms.get_target(key).id)]
     except KeyError:
         pass
     entries = manifest.get("targets", [])
@@ -590,22 +596,35 @@ def _alt_matches(job: jobs.Job, manifest: dict, key: str) -> list[tuple[str, str
     input_ids = {item["id"] for item in manifest.get("inputs", []) if Path(item["path"]).name == key}
     matches = [(platforms.platform_for_target(item["id"]), item["id"])
                for item in entries if item.get("input") in input_ids]
+    if matches:
+        return matches
     key_path = Path(key).expanduser()
+    by_name: list[tuple[str, str]] = []
     for item in manifest.get("targets", []):
         if not item.get("file"):
             continue
         ready_path = (job.root / item["file"]).resolve()
-        if key_path.name == ready_path.name or key_path.resolve() == ready_path:
-            match = (item["platform"], item["id"])
-            if match not in matches:
-                matches.append(match)
+        if key_path.is_absolute() and key_path.resolve() == ready_path:
+            return [(item["platform"], item["id"])]
+        if key_path.name == ready_path.name:
+            by_name.append((item["platform"], item["id"]))
     if not key_path.is_absolute() and len(key_path.parts) == 1 and job.ready.is_dir():
         for folder in job.ready.iterdir():
-            if (folder / key).is_file():
-                match = (folder.name, key)
-                if match not in matches:
-                    matches.append(match)
-    return matches
+            target_id = _target_for_ready_file(folder.name, key) if (folder / key).is_file() else None
+            if target_id and (folder.name, target_id) not in by_name:
+                by_name.append((folder.name, target_id))
+    if len(by_name) > 1:
+        ids = ", ".join(target_id for _, target_id in by_name)
+        raise ValueError(f"alt text key {key!r} matches several targets ({ids}); use the target id")
+    return by_name
+
+
+def _target_for_ready_file(platform: str, name: str) -> str | None:
+    """``ready/x/image.jpg`` belongs to ``x_image``: the ready stem is the target id without its platform prefix."""
+    for target in platforms.load_platforms().get(platform, platforms.PlatformSpec(platform, platform)).targets.values():
+        if _stem(target) == Path(name).stem:
+            return target.id
+    return None
 
 
 # ------------------------------------------------------------------ make, redo, check
