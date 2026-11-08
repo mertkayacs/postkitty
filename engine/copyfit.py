@@ -138,6 +138,7 @@ def _emoji_span(text: str, i: int) -> int | None:
 
 def x_weighted_length(text: str) -> int:
     """Weighted X length in characters: ASCII 1, other ranges 2, URL 23, emoji sequence 2."""
+    text = unicodedata.normalize("NFC", text)  # twitter-text parseTweet() counts the NFC form
     spans = _url_spans(text)
     span_at = {start: end for start, end in spans}
     total = 0

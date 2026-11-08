@@ -38,6 +38,11 @@ class TestXWeighted:
         assert c.x_weighted_length("a" * 280) == 280
         assert c.x_weighted_length("a" * 279 + "你") == 281
 
+    def test_decomposed_accents_count_like_their_nfc_form(self):
+        # twitter-text parseTweet() normalizes to NFC before weighting, so "e" + U+0301 is one character.
+        assert c.x_weighted_length("café") == c.x_weighted_length("café") == 4
+        assert c.x_weighted_length("Istanbul'da çay içtik") == len("Istanbul'da çay içtik")
+
 
 class TestOtherUnits:
     def test_bluesky_graphemes_vs_bytes(self):
