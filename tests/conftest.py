@@ -5,6 +5,7 @@ as ``postkitty.engine.*``. The repository root is also put on ``sys.path`` for t
 """
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -37,3 +38,24 @@ def out_dir(tmp_path, monkeypatch):
     target = tmp_path / "out"
     monkeypatch.setenv("POSTKITTY_OUTPUT_DIR", str(target))
     return target
+
+
+class _BlindDetector:
+    """Stands in for YuNet in local tests: the face detector must never run on a dev box without consent."""
+
+    name = "test-blind"
+
+    def detect(self, image):
+        return []
+
+
+@pytest.fixture(autouse=True)
+def _no_local_face_detector(monkeypatch):
+    if os.environ.get("POSTKITTY_REAL_DETECTOR") == "1":
+        return
+    import importlib
+
+    for name in ("engine.faces", "postkitty.engine.faces"):
+        module = importlib.import_module(name)
+        if hasattr(module, "get_detector"):
+            monkeypatch.setattr(module, "get_detector", lambda cache_dir: _BlindDetector())

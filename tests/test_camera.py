@@ -97,7 +97,7 @@ def test_moving_window_hard_contains_face_margin_without_reversals() -> None:
             InputInfo.width, point.x + point.w + margin
         )
 
-    deltas = [right.x - left.x for left, right in zip(path.windows, path.windows[1:])]
+    deltas = [right.x - left.x for left, right in zip(path.windows, path.windows[1:], strict=False)]
     directions = [1 if delta > 1e-6 else -1 if delta < -1e-6 else 0 for delta in deltas]
     for index, direction in enumerate(directions):
         if not direction:
@@ -106,7 +106,7 @@ def test_moving_window_hard_contains_face_margin_without_reversals() -> None:
 
 
 def test_subjects_inside_counts_recorded_face_samples(monkeypatch: object) -> None:
-    Box = sys.modules["engine.framing"].Box
+    from engine.framing import Box
     track = _track(1, [(0.0, 20.0), (1.0, 1000.0)])
 
     def fixed_windows(*args: object) -> list[object]:

@@ -1,25 +1,11 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
-def _install_stub(name: str) -> Any:
-    path = Path(__file__).parent / "_stubs" / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(f"engine.{name}", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-checks_stub = _install_stub("checks")
-repair_stub = _install_stub("repair")
-
+from engine import checks as checks_mod
+from engine import repair as repair_mod
 from engine.checks_video import (
     check_video,
     repair_duration,
@@ -149,8 +135,8 @@ def test_video_checker_reports_hard_and_advisory_failures(tmp_path: Path) -> Non
 
 
 def test_repairs_are_registered() -> None:
-    assert checks_stub.CHECKERS["video"] is check_video
-    assert repair_stub.REPAIRS.keys() >= {
+    assert check_video in checks_mod._CHECKERS["video"]
+    assert repair_mod._STRATEGIES.keys() >= {
         "video.bytes_max",
         "video.bitrate_max",
         "video.duration_max",
@@ -161,10 +147,10 @@ def test_repairs_are_registered() -> None:
 
 def test_duration_and_subject_repairs_use_rerender_context(tmp_path: Path) -> None:
     result, target = _render(tmp_path)
-    duration_check = checks_stub.Check(
+    duration_check = checks_mod.Check(
         "video.duration_max", target.id, "fail", True, 2.0, 1.0, "too long"
     )
-    subject_check = checks_stub.Check(
+    subject_check = checks_mod.Check(
         "frame.subjects_inside", target.id, "fail", True, 0.9, 0.98, "cut"
     )
     calls: list[dict[str, Any]] = []
@@ -181,7 +167,7 @@ def test_duration_and_subject_repairs_use_rerender_context(tmp_path: Path) -> No
 
 def test_fps_repair_caps_real_output(tmp_path: Path) -> None:
     result, target = _render(tmp_path)
-    check = checks_stub.Check(
+    check = checks_mod.Check(
         "video.fps_max", target.id, "fail", True, 20.0, 10.0, "too fast"
     )
 

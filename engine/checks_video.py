@@ -116,7 +116,11 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
             measured_containers,
             containers,
             any(item in containers for item in measured_containers),
-            "The video container is allowed." if any(item in containers for item in measured_containers) else "The video container is not allowed.",
+            (
+                "The video container is allowed."
+                if any(item in containers for item in measured_containers)
+                else "The video container is not allowed."
+            ),
             container_spec,
         )
     )
@@ -145,7 +149,11 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
             profile,
             profiles,
             profile in {str(item).lower() for item in profiles},
-            "The H.264 profile is allowed." if profile in {str(item).lower() for item in profiles} else "The H.264 profile is not allowed.",
+            (
+                "The H.264 profile is allowed."
+                if profile in {str(item).lower() for item in profiles}
+                else "The H.264 profile is not allowed."
+            ),
             profile_spec,
         )
     )
@@ -199,7 +207,11 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 measured,
                 expected,
                 passed,
-                f"The video {label} meets the {key.removeprefix(label.split()[0] + '_')} limit." if passed else f"The video {label} exceeds its allowed range.",
+                (
+                    f"The video {label} meets the {key.removeprefix(label.split()[0] + '_')} limit."
+                    if passed
+                    else f"The video {label} exceeds its allowed range."
+                ),
                 spec,
             )
         )
@@ -295,7 +307,11 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 result.subjects_inside,
                 0.98,
                 result.subjects_inside >= 0.98,
-                "Subjects stay inside the frame." if result.subjects_inside >= 0.98 else "Subjects leave the frame in too many sampled frames.",
+                (
+                    "Subjects stay inside the frame."
+                    if result.subjects_inside >= 0.98
+                    else "Subjects leave the frame in too many sampled frames."
+                ),
             )
         )
     return checks

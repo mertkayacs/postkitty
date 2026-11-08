@@ -108,14 +108,14 @@ def test_make_on_text_only_job_explains(out_dir, text_job):
     assert "no media targets" in call(tools.make, job=text_job)["error"]
 
 
-def test_image_scan_without_engine_still_plans_with_hints(out_dir, tmp_path):
+def test_image_scan_plans_every_image_target(out_dir, tmp_path):
     photo = tmp_path / "photo.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(photo)
     out = call(tools.scan, inputs=[str(photo)], text="Hello", platforms=["instagram", "x"])
     assert out["inputs"][0]["kind"] == "image" and out["inputs"][0]["width"] == 1600
     assert {p["id"] for p in out["plan"]} == {"instagram_feed", "instagram_story", "x_image"}
     assert out["peek"] and Path(out["peek"]).is_file()
-    assert any("image engine" in n for n in out["notes"])
+    assert not any("image engine" in n for n in out["notes"])
 
 
 def test_bad_input_file_is_reported(out_dir, tmp_path):
@@ -123,11 +123,12 @@ def test_bad_input_file_is_reported(out_dir, tmp_path):
     assert "not found" in out["error"]
 
 
-def test_check_reports_dimension_failure_without_engine(out_dir, tmp_path):
+def test_check_reports_dimension_failure(out_dir, tmp_path):
     photo = tmp_path / "p.jpg"
     Image.new("RGB", (1000, 1000), "red").save(photo)
     out = call(tools.check, path=str(photo), target="instagram_feed")
-    assert out["pass"] is False and any(c["id"] == "image.dimensions" for c in out["checks"])
+    failed = {c["id"] for c in out["checks"] if c["status"] == "fail"}
+    assert out["pass"] is False and failed & {"image.width", "image.height"}
     ok = tmp_path / "ok.jpg"
     Image.new("RGB", (1080, 1350), "red").save(ok)
     assert call(tools.check, path=str(ok), target="instagram_feed")["pass"] is True

@@ -1,26 +1,12 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-
-
-def _install_stub(name: str) -> None:
-    path = Path(__file__).parent / "_stubs" / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(f"engine.{name}", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-
-
-_install_stub("checks")
 
 from engine.framing import Box
 from engine.video_make import VideoPlan, export_cover, plan_video, render_video

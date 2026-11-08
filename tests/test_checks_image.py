@@ -1,27 +1,13 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
-
-def _install_stub(name: str) -> Any:
-    path = Path(__file__).parent / "_stubs" / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(f"engine.{name}", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-checks_stub = _install_stub("checks")
-repair_stub = _install_stub("repair")
-
+from engine import checks as checks_mod
+from engine import repair as repair_mod
 from engine.checks_image import (
     check_image,
     register_image_checker,
@@ -49,7 +35,7 @@ class Target:
 
 
 def _result(path: Path, subjects_inside: float = 1.0) -> Any:
-    return checks_stub.RenderResult(
+    return checks_mod.RenderResult(
         target="image",
         file=path,
         width=100,
@@ -109,7 +95,7 @@ def test_size_repair_lowers_jpeg_quality(tmp_path: Path) -> None:
     Image.effect_noise((300, 300), 100).convert("RGB").save(path, quality=92)
     result = _result(path)
     before = path.stat().st_size
-    check = checks_stub.Check(
+    check = checks_mod.Check(
         "image.bytes_max", "image", "fail", True, before, before // 2, "large"
     )
 
@@ -124,7 +110,7 @@ def test_subject_repair_requests_pad(tmp_path: Path) -> None:
     path = tmp_path / "image.jpg"
     Image.new("RGB", (100, 100), "navy").save(path)
     result = _result(path, 0.0)
-    check = checks_stub.Check(
+    check = checks_mod.Check(
         "frame.subjects_inside", "image", "fail", True, 0.0, 1.0, "cut"
     )
     calls: list[dict[str, Any]] = []
@@ -144,5 +130,5 @@ def test_subject_repair_requests_pad(tmp_path: Path) -> None:
 def test_registration_functions_are_callable() -> None:
     assert register_image_checker()
     assert register_image_repairs()
-    assert checks_stub.CHECKERS["image"] is check_image
-    assert repair_stub.REPAIRS["image.bytes_max"] is repair_image_size
+    assert check_image in checks_mod._CHECKERS["image"]
+    assert repair_mod._STRATEGIES["image.bytes_max"] is repair_image_size

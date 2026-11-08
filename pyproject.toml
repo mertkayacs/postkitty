@@ -13,9 +13,5 @@ extend-exclude = ["lane-a.log"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-# Temporary until the media lanes merge: these tests install contract stubs before importing the engine.
-"tests/test_camera.py" = ["E402"]
-"tests/test_checks_video.py" = ["E402"]
-"tests/test_video_make.py" = ["E402"]
+# ASS subtitle headers must stay single lines.
 "engine/captions.py" = ["E501"]
-"engine/checks_video.py" = ["E501"]
