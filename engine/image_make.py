@@ -33,19 +33,71 @@ def _limit(target: Any, key: str, default: Any = None) -> Any:
     return default if spec is None else getattr(spec, "value", spec)
 
 
-def _subjects(info: Any, document: dict) -> list[Box]:
+def _subjects(info: Any, document: dict) -> tuple[list[Box], list[Box]]:
     faces = sorted(
         (face for face in faces_at(document, 0.0) if face.score >= 0.6),
         key=lambda face: face.box.cx,
     )
     if faces:
-        return [subject_box(face.box, info.width, info.height) for face in faces]
+        face_boxes = [face.box for face in faces]
+        return (
+            [subject_box(box, info.width, info.height) for box in face_boxes],
+            face_boxes,
+        )
 
     with Image.open(info.path) as opened:
         image = ImageOps.exif_transpose(opened).convert("RGB")
         bgr = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
     salient = saliency_box(bgr)
-    return [salient] if salient is not None else []
+    return ([salient] if salient is not None else [], [])
+
+
+def _split_window(
+    width: int,
+    height: int,
+    aspect: float,
+    face: Box,
+    other: Box,
+) -> Box:
+    minimum = min(2.4 * face.h, height, width / aspect)
+    maximum = min(4.0 * face.h, height, width / aspect)
+    for step in range(33):
+        crop_height = maximum - (maximum - minimum) * step / 32
+        crop_width = crop_height * aspect
+        low = max(0.0, face.x2 - crop_width)
+        high = min(width - crop_width, face.x)
+        if other.cx < face.cx:
+            low = max(low, other.x2)
+        else:
+            high = min(high, other.x - crop_width)
+        if low > high:
+            continue
+        desired_x = face.cx - crop_width / 2
+        x = min(max(desired_x, low), high)
+        eye_y = face.y + face.h * 0.4
+        desired_y = eye_y - crop_height / 3
+        y_low = max(0.0, face.y2 - crop_height)
+        y_high = min(height - crop_height, face.y)
+        y = min(max(desired_y, y_low), y_high)
+        return Box(x, y, crop_width, crop_height)
+    return fit_crop(width, height, aspect, [face]).box
+
+
+def _split_windows(
+    info: Any, target: Any, face_boxes: list[Box]
+) -> list[Box]:
+    panel_height = max(2, ((target.height - 6) // 2) // 2 * 2)
+    panel_aspect = target.width / panel_height
+    return [
+        _split_window(
+            info.width,
+            info.height,
+            panel_aspect,
+            face,
+            face_boxes[1 - index],
+        )
+        for index, face in enumerate(face_boxes)
+    ]
 
 
 def _focus(
@@ -82,14 +134,19 @@ def plan_image(
     override: dict[str, Any] | None = None,
 ) -> Layout:
     override = override or {}
-    subjects = _subjects(info, faces)
+    subjects, face_boxes = _subjects(info, faces)
     focus = str(override.get("focus", "auto"))
     selected, anchor = _focus(focus, subjects)
     requested = str(override.get("layout", "auto"))
     allow_seam = bool(override.get("seam", True))
 
     if requested == "auto" and focus == "auto":
-        return choose_layout(info.width, info.height, target.aspect, subjects, allow_seam)
+        layout = choose_layout(
+            info.width, info.height, target.aspect, subjects, allow_seam
+        )
+        if layout.mode == "split" and len(face_boxes) == 2:
+            return Layout("split", _split_windows(info, target, face_boxes), layout.note)
+        return layout
     if requested in {"auto", "crop"}:
         fit = fit_crop(info.width, info.height, target.aspect, selected, anchor=anchor)
         cuts = sum(not fit.box.contains(subject) for subject in subjects)
@@ -104,13 +161,11 @@ def plan_image(
             "pad override",
         )
     if requested == "split":
-        if target.aspect >= 1 or len(subjects) != 2:
+        if target.aspect >= 1 or len(face_boxes) != 2:
             raise ValueError("split layout requires exactly two subjects and a vertical target")
-        boxes = [
-            fit_crop(info.width, info.height, target.aspect * 2, [subject]).box
-            for subject in subjects
-        ]
-        return Layout("split", boxes, "split override")
+        return Layout(
+            "split", _split_windows(info, target, face_boxes), "split override"
+        )
     if requested == "seam":
         return Layout("seam", subjects, "seam override")
     raise ValueError(f"unsupported image layout: {requested}")
@@ -172,16 +227,17 @@ def _pad(image: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 def _split(image: Image.Image, boxes: list[Box], size: tuple[int, int]) -> Image.Image:
     gap = 6
-    top_height = (size[1] - gap) // 2
-    bottom_height = size[1] - gap - top_height
+    panel_height = ((size[1] - gap) // 2) // 2 * 2
+    outer_fill = size[1] - gap - panel_height * 2
+    top = outer_fill // 2
     mode = "RGBA" if "A" in image.getbands() else "RGB"
     color = _dominant_color(image)
     fill = (*color, 255) if mode == "RGBA" else color
     result = Image.new(mode, size, fill)
-    result.paste(_crop(image, boxes[0], (size[0], top_height)), (0, 0))
+    result.paste(_crop(image, boxes[0], (size[0], panel_height)), (0, top))
     result.paste(
-        _crop(image, boxes[1], (size[0], bottom_height)),
-        (0, top_height + gap),
+        _crop(image, boxes[1], (size[0], panel_height)),
+        (0, top + panel_height + gap),
     )
     return result
 

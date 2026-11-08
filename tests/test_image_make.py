@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw
 
+from engine import image_make
 from engine.framing import Box, Layout
 from engine.image_make import plan_image, render_image
 
@@ -127,6 +128,43 @@ def test_render_split_has_six_pixel_background_gap(tmp_path: Path) -> None:
         gap_start = (target.height - 6) // 2
         assert rendered.size == (180, 320)
         assert pixels[gap_start : gap_start + 6].std(axis=(0, 1)).max() < 8
+
+
+def test_split_windows_isolate_faces_and_limit_zoom(tmp_path: Path) -> None:
+    source = tmp_path / "podcast.png"
+    faces = [Box(180, 100, 70, 100), Box(550, 100, 70, 100)]
+    _scene(source, faces)
+    info = InputInfo(source, "podcast", 800, 450)
+
+    layout = plan_image(info, _faces(faces), Target("feed", 400, 500))
+
+    assert layout.mode == "split"
+    for index, window in enumerate(layout.boxes):
+        face = faces[index]
+        other = faces[1 - index]
+        eye_y = face.y + face.h * 0.4
+        assert window.contains(face)
+        assert not window.intersect(other).area
+        assert 2.4 <= window.h / face.h <= 4.0
+        assert abs((eye_y - window.y) / window.h - 1 / 3) < 0.05
+
+
+def test_split_panels_have_even_heights(monkeypatch: object) -> None:
+    heights: list[int] = []
+
+    def crop(image: Image.Image, box: Box, size: tuple[int, int]) -> Image.Image:
+        del image, box
+        heights.append(size[1])
+        return Image.new("RGB", size, "red")
+
+    monkeypatch.setattr(image_make, "_crop", crop)
+    image_make._split(
+        Image.new("RGB", (800, 450), "navy"),
+        [Box(0, 0, 400, 450), Box(400, 0, 400, 450)],
+        (180, 320),
+    )
+
+    assert heights and all(height % 2 == 0 for height in heights)
 
 
 def test_render_pad_and_jpeg_quality_ladder(tmp_path: Path) -> None:
