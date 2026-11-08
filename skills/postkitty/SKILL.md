@@ -51,9 +51,9 @@ Work through the five tools in order. Every tool returns JSON; an `error` key me
 | `postkitty_redo` | change one target | `job`, `target`, `layout`, `focus`, `trim`, `cover_at` |
 | `postkitty_check` | check a file that postkitty did not make | `path` + `target` |
 
-Layouts: `crop` follows the subject, `split` stacks two people in a vertical frame, `seam` squeezes the background
-so two people fit, `pad` keeps the whole frame on a blurred fill. Focus: `auto`, `person:N` (1 is the leftmost
-person), `left`, `center`, `right`, `x:0.0-1.0`.
+Layouts: `crop` follows the subject, `split` stacks two people in a vertical frame, `speaker` cuts to whoever is
+talking, `seam` squeezes the background so two people fit, `pad` keeps the whole frame on a blurred fill. Focus:
+`auto`, `person:N` (1 is the leftmost person), `left`, `center`, `right`, `x:0.0-1.0`.
 
 ## Procedure
 
@@ -130,13 +130,15 @@ If the result has no `media_line` or `preview_directive`, skip that line and do 
 
 ### 7. Redo
 
-Offer concrete options: another person as the focus, a split or pad layout, a different trim or cover frame. For the
-copy, offer a shorter or longer version, another tone or hook, other hashtags, or a thread instead of one post.
-Use `postkitty_redo` with `target` and only the keys that change. Person numbers count from 1, left to right, in the
-first frame where they appear. After each redo, read the new status again and show the new `media_line`.
+Offer concrete options: another person as the focus, another layout, a different trim or cover frame. When a target
+uses `split`, tell the user once that two other choices exist: `speaker` cuts to whoever is talking, and `pad` keeps
+the whole wide shot. Use `postkitty_redo` with `target` and only the keys that change. Person numbers count from 1,
+left to right, in the first frame where they appear. After each redo, read the new status again and show the new
+`media_line`.
 
-For a copy change, rewrite only that platform's draft and call `postkitty_copy` again with the same `job`. The other
-drafts stay as they are.
+For the copy, offer a shorter or longer version, another tone or hook, other hashtags, or a thread instead of one
+post. For a copy change, rewrite only that platform's draft and call `postkitty_copy` again with the same `job`. The
+other drafts stay as they are.
 
 ## Pitfalls
 
