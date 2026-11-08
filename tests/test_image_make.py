@@ -290,6 +290,27 @@ def test_transparent_input_exports_png(tmp_path: Path) -> None:
         assert rendered.mode == "RGBA"
 
 
+def test_transparent_input_flattens_to_jpeg_when_png_is_not_allowed(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "alpha.png"
+    image = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    ImageDraw.Draw(image).ellipse((20, 20, 80, 80), fill=(255, 0, 0, 255))
+    image.save(source)
+    info = InputInfo(source, "alpha", 100, 100, has_alpha=True)
+    target = Target("instagram_feed", 80, 100, {"formats": Spec(["jpeg"])})
+
+    result = render_image(
+        info, Layout("crop", [Box(0, 0, 80, 100)], "alpha"), target, tmp_path / "feed.png"
+    )
+
+    assert result.file.suffix == ".jpg"
+    with Image.open(result.file) as rendered:
+        assert rendered.format == "JPEG"
+        assert rendered.getpixel((2, 2)) == (255, 255, 255)
+    assert result.extra["format"] == "jpeg"
+
+
 def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
     source = tmp_path / "rotated.jpg"
     image = Image.new("RGB", (100, 50), "blue")

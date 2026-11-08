@@ -328,13 +328,21 @@ def _render_pixels(
     return result, engine
 
 
+def _flatten(image: Image.Image) -> Image.Image:
+    if "A" not in image.getbands():
+        return image.convert("RGB")
+    flat = Image.new("RGB", image.size, "white")
+    flat.paste(image.convert("RGBA"), mask=image.getchannel("A"))
+    return flat
+
+
 def _save(
     image: Image.Image, out_path: Path, use_png: bool, bytes_max: int | None
 ) -> int | None:
     if use_png:
         image.save(out_path, format="PNG", optimize=True)
         return None
-    image = image.convert("RGB")
+    image = _flatten(image)
     selected = 70
     for quality in (92, 85, 78, 70):
         image.save(out_path, format="JPEG", quality=quality, optimize=True)
@@ -366,10 +374,14 @@ def render_image(
         )
         image = _srgb(oriented)
     rendered, engine = _render_pixels(image, info, layout, target, out_path)
+    formats = {str(value).lower() for value in _limit(target, "formats", ["jpeg", "png"])}
+    use_png = has_alpha and "png" in formats
+    if not use_png and out_path.suffix.lower() == ".png":
+        out_path = out_path.with_suffix(".jpg")
     quality = _save(
         rendered,
         out_path,
-        has_alpha,
+        use_png,
         _limit(target, "bytes_max"),
     )
     with Image.open(out_path) as output:
