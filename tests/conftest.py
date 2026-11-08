@@ -50,7 +50,8 @@ class _BlindDetector:
 
 
 @pytest.fixture(autouse=True)
-def _no_local_face_detector(monkeypatch):
+def _no_local_face_detector(monkeypatch, tmp_path):
+    monkeypatch.setenv("POSTKITTY_FACES_CACHE", str(tmp_path / "shared-faces"))
     if os.environ.get("POSTKITTY_REAL_DETECTOR") == "1":
         return
     import importlib

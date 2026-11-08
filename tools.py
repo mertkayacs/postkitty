@@ -118,6 +118,35 @@ def _rel(job: jobs.Job, path: Path) -> str:
 
 # ------------------------------------------------------------------ media
 
+class _LazyDetector:
+    """Builds the real detector (and fetches its weights) only when a frame actually needs detecting."""
+
+    def __init__(self, factory: Any):
+        self._factory = factory
+        self._real: Any = None
+
+    def _get(self) -> Any:
+        if self._real is None:
+            self._real = self._factory()
+        return self._real
+
+    @property
+    def name(self) -> str:
+        return self._get().name
+
+    def detect(self, image: Any) -> Any:
+        return self._get().detect(image)
+
+
+def _shared_faces_dir(eng: SimpleNamespace) -> Path:
+    """Detections are cached by content hash across jobs, next to the model cache."""
+    override = os.environ.get("POSTKITTY_FACES_CACHE")
+    if override:
+        return Path(override)
+    return importlib.import_module(".engine.models", __package__).model_cache_dir().parent / "faces"
+
+
+
 class _Media:
     """Per-call cache of detections and scans, so a make over many targets scans each input once."""
 
@@ -128,17 +157,26 @@ class _Media:
 
     def detector(self, eng: SimpleNamespace) -> Any:
         if self._detector is None:
-            self._detector = eng.faces.get_detector(self.job.work / "faces")
+            self._detector = _LazyDetector(lambda: eng.faces.get_detector(self.job.work / "faces"))
         return self._detector
 
     def scan(self, info: probe.InputInfo) -> tuple[SimpleNamespace, Any]:
         eng = _engine(info.kind)
         if info.id not in self._scans:
+            job_faces = self.job.work / "faces" / f"{info.sha256}.json"
+            shared = _shared_faces_dir(eng) / f"{info.sha256}.json"
+            if shared.is_file() and not job_faces.is_file():
+                job_faces.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(shared, job_faces)
             if info.kind == "image":
                 self._scans[info.id] = eng.faces.detect_image(info, self.detector(eng), self.job.work / "faces")
             else:
                 self._scans[info.id] = eng.video_scan.scan_video(info, self.detector(eng), self.job.work)
+            if job_faces.is_file() and not shared.is_file():
+                shared.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(job_faces, shared)
         return eng, self._scans[info.id]
+
 
     def plan(self, info: probe.InputInfo, target: platforms.TargetSpec, override: dict | None) -> Any:
         eng, scan = self.scan(info)

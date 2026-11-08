@@ -1,4 +1,6 @@
+import hashlib
 import json
+import os
 import sys
 import types
 from dataclasses import dataclass
@@ -271,3 +273,22 @@ def test_slash_command_text():
     assert "tiktok: 1080x1920 video" in text and "X: text 280 x_weighted" in text
     assert tools.targets_overview("platforms x").count("X:") == 1 and "TikTok" not in tools.targets_overview("x")
     assert tools.targets_overview("zzz") == "No matching platform."
+
+
+def test_scan_reuses_shared_detections_without_building_a_detector(out_dir, tmp_path, monkeypatch):
+    photo = tmp_path / "group.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    sha = hashlib.sha256(photo.read_bytes()).hexdigest()
+    shared = Path(os.environ["POSTKITTY_FACES_CACHE"])
+    shared.mkdir(parents=True, exist_ok=True)
+    face = {"x": 700.0, "y": 300.0, "w": 200.0, "h": 240.0, "score": 0.93, "landmarks": []}
+    doc = {"schema": "postkitty.faces/1", "source_sha256": sha, "detector": "yunet-2023mar", "width": 1600,
+           "height": 1200, "fps": None, "sample_fps": None, "frames": [{"t": 0.0, "faces": [face]}]}
+    (shared / f"{sha}.json").write_text(json.dumps(doc))
+
+    def refuse(cache_dir):
+        raise AssertionError("a shared cache hit must not build a detector")
+
+    monkeypatch.setattr(sys.modules["postkitty.engine.faces"], "get_detector", refuse)
+    out = call(tools.scan, inputs=[str(photo)], platforms=["instagram"])
+    assert out["inputs"][0]["people"] == 1
