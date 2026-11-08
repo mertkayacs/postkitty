@@ -427,13 +427,15 @@ def scan(args: dict) -> dict:
         try:
             if info.kind == "image" and peek is None:
                 peek = _image_peek(job, info)
-            _, found = media.scan(info)
+            eng, found = media.scan(info)
             if info.kind == "video":
                 entry.update(people=len(found.tracks), shots=len(found.scenes))
                 if peek is None:
                     peek = str(_engine("video").video_scan.make_peek(info, found, job.work / "peek.jpg"))
             else:
-                entry["people"] = len(found["frames"][0]["faces"]) if found.get("frames") else 0
+                # The same faces that image_make lets focus person:N select: strong detections only.
+                faces = found["frames"][0]["faces"] if found.get("frames") else []
+                entry["people"] = sum(float(face.get("score", 0.0)) >= eng.faces.SUBJECT_MIN_SCORE for face in faces)
         except Exception as exc:
             notes.append(f"{info.id}: {exc}")
         entries.append(entry)

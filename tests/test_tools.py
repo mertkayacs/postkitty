@@ -281,7 +281,9 @@ def stub_image_engine(monkeypatch):
 
     faces = types.ModuleType("postkitty.engine.faces")
     faces.get_detector = lambda cache_dir: object()
-    faces.detect_image = lambda info, detector, cache_dir: {"frames": [{"t": 0.0, "faces": [{"x": 1}, {"x": 2}]}]}
+    faces.SUBJECT_MIN_SCORE = 0.75
+    faces.detect_image = lambda info, detector, cache_dir: {
+        "frames": [{"t": 0.0, "faces": [{"x": 1, "score": 0.9}, {"x": 2, "score": 0.9}]}]}
 
     image_make = types.ModuleType("postkitty.engine.image_make")
     image_make.plan_image = lambda info, faces_doc, target, override=None: FakeLayout(
@@ -497,6 +499,28 @@ def test_speaker_layout_make_returns_ready(out_dir, speaker_media) -> None:
 
     assert made["targets"][0]["status"] == "ready"
     assert made["targets"][0]["layout"]["mode"] == "speaker"
+
+
+def test_people_count_matches_the_persons_focus_can_select(out_dir, tmp_path):
+    photo = tmp_path / "pair.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    sha = hashlib.sha256(photo.read_bytes()).hexdigest()
+    shared = Path(os.environ["POSTKITTY_FACES_CACHE"])
+    shared.mkdir(parents=True, exist_ok=True)
+    strong = {"x": 300.0, "y": 300.0, "w": 200.0, "h": 240.0, "score": 0.93, "landmarks": []}
+    weak = {"x": 1100.0, "y": 300.0, "w": 200.0, "h": 240.0, "score": 0.5, "landmarks": []}
+    doc = {"schema": "postkitty.faces/1", "source_sha256": sha, "detector": "yunet-2023mar", "width": 1600,
+           "height": 1200, "fps": None, "sample_fps": None, "frames": [{"t": 0.0, "faces": [strong, weak]}]}
+    (shared / f"{sha}.json").write_text(json.dumps(doc))
+
+    scan = call(tools.scan, inputs=[str(photo)], platforms=["x_image"])
+    people = scan["inputs"][0]["people"]
+    last = call(tools.make, job=scan["job"], overrides={"x_image": {"focus": f"person:{people}"}})
+    beyond = call(tools.make, job=scan["job"], overrides={"x_image": {"focus": f"person:{people + 1}"}})
+
+    assert people == 1
+    assert last["targets"][0]["status"] in {"ready", "repaired"}, last
+    assert "not present" in beyond["error"]
 
 
 def test_scan_reuses_shared_detections_without_building_a_detector(out_dir, tmp_path, monkeypatch):
