@@ -187,6 +187,37 @@ def test_checker_measures_a_rotated_phone_clip_at_its_display_size(tmp_path: Pat
     assert checks["video.height"].status == "pass"
 
 
+def test_unpublished_defaults_are_advisory_for_a_user_file(tmp_path: Path) -> None:
+    # A phone clip with Main profile and 44.1 kHz audio checked against a target whose platform
+    # publishes neither rule must not be told it will be rejected.
+    import subprocess
+
+    source = tmp_path / "phone.mp4"
+    subprocess.run(
+        [
+            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "-f", "lavfi", "-i", "testsrc2=s=320x180:r=20:d=1",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
+            "-c:v", "libx264", "-profile:v", "main", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-ar", "44100", "-shortest", str(source),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    result = checks_mod.RenderResult("plain", source, 320, 180, 1.0, source.stat().st_size)
+
+    checks = {check.id: check for check in check_video(result, Target("plain", 320, 180))}
+
+    assert checks["video.profile"].status == "advisory"
+    assert checks["audio.sample_rate"].status == "advisory"
+    assert checks_mod.hard_pass(list(checks.values()))
+
+    strict = Target("strict", 320, 180, {"video_profiles": Spec(["high"]), "audio_sample_rate": Spec(48000)})
+    strict_checks = {check.id: check for check in check_video(result, strict)}
+    assert strict_checks["video.profile"].status == "fail"
+    assert strict_checks["audio.sample_rate"].status == "fail"
+
+
 def test_repairs_are_registered() -> None:
     assert check_video in checks_mod._CHECKERS["video"]
     assert repair_mod._STRATEGIES.keys() >= {

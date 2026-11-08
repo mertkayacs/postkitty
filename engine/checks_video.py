@@ -32,8 +32,10 @@ def _check(
     passed: bool,
     message: str,
     spec: Any | None = None,
+    default_hard: bool = True,
 ) -> Check:
-    hard = _hard(spec)
+    # A rule the platform does not publish is a sane default, so it only advises.
+    hard = _hard(spec, default_hard)
     return Check(
         id=check_id,
         target=target.id,
@@ -152,6 +154,7 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
             video["codec_name"] in codecs,
             "The video codec is allowed." if video["codec_name"] in codecs else "The video codec is not allowed.",
             codec_spec,
+            default_hard=False,
         )
     )
 
@@ -171,6 +174,7 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 else "The H.264 profile is not allowed."
             ),
             profile_spec,
+            default_hard=False,
         )
     )
 
@@ -185,6 +189,7 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
             video.get("pix_fmt") in pixel_formats,
             "The pixel format is allowed." if video.get("pix_fmt") in pixel_formats else "The pixel format is not allowed.",
             pixel_spec,
+            default_hard=False,
         )
     )
 
@@ -276,6 +281,7 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 sample_rate == expected_rate,
                 "The audio sample rate is exact." if sample_rate == expected_rate else "The audio sample rate is not exact.",
                 sample_rate_spec,
+                default_hard=False,
             )
         )
 
