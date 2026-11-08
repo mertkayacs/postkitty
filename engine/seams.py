@@ -149,7 +149,13 @@ def _python_resize(
                 (analysis_width, analysis_height), Image.Resampling.NEAREST
             )
         )
-        analysis_target = max(1, round(width * analysis_width / source_width))
+        analysis_target = max(
+            1,
+            min(
+                analysis_width - 1,
+                round(width * analysis_width / source_width),
+            ),
+        )
         _, seams = _carve(analysis, analysis_target, analysis_mask)
         carved = _mapped_remove(source, seams, analysis_width, width)
     else:

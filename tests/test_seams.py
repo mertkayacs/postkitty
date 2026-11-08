@@ -62,3 +62,17 @@ def test_caire_receives_source_sized_binary_mask_and_fresh_output(
     assert observed["mask_values"] == {0, 255}
     assert observed["temporary"] != output
     assert seams.seam_engine(output) == "caire"
+
+
+def test_large_image_small_reduction_is_exact(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "large.png"
+    output = tmp_path / "reduced.png"
+    Image.new("RGB", (1601, 8), "navy").save(source)
+    monkeypatch.setattr(seams.shutil, "which", lambda name: None)
+
+    seams.seam_resize(source, output, 1600, 8, [])
+
+    with Image.open(output) as image:
+        assert image.size == (1600, 8)

@@ -55,13 +55,13 @@ class Box:
         )
 
     def expand(self, fx: float, fy: float) -> Box:
-        extra_w = self.w * fx
-        extra_h = self.h * fy
+        expanded_w = self.w * fx
+        expanded_h = self.h * fy
         return Box(
-            self.x - extra_w / 2,
-            self.y - extra_h / 2,
-            self.w + extra_w,
-            self.h + extra_h,
+            self.cx - expanded_w / 2,
+            self.cy - expanded_h / 2,
+            expanded_w,
+            expanded_h,
         )
 
     def clamp(self, width: int, height: int) -> Box:
@@ -151,20 +151,26 @@ def fit_crop(
         combined = keep[0]
         for box in keep[1:]:
             combined = combined.union(box)
-        x = _origin(
-            desired_x,
-            crop_width,
-            width,
-            combined.x2 - crop_width,
-            combined.x,
-        )
-        y = _origin(
-            desired_y,
-            crop_height,
-            height,
-            combined.y2 - crop_height,
-            combined.y,
-        )
+        if combined.w <= crop_width:
+            x = _origin(
+                desired_x,
+                crop_width,
+                width,
+                combined.x2 - crop_width,
+                combined.x,
+            )
+        else:
+            x = min(max(0.0, desired_x), width - crop_width)
+        if combined.h <= crop_height:
+            y = _origin(
+                desired_y,
+                crop_height,
+                height,
+                combined.y2 - crop_height,
+                combined.y,
+            )
+        else:
+            y = min(max(0.0, desired_y), height - crop_height)
     else:
         x = min(max(0.0, desired_x), width - crop_width)
         y = min(max(0.0, desired_y), height - crop_height)

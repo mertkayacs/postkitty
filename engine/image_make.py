@@ -246,7 +246,9 @@ def render_image(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(info.path) as opened:
         oriented = ImageOps.exif_transpose(opened)
-        has_alpha = bool(getattr(info, "has_alpha", "A" in oriented.getbands()))
+        has_alpha = bool(
+            getattr(info, "has_alpha", False) or "A" in oriented.getbands()
+        )
         image = _srgb(oriented)
     rendered, engine = _render_pixels(image, info, layout, target, out_path)
     quality = _save(

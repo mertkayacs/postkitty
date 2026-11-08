@@ -75,7 +75,17 @@ def test_box_helpers_and_subject_box() -> None:
     assert subject == Box(0, 0, 58.0, 100.0)
     assert Box(0, 0, 10, 10).intersect(Box(5, 5, 10, 10)) == Box(5, 5, 5, 5)
     assert Box(0, 0, 10, 10).union(Box(5, 5, 10, 10)) == Box(0, 0, 15, 15)
+    assert Box(10, 20, 30, 40).expand(2, 3) == Box(-5, -20, 60, 120)
     assert Box(1.2, 2.8, 3.1, 4.1).to_int() == Box(1, 2, 4, 5)
+
+
+def test_crop_centers_subject_that_is_too_large_to_fit() -> None:
+    subject = Box(100, 100, 800, 800)
+
+    crop = fit_crop(1000, 1000, 0.5, [subject], headroom=False).box
+
+    assert not crop.contains(subject)
+    assert crop.cx == subject.cx
 
 
 def test_layout_selection() -> None:
