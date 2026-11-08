@@ -210,7 +210,9 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 (
                     f"The video {label} meets the {key.removeprefix(label.split()[0] + '_')} limit."
                     if passed
-                    else f"The video {label} exceeds its allowed range."
+                    else f"The video {label} is below its minimum."
+                    if key.endswith("_min")
+                    else f"The video {label} exceeds its maximum."
                 ),
                 spec,
             )

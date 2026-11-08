@@ -134,6 +134,23 @@ def test_video_checker_reports_hard_and_advisory_failures(tmp_path: Path) -> Non
     assert checks["frame.subjects_inside"].status == "fail"
 
 
+def test_minimum_failures_say_the_value_is_too_low(tmp_path: Path) -> None:
+    result, _ = _render(tmp_path)
+    target = Target(
+        "short_video",
+        320,
+        180,
+        {"duration_min": Spec(3), "fps_min": Spec(23), "bytes_min": Spec(75_000_000)},
+    )
+
+    checks = {check.id: check for check in check_video(result, target)}
+
+    for key in ("video.duration_min", "video.fps_min", "video.bytes_min"):
+        assert checks[key].status == "fail"
+        assert "exceeds" not in checks[key].message
+        assert "below" in checks[key].message
+
+
 def test_repairs_are_registered() -> None:
     assert check_video in checks_mod._CHECKERS["video"]
     assert repair_mod._STRATEGIES.keys() >= {
