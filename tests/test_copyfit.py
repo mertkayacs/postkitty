@@ -129,6 +129,16 @@ class TestSplit:
         report = c.fit("linkedin", "word " * 800)
         assert len(report.parts) == 1 and not report.ok and report.overflow > 0
 
+    def test_paragraph_breaks_survive_the_split(self):
+        first = " ".join(["First paragraph sentence."] * 3)
+        second = " ".join(["Second paragraph sentence."] * 3)
+        third = " ".join(["Third paragraph sentence."] * 12)
+        report = c.fit("x", f"{first}\n\n{second}\n{third}")
+        assert report.split and report.ok
+        assert report.parts[0].startswith(f"{first}\n\n{second}\n")
+        assert all(part == part.strip() for part in report.parts)
+        assert all(c.x_weighted_length(part) <= 280 for part in report.parts)
+
     def test_agent_written_thread_is_kept_as_given(self):
         report = c.fit("x", ["first part", "second part"])
         assert report.parts == ["first part", "second part"] and report.ok and not report.split

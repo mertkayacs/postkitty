@@ -273,41 +273,47 @@ def _fits(text: str, rules: TextRules) -> bool:
     return True
 
 
-def _atoms(text: str) -> list[str]:
+def _separator(text: str, position: int) -> str:
+    """The whitespace to keep before the atom starting at ``position``: a space, or the paragraph break."""
+    start = position
+    while start > 0 and text[start - 1].isspace():
+        start -= 1
+    newlines = text[start:position].count("\n")
+    return "\n\n" if newlines >= 2 else "\n" if newlines == 1 else " "
+
+
+def _atoms(text: str) -> list[tuple[str, str]]:
+    """Sentences, lines and URLs, each with the separator that preceded it in the draft."""
     spans = {start: end for start, end in _url_spans(text)}
-    atoms: list[str] = []
-    buf: list[str] = []
+    atoms: list[tuple[str, str]] = []
+    segment_start = 0
     i = 0
+
+    def flush(end: int) -> None:
+        nonlocal segment_start
+        raw = text[segment_start:end]
+        chunk = raw.strip()
+        if chunk:
+            atoms.append((chunk, _separator(text, segment_start + len(raw) - len(raw.lstrip()))))
+        segment_start = end
+
     while i < len(text):
         end = spans.get(i)
         if end is not None:
-            chunk = "".join(buf).strip()
-            if chunk:
-                atoms.append(chunk)
-            buf = []
-            atoms.append(text[i:end])
-            i = end
+            flush(i)
+            atoms.append((text[i:end], _separator(text, i)))
+            i = segment_start = end
             continue
         char = text[i]
-        buf.append(char)
         i += 1
         if char in ".!?\u2026":
             while i < len(text) and text[i] in "\"')]}\u00bb":
-                buf.append(text[i])
                 i += 1
             if i >= len(text) or text[i].isspace():
-                chunk = "".join(buf).strip()
-                if chunk:
-                    atoms.append(chunk)
-                buf = []
+                flush(i)
         elif char == "\n":
-            chunk = "".join(buf).strip()
-            if chunk:
-                atoms.append(chunk)
-            buf = []
-    chunk = "".join(buf).strip()
-    if chunk:
-        atoms.append(chunk)
+            flush(i)
+    flush(len(text))
     return atoms
 
 
@@ -344,11 +350,11 @@ def _split_long_unit(unit: str) -> list[str]:
     return pieces
 
 
-def _pack(units: list[str], fits) -> list[str]:
+def _pack(units: list[tuple[str, str]], fits) -> list[str]:
     parts: list[str] = []
     current = ""
-    for unit in units:
-        candidate = unit if not current else f"{current} {unit}"
+    for unit, separator in units:
+        candidate = unit if not current else f"{current}{separator}{unit}"
         if fits(candidate):
             current = candidate
             continue
