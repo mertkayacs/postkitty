@@ -92,6 +92,9 @@ One draft per platform, in the user's voice and language, plain and specific. Pu
 and Bluesky, give LinkedIn room to explain, keep TikTok and Reels captions short with the hook first. For YouTube
 the draft is the Shorts title.
 
+Clean up the draft as you adapt it: fix spelling, grammar and punctuation, and rewrite clumsy or run-on sentences.
+Keep the user's voice, language and facts.
+
 Alt text goes in `alt_text`, keyed by target id (for example `instagram_feed`) or file name. Describe only what is
 visible in the image or video: who or what, where, what happens, any text on screen. Do not guess identities,
 emotions or context that is not in the frame. Keep it under about 200 characters.
@@ -127,9 +130,13 @@ If the result has no `media_line` or `preview_directive`, skip that line and do 
 
 ### 7. Redo
 
-Offer concrete options: another person as the focus, a split or pad layout, a different trim or cover frame.
+Offer concrete options: another person as the focus, a split or pad layout, a different trim or cover frame. For the
+copy, offer a shorter or longer version, another tone or hook, other hashtags, or a thread instead of one post.
 Use `postkitty_redo` with `target` and only the keys that change. Person numbers count from 1, left to right, in the
 first frame where they appear. After each redo, read the new status again and show the new `media_line`.
+
+For a copy change, rewrite only that platform's draft and call `postkitty_copy` again with the same `job`. The other
+drafts stay as they are.
 
 ## Pitfalls
 
