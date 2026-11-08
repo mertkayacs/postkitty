@@ -1,6 +1,6 @@
 ---
 name: postkitty
-description: Turn one post into checked files for every platform.
+description: Fix a draft and make checked files for every platform.
 version: 0.1.0
 author: Mert Kaya
 license: MIT
