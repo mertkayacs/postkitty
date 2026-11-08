@@ -38,7 +38,7 @@ class InputInfo:
     has_alpha: bool = False
 
 
-def _faces(boxes: list[Box]) -> dict:
+def _faces(boxes: list[Box], score: float = 0.99) -> dict:
     return {
         "schema": "postkitty.faces/1",
         "frames": [
@@ -50,7 +50,7 @@ def _faces(boxes: list[Box]) -> dict:
                         "y": box.y,
                         "w": box.w,
                         "h": box.h,
-                        "score": 0.99,
+                        "score": score,
                         "landmarks": [],
                     }
                     for box in boxes
@@ -92,6 +92,29 @@ def test_plan_uses_saliency_without_faces(tmp_path: Path) -> None:
 
     assert plan.mode == "crop"
     assert plan.boxes[0].cx > 150
+
+
+def test_low_score_detection_uses_saliency_crop(
+    monkeypatch: object, tmp_path: Path
+) -> None:
+    source = tmp_path / "product.png"
+    image = Image.new("RGB", (400, 300), "black")
+    ImageDraw.Draw(image).rectangle((150, 100, 250, 200), fill="white")
+    image.save(source)
+    info = InputInfo(source, "product", 400, 300)
+    false_face = Box(340, 0, 60, 150)
+    monkeypatch.setattr(
+        image_make, "saliency_box", lambda image_bgr: Box(150, 100, 100, 100)
+    )
+
+    plan = plan_image(
+        info,
+        _faces([false_face], score=0.61),
+        Target("x_image", 320, 180),
+    )
+
+    assert plan.mode == "crop"
+    assert abs(plan.boxes[0].cy - 150) < 20
 
 
 def test_render_crop_is_exact_jpeg_and_strips_metadata(tmp_path: Path) -> None:

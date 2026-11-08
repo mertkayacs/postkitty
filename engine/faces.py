@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Protocol
 from .framing import Box
 from .models import get_yunet_model
 
+SUBJECT_MIN_SCORE = 0.75
+
 if TYPE_CHECKING:
     import numpy as np
 

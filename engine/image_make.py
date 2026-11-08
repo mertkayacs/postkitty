@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageCms, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
-from .faces import faces_at, saliency_box
+from .faces import SUBJECT_MIN_SCORE, faces_at, saliency_box
 from .framing import Box, Layout, choose_layout, fit_crop, subject_box
 from .seams import seam_engine, seam_resize
 
@@ -35,7 +35,11 @@ def _limit(target: Any, key: str, default: Any = None) -> Any:
 
 def _subjects(info: Any, document: dict) -> tuple[list[Box], list[Box]]:
     faces = sorted(
-        (face for face in faces_at(document, 0.0) if face.score >= 0.6),
+        (
+            face
+            for face in faces_at(document, 0.0)
+            if face.score >= SUBJECT_MIN_SCORE
+        ),
         key=lambda face: face.box.cx,
     )
     if faces:
@@ -160,6 +164,15 @@ def plan_image(
     allow_seam = bool(override.get("seam", True))
 
     if requested == "auto" and focus == "auto":
+        if subjects and not face_boxes:
+            fit = fit_crop(
+                info.width,
+                info.height,
+                target.aspect,
+                subjects,
+                headroom=False,
+            )
+            return Layout("crop", [fit.box], "saliency-centered crop")
         layout = choose_layout(
             info.width, info.height, target.aspect, subjects, allow_seam
         )
