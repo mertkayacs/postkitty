@@ -140,18 +140,31 @@ def check_image(result: Any, target: Any) -> list[Check]:
         )
 
     subjects_inside = result.subjects_inside
-    subjects_ok = subjects_inside is not None and subjects_inside >= 1.0
-    checks.append(
-        _check(
-            "frame.subjects_inside",
-            target,
-            subjects_inside,
-            1.0,
-            subjects_ok,
-            "Every kept subject is inside the image.",
-            "At least one kept subject is cut.",
+    if subjects_inside is None:
+        # A file postkitty did not frame (postkitty_check on any upload) has no subject plan to compare.
+        checks.append(
+            Check(
+                id="frame.subjects_inside",
+                target=target.id,
+                status="skipped",
+                hard=False,
+                measured=None,
+                expected=1.0,
+                message="Subject framing data is unavailable for this file.",
+            )
         )
-    )
+    else:
+        checks.append(
+            _check(
+                "frame.subjects_inside",
+                target,
+                subjects_inside,
+                1.0,
+                subjects_inside >= 1.0,
+                "Every kept subject is inside the image.",
+                "At least one kept subject is cut.",
+            )
+        )
     stripped = _metadata_stripped(result.file)
     checks.append(
         _check(
