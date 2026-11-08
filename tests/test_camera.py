@@ -57,21 +57,51 @@ def test_static_window_when_subject_motion_fits() -> None:
     assert path.subjects_inside == 1.0
 
 
-def test_moving_window_is_smoothed_and_speed_capped() -> None:
+def test_moving_window_speed_cap_yields_to_containment() -> None:
     track = _track(1, [(index / 5, 20.0 + index * 120) for index in range(10)])
 
     path = build_camera_path(
         InputInfo(), _scan([track], [(0.0, 2.0)]), Target(1080, 1920), (0.0, 2.0)
     )
 
-    deltas = [
-        math.hypot(right.x - left.x, right.y - left.y)
-        for left, right in zip(path.windows, path.windows[1:], strict=False)
-    ]
     speed_cap = path.windows[0].w * 0.2 / InputInfo.fps
     assert path.windows[-1].x > path.windows[0].x
-    assert max(deltas) <= speed_cap + 1e-6
-    assert all(delta >= 0 for delta in deltas)
+    for index, (left, right) in enumerate(
+        zip(path.windows, path.windows[1:], strict=False), start=1
+    ):
+        delta = right.x - left.x
+        assert delta >= 0
+        if delta <= speed_cap + 1e-6:
+            continue
+        t = min(index / InputInfo.fps, track.end)
+        face_x = 20.0 + 600.0 * t
+        required_x = face_x + 80.0 * 1.15 - right.w
+        assert math.isclose(right.x, required_x, abs_tol=1e-6)
+
+
+def test_moving_window_hard_contains_face_margin_without_reversals() -> None:
+    positions = [(index / 5, index * 130.0) for index in range(10)]
+    track = _track(1, positions)
+
+    path = build_camera_path(
+        InputInfo(), _scan([track], [(0.0, 2.0)]), Target(1080, 1920), (0.0, 2.0)
+    )
+
+    assert path.windows[0].x == 0.0
+    for point in track.points:
+        window = path.windows[math.floor(point.t * InputInfo.fps + 1e-9)]
+        margin = point.w * 0.15
+        assert window.x <= max(0.0, point.x - margin)
+        assert window.x + window.w >= min(
+            InputInfo.width, point.x + point.w + margin
+        )
+
+    deltas = [right.x - left.x for left, right in zip(path.windows, path.windows[1:])]
+    directions = [1 if delta > 1e-6 else -1 if delta < -1e-6 else 0 for delta in deltas]
+    for index, direction in enumerate(directions):
+        if not direction:
+            continue
+        assert -direction not in directions[index + 1 : index + 6]
 
 
 def test_camera_hard_resets_at_scene_cut() -> None:

@@ -168,6 +168,17 @@ def _desired_window(
     )
 
 
+def _contain_face(box: Any, point: TrackPoint, width: int, height: int) -> Any:
+    margin = point.w * 0.15
+    left = max(0.0, point.x - margin)
+    top = max(0.0, point.y - margin)
+    right = min(float(width), point.x + point.w + margin)
+    bottom = min(float(height), point.y + point.h + margin)
+    x = min(box.x, left) if left < box.x else max(box.x, right - box.w)
+    y = min(box.y, top) if top < box.y else max(box.y, bottom - box.h)
+    return _clamped_box(x, y, box.w, box.h, width, height)
+
+
 def _static_window(
     track: Track,
     start: float,
@@ -235,24 +246,38 @@ def _moving_windows(
             )
         )
 
-    capped = [smoothed[0]]
+    points = [_interpolate(track, t) for t in times]
+    sample_constraints: dict[int, list[TrackPoint]] = {}
+    for point in track.points:
+        index = math.floor((point.t - times[0]) * fps + 1e-9)
+        if 0 <= index < len(times):
+            sample_constraints.setdefault(index, []).append(point)
+
+    first = _contain_face(desired[0], points[0], width, height)
+    for point in sample_constraints.get(0, []):
+        first = _contain_face(first, point, width, height)
+    capped = [first]
     speed = smoothed[0].w * 0.2 / fps
-    for target in smoothed[1:]:
+    for index, (target, point) in enumerate(
+        zip(smoothed[1:], points[1:], strict=True), start=1
+    ):
         previous = capped[-1]
         dx = target.x - previous.x
         dy = target.y - previous.y
         distance = math.hypot(dx, dy)
         scale = min(1.0, speed / distance) if distance else 1.0
-        capped.append(
-            _clamped_box(
-                previous.x + dx * scale,
-                previous.y + dy * scale,
-                target.w,
-                target.h,
-                width,
-                height,
-            )
+        candidate = _clamped_box(
+            previous.x + dx * scale,
+            previous.y + dy * scale,
+            target.w,
+            target.h,
+            width,
+            height,
         )
+        candidate = _contain_face(candidate, point, width, height)
+        for sample in sample_constraints.get(index, []):
+            candidate = _contain_face(candidate, sample, width, height)
+        capped.append(candidate)
     return capped
 
 
