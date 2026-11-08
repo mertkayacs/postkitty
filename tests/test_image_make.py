@@ -81,6 +81,20 @@ def test_plan_selects_crop_split_and_pad(tmp_path: Path) -> None:
     assert plan_image(info, _faces(five), Target("feed", 400, 500)).mode == "pad"
 
 
+def test_seam_layout_is_explicit_only(tmp_path: Path) -> None:
+    source = tmp_path / "wide.png"
+    faces = [Box(80, 200, 80, 100), Box(1840, 200, 80, 100)]
+    _scene(source, faces, size=(2000, 1000))
+    info = InputInfo(source, "wide", 2000, 1000)
+    target = Target("wide", 1600, 1000)
+
+    automatic = plan_image(info, _faces(faces), target)
+    explicit = plan_image(info, _faces(faces), target, {"layout": "seam"})
+
+    assert automatic.mode == "pad"
+    assert explicit.mode == "seam"
+
+
 def test_plan_uses_saliency_without_faces(tmp_path: Path) -> None:
     source = tmp_path / "salient.png"
     image = Image.new("RGB", (300, 200), "black")

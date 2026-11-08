@@ -161,7 +161,6 @@ def plan_image(
     focus = str(override.get("focus", "auto"))
     selected, anchor = _focus(focus, subjects)
     requested = str(override.get("layout", "auto"))
-    allow_seam = bool(override.get("seam", True))
 
     if requested == "auto" and focus == "auto":
         if subjects and not face_boxes:
@@ -174,7 +173,7 @@ def plan_image(
             )
             return Layout("crop", [fit.box], "saliency-centered crop")
         layout = choose_layout(
-            info.width, info.height, target.aspect, subjects, allow_seam
+            info.width, info.height, target.aspect, subjects, False
         )
         if layout.mode == "split" and len(face_boxes) == 2:
             return Layout("split", _split_windows(info, target, face_boxes), layout.note)

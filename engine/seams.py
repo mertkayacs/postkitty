@@ -136,8 +136,8 @@ def _python_resize(
     if width > source_width:
         raise ValueError("python seam carving cannot enlarge image width")
     mask = _protect_mask((source_width, source_height), protect_boxes)
-    if source_width > 1600:
-        analysis_width = 1600
+    if source_width > 1000:
+        analysis_width = 1000
         analysis_height = max(1, round(source_height * analysis_width / source_width))
         analysis = np.asarray(
             image.convert("RGB").resize(
