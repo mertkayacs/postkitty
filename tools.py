@@ -657,6 +657,9 @@ def check(args: dict) -> dict:
             out[entry["id"]] = _check_file(
                 job.root / entry["file"], entry["id"], entry.get("layout"), _subjects_inside(entry)
             )
+    if not out:
+        return {"job": job.id, "targets": {}, "all_pass": False,
+                "note": "This job has no ready media to check; run postkitty_make first."}
     return {"job": job.id, "targets": out, "all_pass": all(v["pass"] for v in out.values())}
 
 
