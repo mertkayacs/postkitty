@@ -1,0 +1,193 @@
+name: first-run
+
+# What a new user does on a clean machine: install Hermes with the official installer, install the plugin
+# with the README command, run the text, photo and video flows through Hermes' own plugin manager and tool
+# registry, then remove the plugin. Push and manual runs pin the commit under test; the weekly run installs
+# the plugin exactly as a user would.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 5 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - plugin.yaml
+      - __init__.py
+      - tools.py
+      - engine/**
+      - skills/**
+      - data/**
+      - .github/workflows/first-run.yml
+      - .github/scripts/first_run.py
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_HERMES: "0.23.0"
+  MIN_HERMES: "0.22.7"
+  PHOTO: team.jpg
+  CLIP: notld.mp4
+
+jobs:
+  first-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Choose the work folders
+        run: |
+          {
+            echo "LOG_DIR=$RUNNER_TEMP/first-run-logs"
+            echo "FIRST_RUN_LOG_DIR=$RUNNER_TEMP/first-run-logs"
+            echo "MEDIA_DIR=$RUNNER_TEMP/demo-media"
+            echo "POSTKITTY_OUTPUT_DIR=$RUNNER_TEMP/postkitty-jobs"
+          } >> "$GITHUB_ENV"
+
+      - name: Confirm the runner has no ffmpeg yet
+        run: |
+          if command -v ffmpeg || command -v ffprobe; then
+            echo "::error::ubuntu-latest now ships ffmpeg; the no-ffmpeg check below cannot run"
+            exit 1
+          fi
+          echo "ffmpeg and ffprobe are absent, as expected on a clean runner"
+
+      - name: Download the demo media and verify the checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$MEDIA_DIR" "$LOG_DIR"
+          gh release download demo-media -R mertkayacs/postkitty -D "$MEDIA_DIR" -p SHA256SUMS -p "$PHOTO" -p "$CLIP"
+          cd "$MEDIA_DIR"
+          grep -E " ($PHOTO|$CLIP)$" SHA256SUMS | sha256sum -c
+
+      - name: Install Hermes with the official installer
+        run: |
+          curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash 2>&1 | tee "$LOG_DIR/hermes-install.log"
+          test "${PIPESTATUS[1]}" -eq 0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Print and check the Hermes version
+        run: |
+          hermes --version | tee "$LOG_DIR/hermes-version.txt"
+          version=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' "$LOG_DIR/hermes-version.txt" | head -1)
+          test -n "$version"
+          lowest=$(printf '%s\n%s\n' "$MIN_HERMES" "$version" | sort -V | head -1)
+          if [ "$lowest" != "$MIN_HERMES" ]; then
+            echo "::error::Hermes $version is older than the plugin's floor $MIN_HERMES"
+            exit 1
+          fi
+          if [ "$version" != "$EXPECTED_HERMES" ]; then
+            echo "::warning::the installer gave Hermes $version; this workflow was written against $EXPECTED_HERMES"
+          fi
+          command -v hermes
+          echo "hermes launcher:"; cat "$(command -v hermes)"
+
+      - name: Install the plugin with the README command
+        run: |
+          set -o pipefail
+          ref_args=""
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            ref_args="--ref ${{ github.sha }}"
+          fi
+          # --yes-deps answers the Python dependency question up front; without it, and without a terminal,
+          # Hermes skips the dependencies and leaves the plugin disabled.
+          echo "+ hermes plugins install mertkayacs/postkitty --yes-deps --enable $ref_args"
+          hermes plugins install mertkayacs/postkitty --yes-deps --enable $ref_args 2>&1 | tee "$LOG_DIR/plugin-install.log"
+
+      - name: Check that postkitty is installed and enabled
+        run: |
+          hermes plugins list | tee "$LOG_DIR/plugins-list.txt"
+          hermes plugins list --json > "$LOG_DIR/plugins-list.json"
+          python3 - "$LOG_DIR/plugins-list.json" <<'EOF'
+          import json, sys
+          rows = json.load(open(sys.argv[1]))
+          row = next((r for r in rows if r["name"] == "postkitty"), None)
+          print("postkitty row:", row)
+          assert row is not None, "postkitty is not installed"
+          assert row["status"] == "enabled", f"postkitty is not enabled: {row['status']}"
+          EOF
+
+      - name: Find the Python interpreter Hermes runs on
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          # The hermes entry point is a shell script that runs a bootstrap Python, which asks PM for the
+          # committed dependency environment and puts the checkout plus that venv on PYTHONPATH. Do the same.
+          root="$HOME/.hermes/hermes-agent"
+          entry="$root/.hermes/bin/hermes"
+          echo "entry point $entry starts with:"; head -c 300 "$entry"; echo
+          boot=$(grep -oE '^exec [^ ]+' "$entry" | head -1 | awk '{print $2}')
+          echo "bootstrap interpreter: $boot"
+          "$boot" -I -c "
+          import json, sys
+          sys.path.insert(0, '$root')
+          from pathlib import Path
+          from pm.environments import activation_environment, project_python
+          root = Path('$root')
+          env = activation_environment(root)
+          print('HERMES_PYTHON=' + str(project_python(root)))
+          print('PYTHONPATH=' + env['PYTHONPATH'])
+          " | tee -a "$GITHUB_ENV"
+          python=$(grep '^HERMES_PYTHON=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)
+          export PYTHONPATH=$(grep '^PYTHONPATH=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)
+          test -x "$python"
+          "$python" --version
+          "$python" -c "import hermes_cli, tools.registry, cv2; print('hermes_cli at', hermes_cli.__file__); print('cv2', cv2.__version__)"
+
+      - name: Text flow (no ffmpeg needed)
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -o pipefail
+          "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" text 2>&1 | tee "$LOG_DIR/phase-text.log"
+
+      - name: A video without ffmpeg gives a clear install message
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -o pipefail
+          "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" novideo "$MEDIA_DIR/$CLIP" 2>&1 | tee "$LOG_DIR/phase-novideo.log"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg && ffmpeg -version | head -1
+
+      - name: Photo flow
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -o pipefail
+          "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" photo "$MEDIA_DIR/$PHOTO" 2>&1 | tee "$LOG_DIR/phase-photo.log"
+
+      - name: Video flow
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -o pipefail
+          "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" video "$MEDIA_DIR/$CLIP" 2>&1 | tee "$LOG_DIR/phase-video.log"
+
+      - name: Upload the job folders and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: first-run-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/postkitty-jobs
+            !${{ runner.temp }}/postkitty-jobs/*/work
+            ${{ runner.temp }}/first-run-logs
+          if-no-files-found: warn
+
+      - name: Remove the plugin and check it is gone
+        if: always()
+        run: |
+          hermes plugins remove postkitty | tee "$LOG_DIR/plugin-remove.log"
+          hermes plugins list --json > "$LOG_DIR/plugins-list-after.json"
+          python3 - "$LOG_DIR/plugins-list-after.json" <<'EOF'
+          import json, sys
+          rows = json.load(open(sys.argv[1]))
+          assert all(r["name"] != "postkitty" for r in rows), "postkitty is still listed"
+          print("postkitty is no longer listed")
+          EOF
+          test ! -e "$HOME/.hermes/plugins/postkitty"
