@@ -339,6 +339,15 @@ def _inside(box: Any, subject: Any) -> bool:
     )
 
 
+def _rendered_window(box: Any, width: int, height: int) -> Any:
+    Box, _, _ = _geometry()
+    crop_width = min(max(2, round(box.w / 2) * 2), width - width % 2)
+    crop_height = min(max(2, round(box.h / 2) * 2), height - height % 2)
+    x = min(max(0, round(box.x)), width - crop_width)
+    y = min(max(0, round(box.y)), height - crop_height)
+    return Box(float(x), float(y), float(crop_width), float(crop_height))
+
+
 def build_camera_path(
     info: Any,
     scan: VideoScan,
@@ -435,15 +444,19 @@ def build_camera_path(
 
         for index, window in zip(indices, scene_windows, strict=True):
             windows[index] = window
-            for selected_index, track in enumerate(selected):
-                if track is None:
+
+        for selected_index, track in enumerate(selected):
+            if track is None:
+                continue
+            for point in _points_in_scene(track, *scene):
+                index = math.floor((point.t - trim[0]) * fps + 1e-9)
+                if not 0 <= index < len(windows):
                     continue
-                subject_count += 1
-                subject = _subject(
-                    _interpolate(track, times[index]), info.width, info.height
-                )
+                window = windows[index]
                 candidate = window[selected_index] if layout == "split" else window
-                inside_count += int(_inside(candidate, subject))
+                rendered = _rendered_window(candidate, info.width, info.height)
+                subject_count += 1
+                inside_count += int(_inside(rendered, _face_box(point)))
 
     if layout == "split":
         note = "two subjects cannot share one vertical window"

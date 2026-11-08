@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from engine import camera
 from engine.camera import build_camera_path
 from engine.video_scan import Track, TrackPoint, VideoScan
 
@@ -102,6 +103,22 @@ def test_moving_window_hard_contains_face_margin_without_reversals() -> None:
         if not direction:
             continue
         assert -direction not in directions[index + 1 : index + 6]
+
+
+def test_subjects_inside_counts_recorded_face_samples(monkeypatch: object) -> None:
+    Box = sys.modules["engine.framing"].Box
+    track = _track(1, [(0.0, 20.0), (1.0, 1000.0)])
+
+    def fixed_windows(*args: object) -> list[object]:
+        times = args[1]
+        return [Box(0.0, 0.0, 405.0, 720.0)] * len(times)
+
+    monkeypatch.setattr(camera, "_track_windows", fixed_windows)
+    path = build_camera_path(
+        InputInfo(), _scan([track], [(0.0, 2.0)]), Target(1080, 1920), (0.0, 2.0)
+    )
+
+    assert path.subjects_inside == 0.5
 
 
 def test_camera_hard_resets_at_scene_cut() -> None:
