@@ -189,7 +189,10 @@ def test_image_flow_make_redo_check(out_dir, tmp_path, stub_image_engine):
     assert all(row["status"] == "ready" for row in table.values()), table
     assert table["x_image"]["file"] == "ready/x/image.jpg" and table["x_image"]["size"] == "1600x900"
     assert (out_dir / job / "ready/instagram/feed.jpg").is_file()
-    assert "board_note" in made  # the board lane is not merged in this worktree
+    assert "board" in made and "board_inline" in made and "contact" in made
+    assert Path(made["board"]).is_file()
+    assert Path(made["board_inline"]).is_file()
+    assert Path(made["contact"]).is_file()
     manifest = json.loads((out_dir / job / "manifest.json").read_text())
     assert {t["id"] for t in manifest["targets"]} == set(table)
     assert manifest["targets"][0]["checks"] and manifest["targets"][0]["layout"]["mode"] == "crop"

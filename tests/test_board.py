@@ -1,0 +1,196 @@
+"""Tests for the review board lane (engine/board.py).
+
+Builds a fake job with Pillow images, a tiny ffmpeg video and a manifest that
+covers every target status, then checks write_board's outputs.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from pathlib import Path
+
+from PIL import Image
+from postkitty.engine.board import write_board
+
+CAP = 6 * 1024 * 1024
+
+
+def _make_image(path: Path, size: tuple[int, int], color: str) -> None:
+    Image.new("RGB", size, color).save(path, quality=90)
+
+
+def _make_video(path: Path) -> None:
+    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
+    subprocess.run(
+        [ffmpeg, "-y", "-v", "error", "-f", "lavfi", "-i",
+         "color=c=blue:s=160x90:r=10:d=2", "-pix_fmt", "yuv420p",
+         str(path)],
+        check=True, capture_output=True,
+    )
+
+
+def _manifest(job_dir: Path) -> dict:
+    ready = job_dir / "ready"
+    (ready / "instagram").mkdir(parents=True, exist_ok=True)
+    (ready / "x").mkdir(parents=True, exist_ok=True)
+    (ready / "threads").mkdir(parents=True, exist_ok=True)
+    (ready / "bluesky").mkdir(parents=True, exist_ok=True)
+    _make_image(ready / "instagram" / "feed.jpg", (1080, 1350), "orange")
+    _make_image(ready / "instagram" / "reel_cover.jpg", (1080, 1920), "pink")
+    _make_video(ready / "instagram" / "reel.mp4")
+    _make_video(ready / "threads" / "post.mp4")
+    return {
+        "schema": "postkitty.manifest/1",
+        "job": "demo-job",
+        "created": "2026-11-08T12:00:00+00:00",
+        "version": "0.1.0",
+        "inputs": [{"id": "in1", "path": "in.jpg", "kind": "video", "sha256": "abc",
+                    "width": 160, "height": 90, "duration": 10.0, "fps": 10.0,
+                    "has_audio": False}],
+        "advice": {
+            "topic": "Launch <script>alert(1)</script>",
+            "audience": "testers",
+            "tone": "dry",
+            "key_message": "The board escapes everything.",
+            "ranking": [{"platform": "instagram", "reason": "visual first"},
+                        {"platform": "x", "reason": "fast text"}],
+            "tips": ["Keep it short", "Check the fold"],
+        },
+        "copy": {
+            "instagram": {"parts": ["Caption one", "Caption two"],
+                          "counts": [10, 11], "unit": "codepoints", "limit": 2200, "ok": True},
+            "threads": {"parts": ["Thread part one <script>", "Thread part two"],
+                        "counts": [19, 17], "unit": "codepoints", "limit": 500, "ok": True},
+        },
+        "alt_text": {"instagram_reel": "A giraffe eating leaves."},
+        "targets": [
+            {
+                "id": "instagram_feed", "platform": "instagram", "kind": "image",
+                "status": "ready", "input": "in1",
+                "file": "ready/instagram/feed.jpg", "width": 1080, "height": 1350,
+                "layout": {"mode": "crop", "note": ""},
+                "checks": [
+                    {"id": "image.dimensions", "target": "instagram_feed", "status": "pass",
+                     "hard": True, "measured": {"width": 1080, "height": 1350},
+                     "expected": {"width": 1080, "height": 1350},
+                     "message": "The file is 1080x1350; instagram_feed requires 1080x1350.",
+                     "source_url": "https://example.com/spec", "source_scope": "api",
+                     "checked_on": "2026-11-07"},
+                ],
+                "repairs": [],
+            },
+            {
+                "id": "instagram_reel", "platform": "instagram", "kind": "video",
+                "status": "repaired", "input": "in1",
+                "file": "ready/instagram/reel.mp4", "cover": "ready/instagram/reel_cover.jpg",
+                "width": 1080, "height": 1920, "duration": 41.0,
+                "layout": {"mode": "split", "note": "Split: two speakers cannot share 9:16"},
+                "trim": [0.0, 41.0],
+                "checks": [
+                    {"id": "video.duration_max", "target": "instagram_reel", "status": "advisory",
+                     "hard": False, "measured": 41.0, "expected": 60,
+                     "message": "The video is 41.0 s; the maximum is 60 s.",
+                     "source_url": "https://example.com/spec", "source_scope": "official",
+                     "checked_on": "2026-11-07"},
+                ],
+                "repairs": [{"check": "video.bytes_max", "action": "lowered bitrate", "ok": True}],
+                "render_seconds": 12.3,
+            },
+            {
+                "id": "x_video", "platform": "x", "kind": "video", "status": "failed",
+                "input": "in1", "file": None, "width": 1920, "height": 1080, "duration": 150.0,
+                "layout": {"mode": "crop", "note": ""},
+                "checks": [
+                    {"id": "video.duration_max", "target": "x_video", "status": "fail",
+                     "hard": True, "measured": 150.0, "expected": 140,
+                     "message": "The video is 150.0 s; the maximum is 140 s.",
+                     "source_url": "https://help.x.com/en/using-x/x-videos",
+                     "source_scope": "official", "checked_on": "2026-11-07"},
+                ],
+                "repairs": [],
+            },
+            {
+                "id": "threads_video", "platform": "threads", "kind": "video",
+                "status": "ready", "input": "in1",
+                "file": "ready/threads/post.mp4", "width": 1080, "height": 1920, "duration": 30.0,
+                "layout": {"mode": "pad", "note": ""},
+                "checks": [],
+                "repairs": [],
+            },
+            {
+                "id": "bluesky_image", "platform": "bluesky", "kind": "image",
+                "status": "skipped", "input": "in1", "file": None, "width": 1080,
+                "height": 1350, "layout": {"mode": "auto", "note": ""},
+                "checks": [],
+                "repairs": [],
+            },
+        ],
+    }
+
+
+def _ready_files(job_dir: Path) -> list[str]:
+    out = []
+    ready = job_dir / "ready"
+    for path in sorted(ready.rglob("*")):
+        if path.is_file():
+            out.append(path.relative_to(job_dir).as_posix())
+    return out
+
+
+def test_write_board_produces_all_deliverables(tmp_path):
+    job_dir = tmp_path / "job"
+    manifest = _manifest(job_dir)
+    paths = write_board(job_dir, manifest)
+    assert set(paths) == {"board", "board_inline", "contact", "board_inline_size"}
+    for key in ("board", "board_inline", "contact"):
+        assert Path(paths[key]).is_file()
+    assert paths["contact"].endswith("contact.png")
+    assert isinstance(paths["board_inline_size"], int)
+    assert paths["board_inline_size"] > 0
+    assert paths["board_inline_size"] <= CAP
+
+    with Image.open(paths["contact"]) as im:
+        assert im.size[0] == 1600
+
+    html = Path(paths["board"]).read_text(encoding="utf-8")
+    inline_html = Path(paths["board_inline"]).read_text(encoding="utf-8")
+
+    # Injected markup must never appear raw; escaped form must be present.
+    assert "<script>alert" not in html and "<script>alert" not in inline_html
+    assert "&lt;script&gt;" in html and "&lt;script&gt;" in inline_html
+
+    # Every ready/ file is referenced in board.html.
+    for rel in _ready_files(job_dir):
+        assert rel in html, f"{rel} missing from board.html"
+
+    # Hard failures impossible to miss; advisory items present and calm.
+    assert "FAILED" in html
+    assert "advisory" in html.lower()
+
+    # Media, copy, layout note, repairs and actions.
+    assert "ready/instagram/reel.mp4" in html
+    assert "2200" in html and "codepoints" in html
+    assert "Part 1 of 2" in html
+    assert "... more" in html
+    assert 'data-hermes-send=' in html
+    assert "Open file" in html
+    assert "Copy caption" in html
+    assert 'controls muted playsinline loop' in html
+    assert "lowered bitrate" in html
+    assert "Split: two speakers cannot share 9:16" in html
+
+    # Inline board is self-contained: data URIs, no inline video element.
+    assert "data:image/jpeg;base64," in inline_html
+    assert "playsinline" not in inline_html
+    assert "reel.mp4" in inline_html
+
+
+def test_write_board_handles_empty_job(tmp_path):
+    job_dir = tmp_path / "job"
+    manifest = {"schema": "postkitty.manifest/1", "job": "empty",
+                "created": "2026-11-08T12:00:00+00:00", "targets": []}
+    paths = write_board(job_dir, manifest)
+    for key in ("board", "board_inline", "contact"):
+        assert Path(paths[key]).is_file()
+    assert Path(paths["contact"]).stat().st_size > 0
