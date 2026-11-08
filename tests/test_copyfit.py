@@ -155,3 +155,24 @@ class TestFit:
         report = c.fit("instagram", "word " * 100)
         assert report.fold_chars <= report.fold_limit and "word " * 100 != report.fold
         assert report.fold.endswith("word")
+
+
+from hypothesis import given, settings  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
+
+_WORD = st.text(alphabet="abcdefghij klmnop", min_size=1, max_size=12).map(str.strip).filter(bool)
+_URL = st.sampled_from(["https://example.com/a/b?c=1", "https://news.site.org/2026/11/very-long-article-slug-here"])
+_SENTENCE = st.one_of(_WORD.map(lambda w: f"{w}."), st.tuples(_WORD, _URL).map(lambda t: f"{t[0]} {t[1]}."))
+
+
+@settings(max_examples=60, deadline=None)
+@given(st.lists(_SENTENCE, min_size=1, max_size=60))
+def test_split_property_every_part_fits_and_urls_stay_whole(sentences):
+    text = " ".join(sentences)
+    report = c.fit("x", text)
+    assert all(count <= 280 for count in report.counts) or not report.ok
+    if report.ok:
+        for url in ("https://example.com/a/b?c=1", "https://news.site.org/2026/11/very-long-article-slug-here"):
+            assert sum(part.count(url) for part in report.parts) == text.count(url)
+        if report.split:
+            assert all(part.rsplit(" ", 1)[1] == f"{i}/{len(report.parts)}" for i, part in enumerate(report.parts, 1))
