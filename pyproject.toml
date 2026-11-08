@@ -1,0 +1,13 @@
+# Dev tooling only. Runtime dependencies live in plugin.yaml.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not real_detector'"
+markers = ["real_detector: runs the real face detector (CI only, needs POSTKITTY_REAL_DETECTOR=1)"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["lane-a.log"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
