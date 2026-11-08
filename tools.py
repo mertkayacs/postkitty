@@ -534,6 +534,8 @@ def _platform_drafts(drafts: dict) -> tuple[dict[str, Any], dict[str, list[str]]
         if previous and priority != previous[0]:
             target = previous[1] if priority else name
             notes[platform] = [f"Used the {platform} platform draft instead of the {target} target draft."]
+        elif previous and not priority and previous[1] != name:
+            notes[platform] = [f"Used the {name} target draft for {platform}; the {previous[1]} draft was ignored."]
         if previous is None or priority >= previous[0]:
             chosen[platform] = (priority, name, draft)
     return {platform: item[2] for platform, item in chosen.items()}, notes
