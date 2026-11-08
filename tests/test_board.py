@@ -165,25 +165,86 @@ def test_write_board_produces_all_deliverables(tmp_path):
         assert rel in html, f"{rel} missing from board.html"
 
     # Hard failures impossible to miss; advisory items present and calm.
-    assert "FAILED" in html
+    assert 'role="alert"' in html
+    assert "The video is 150.0 s; the maximum is 140 s." in html
     assert "advisory" in html.lower()
+    assert "<details class=\"checks\" open>" in html
 
-    # Media, copy, layout note, repairs and actions.
+    # Media, layout note, repairs and actions.
     assert "ready/instagram/reel.mp4" in html
-    assert "2200" in html and "codepoints" in html
-    assert "Part 1 of 2" in html
-    assert "... more" in html
-    assert 'data-hermes-send=' in html
-    assert "Open file" in html
-    assert "Copy caption" in html
-    assert 'controls muted playsinline loop' in html
-    assert "lowered bitrate" in html
+    assert 'controls muted playsinline preload="metadata"' in html
+    assert "lowered bitrate" in html.lower()
     assert "Split: two speakers cannot share 9:16" in html
+    assert 'data-hermes-send=' in html
+    assert ">Open</a>" in html and "Adjust" in html
+    assert "Focus person" not in html  # the fake input has no people count
 
-    # Inline board is self-contained: data URIs, no inline video element.
+    # Previews are never cropped: exact aspect, object-fit contain.
+    assert "--ar: 1080 / 1350" in html and "--ar: 1080 / 1920" in html
+    css = (Path(__file__).resolve().parent.parent / "engine" / "templates" / "board.css")
+    css_text = css.read_text(encoding="utf-8")
+    assert "object-fit: contain" in css_text and "object-fit: cover" not in css_text
+    assert "aspect-ratio: var(--ar)" in css_text
+
+    # Copy: one card per platform, each caption exactly once.
+    assert html.count(">Caption one") == 1
+    assert html.count("Part 1 of 2") == 2  # instagram and threads, once each
+    assert "Copy text" in html and "Instagram" in html
+    assert "10 of 2200 characters" in html
+    assert 'data-copy-caption' not in html
+
+    # Alt text sits under its card.
+    assert "A giraffe eating leaves." in html
+
+    # Inline board is self-contained: data URIs, no video element.
     assert "data:image/jpeg;base64," in inline_html
-    assert "playsinline" not in inline_html
+    assert "<video" not in inline_html
     assert "reel.mp4" in inline_html
+
+
+def test_check_values_are_human_readable():
+    from postkitty.engine.board import checks_html
+    checks = [
+        {"id": "video.container", "status": "pass", "hard": True,
+         "measured": ["mov", "mp4"], "expected": ["mp4", "mov"], "message": "ok"},
+        {"id": "video.fps_min", "status": "pass", "hard": True, "measured": 24.0,
+         "expected": 23, "message": "m", "source_url": "https://www.postman.com/meta/x",
+         "checked_on": "2026-11-07"},
+        {"id": "video.fps_max", "status": "pass", "hard": True, "measured": 24.0,
+         "expected": 60, "message": "m"},
+        {"id": "video.bytes_max", "status": "pass", "hard": True, "measured": 11763243,
+         "expected": 1000000000, "message": "m"},
+        {"id": "video.bitrate_max", "status": "pass", "hard": True, "measured": 6138492,
+         "expected": 25000000, "message": "m"},
+    ]
+    out = checks_html(checks)
+    assert "4 checks passed" in out
+    assert "measured 24 fps" in out and "limit 23 to 60 fps" in out
+    assert "measured mov, mp4" in out
+    assert "11.8 MB" in out and "6.1 Mbps" in out
+    assert "source (" in out and "Meta" in out and "checked 7 Nov 2026" in out
+    assert "[" not in out.replace("[]", "")
+    assert "<details class=\"checks\" open>" not in out
+
+
+def test_adjust_menu_only_offers_what_applies(tmp_path):
+    job_dir = tmp_path / "job"
+    manifest = _manifest(job_dir)
+    manifest["inputs"][0]["people"] = 2
+    manifest["targets"][1]["layout"] = {"mode": "crop", "note": ""}
+    html = Path(write_board(job_dir, manifest)["board"]).read_text(encoding="utf-8")
+    assert "Focus person 1" in html and "Focus person 2" in html
+    assert "Focus person 3" not in html
+    assert "Split screen" in html  # vertical reel target with two people
+    assert "Trim" in html
+
+
+def test_platform_names_are_cased(tmp_path):
+    from postkitty.engine.board import platform_name
+    assert platform_name("tiktok") == "TikTok"
+    assert platform_name("youtube") == "YouTube"
+    assert platform_name("x") == "X"
+    assert platform_name("linkedin") == "LinkedIn"
 
 
 def test_write_board_handles_empty_job(tmp_path):

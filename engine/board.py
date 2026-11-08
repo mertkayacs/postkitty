@@ -9,9 +9,11 @@ from __future__ import annotations
 import base64
 import html
 import io
-import json
 import mimetypes
 import os
+import re
+from datetime import datetime
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -164,407 +166,81 @@ STATUS_LABELS = {
     "skipped": "Skipped",
 }
 
-CSS = """\
-:root {
-  --pk-foreground: var(--foreground, #1E2A44);
-  --pk-muted-foreground: var(--muted-foreground, #5B6478);
-  --pk-accent: var(--accent, #E8814D);
-  --pk-border: var(--border, #D9CFA9);
-  --pk-card: var(--card, #FFFFFF);
-  --pk-ink: var(--pk-foreground);
-  --pk-muted: var(--pk-muted-foreground);
-  --pk-bg: #F7F1E5;
-  --pk-surface: var(--pk-card);
+PLATFORM_NAMES = {
+    "instagram": "Instagram",
+    "tiktok": "TikTok",
+    "youtube": "YouTube",
+    "x": "X",
+    "linkedin": "LinkedIn",
+    "threads": "Threads",
+    "bluesky": "Bluesky",
+    "facebook": "Facebook",
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pk-bg: #141B2B;
-    --pk-ink: var(--foreground, #F5EFE2);
-    --pk-muted: var(--muted-foreground, #C9CBD6);
-    --pk-border: var(--border, #3B465B);
-    --pk-surface: var(--card, #1E2A44);
-  }
+PLATFORM_COPY_NAMES = {**PLATFORM_NAMES, "youtube": "YouTube Shorts"}
+
+UNIT_NAMES = {
+    "codepoints": "characters",
+    "x_weighted": "weighted characters",
+    "utf16": "UTF-16 units",
+    "graphemes": "characters",
 }
-* { box-sizing: border-box; }
-html { scroll-padding-top: 72px; }
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--pk-bg);
-  color: var(--pk-ink);
-  line-height: 1.5;
-  font-size: 16px;
+
+# Where each platform cuts a post behind a "more" link. Approximate. A
+# manifest copy entry may carry its own "fold" to override these.
+FOLD_AT = {"instagram": 125, "linkedin": 210, "tiktok": 150, "facebook": 480}
+
+SOURCE_NAMES = (
+    ("postman.com/meta", "Meta"),
+    ("github.com/bluesky-social", "Bluesky"),
+    ("help.x.com", "X"),
+    ("developer.x.com", "X"),
+    ("developers.google.com", "Google"),
+    ("support.google.com", "Google"),
+    ("tiktok.com", "TikTok"),
+    ("linkedin.com", "LinkedIn"),
+)
+
+PASS_TEXT = {
+    "video.container": "The container format is supported.",
+    "video.codec": "The video codec is supported.",
+    "video.profile": "The H.264 profile is supported.",
+    "video.pix_fmt": "The pixel format is supported.",
+    "video.width": "The width is exact.",
+    "video.height": "The height is exact.",
+    "video.fps": "The frame rate is within limits.",
+    "video.duration": "The length is within limits.",
+    "video.bytes": "The file size is within limits.",
+    "video.bitrate": "The video bitrate is within the limit.",
+    "audio.sample_rate": "The audio sample rate is exact.",
+    "audio.bitrate": "The audio bitrate is within the limit.",
+    "frame.subjects_inside": "Everyone stays inside the frame.",
+    "image.width": "The width is exact.",
+    "image.height": "The height is exact.",
+    "image.aspect": "The aspect ratio is exact.",
+    "image.format": "The image format is supported.",
+    "image.metadata_stripped": "Image metadata is stripped.",
+    "image.bytes": "The file size is within the limit.",
 }
-h1, h2, h3, h4, .serif {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+
+ICONS = {
+    "ready": '<path d="M2.5 6.5l2.4 2.4 4.6-5.3" fill="none" stroke="currentColor" '
+             'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+    "repaired": '<path d="M7.5 2.2a2.6 2.6 0 0 0-2.4 3.5L2 8.8l1.3 1.3 3.1-3.1a2.6 2.6 0 0 0 '
+                '3.5-2.4l-1.5 1.5-1.2-.3-.3-1.2z" fill="currentColor"/>',
+    "advisory": '<path d="M6 2.2l4.2 7.6H1.8z" fill="none" stroke="currentColor" stroke-width="1.5" '
+                'stroke-linejoin="round"/><path d="M6 5.4v2" stroke="currentColor" stroke-width="1.5" '
+                'stroke-linecap="round"/>',
+    "failed": '<path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" '
+              'stroke-linecap="round"/>',
+    "skipped": '<path d="M2.5 6h7" fill="none" stroke="currentColor" stroke-width="1.8" '
+               'stroke-linecap="round"/>',
 }
-.visually-hidden {
-  position: absolute;
-  width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-}
-.toast {
-  position: fixed;
-  inset-inline-end: 16px;
-  inset-block-end: 16px;
-  background: var(--pk-ink);
-  color: #F7F1E5;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  transform: translatey(10px);
-  z-index: 100;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .toast.show { opacity: 1; transform: translatey(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
-  .toast.show { opacity: 1; transform: none; }
-}
-.header {
-  padding: 28px 24px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.possy-mark { width: 40px; height: 40px; display: block; flex-shrink: 0; }
-.possy-mark svg { width: 40px; height: 40px; display: block; }
-.header .title-group { min-width: 0; }
-.header h1 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  margin: 0 0 4px 0;
-  font-size: 24px;
-  font-weight: normal;
-  letter-spacing: 0.008em;
-  color: var(--pk-ink);
-}
-.header .created {
-  color: var(--pk-muted);
-  font-size: 14px;
-}
-.chips {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--pk-border);
-  border-radius: 999px;
-  background: var(--pk-surface);
-  color: var(--pk-ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-.chip .value { font-variant-numeric: tabular-nums; }
-.section {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-}
-.advice {
-  border: 1px solid var(--pk-border);
-  border-radius: 14px;
-  background: var(--pk-surface);
-  padding: 22px 26px;
-  margin-bottom: 8px;
-}
-.advice h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  margin: 0 0 12px 0;
-  font-size: 20px;
-  font-weight: normal;
-  color: var(--pk-ink);
-}
-.advice p { margin: 0 0 10px 0; color: var(--pk-ink); }
-.advice .field { margin-bottom: 14px; }
-.advice .field .label {
-  display: block;
-  color: var(--pk-muted);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-}
-.advice ul { margin: 0 0 0 16px; padding: 0; color: var(--pk-ink); }
-.advice li { margin-bottom: 6px; }
-.platform-group { margin-bottom: 40px; }
-.platform-group h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  margin: 0 0 14px 0;
-  font-size: 20px;
-  font-weight: normal;
-  color: var(--pk-ink);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--pk-border);
-}
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 20px;
-}
-@media (min-width: 740px) {
-  .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (min-width: 1180px) {
-  .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-.target-card {
-  border: 1px solid var(--pk-border);
-  border-radius: 14px;
-  background: var(--pk-surface);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.target-card .status-strip {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--pk-border);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 700;
-}
-.target-card .hard-banner {
-  background: #FBEDEC;
-  border: 1px solid #E07A5F;
-  color: #7f1d1d;
-  padding: 10px 14px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.target-card .hard-banner .b-icon { flex-shrink: 0; }
-.frame-wrap {
-  position: relative;
-  margin: 14px;
-  isolation: isolate;
-}
-.frame {
-  border: 1px solid var(--pk-border);
-  border-radius: 10px;
-  background: #0B1120;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.frame.phone { aspect-ratio: 9 / 16; width: 100%; }
-.frame.feed { aspect-ratio: 1 / 1; width: 100%; max-height: 260px; }
-.frame .earpiece {
-  position: absolute;
-  inset-block-start: 10px;
-  inset-inline-start: 50%;
-  transform: translatex(-50%);
-  width: 20%; height: 7px;
-  background: #C9CBD6;
-  border-radius: 4px;
-}
-.frame .screen {
-  width: 100%; height: 100%;
-  position: relative;
-  overflow: hidden;
-  background: #0B1120;
-}
-.frame video, .frame img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-  background: #0B1120;
-}
-.frame.feed video, .frame.feed img { object-fit: contain; background: #FFFFFF; }
-.toggle-safe-area {
-  position: absolute;
-  inset-block-start: 10px;
-  inset-inline-end: 10px;
-  z-index: 5;
-  background: rgba(20, 27, 43, 0.75);
-  color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  cursor: pointer;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .safe-area { transition: opacity 0.2s ease; }
-}
-.safe-area {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-}
-.safe-area.show { opacity: 1; }
-.safe-area band {
-  position: absolute;
-  background: rgba(232, 129, 77, 0.35);
-  border: 1px dashed rgba(232, 129, 77, 0.7);
-}
-.safe-area band.top { inset-block-start: 0; inset-inline: 0; height: var(--top); }
-.safe-area band.bottom { inset-block-end: 0; inset-inline: 0; height: var(--bottom); }
-.safe-area band.left { inset-block: var(--top) calc(100% - var(--bottom)); inset-inline-start: 0; width: var(--side); }
-.safe-area band.right { inset-block: var(--top) calc(100% - var(--bottom)); inset-inline-end: 0; width: var(--side); }
-.media-box {
-  margin: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.media-box .alt-text {
-  color: var(--pk-muted);
-  font-size: 13px;
-}
-.copy-box {
-  margin: 14px 14px 8px 14px;
-}
-.part-badge {
-  color: var(--pk-muted);
-  font-size: 12px;
-  margin-bottom: 2px;
-}
-.copy-box p {
-  margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-.fold {
-  color: var(--pk-accent);
-  font-weight: 700;
-  font-size: 12px;
-}
-.count-line {
-  margin: 4px 14px 12px 14px;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.count-line .count { color: var(--pk-ink); font-weight: 700; }
-.count-line .unit { color: var(--pk-muted); font-weight: 600; }
-.count-line .ok { color: #14532d; }
-.count-line .over { color: #7f1d1d; }
-.layout-note {
-  margin: 0 14px 8px 14px;
-  font-size: 13px;
-  color: var(--pk-muted);
-}
-.repairs {
-  margin: 0 14px 8px 14px;
-  font-size: 13px;
-  color: #715711;
-}
-.checks details {
-  margin: 0 14px 14px 14px;
-  border: 1px solid var(--pk-border);
-  border-radius: 10px;
-  background: var(--pk-surface);
-  overflow: hidden;
-}
-.checks summary {
-  padding: 10px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .checks .check-row { transition: background 0.15s ease; }
-}
-.checks .check-row {
-  border-bottom: 1px solid var(--pk-border);
-  padding: 8px 14px;
-  font-size: 12.5px;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.checks .check-row:last-child { border-bottom: none; }
-.checks .badge {
-  flex-shrink: 0;
-  padding: 1px 8px;
-  border-radius: 6px;
-  color: #FFFFFF;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.checks .id { color: var(--pk-muted); min-width: 150px; }
-.checks .measured { color: var(--pk-ink); font-variant-numeric: tabular-nums; }
-.checks .expected { color: var(--pk-muted); }
-.checks .message { margin-left: auto; max-width: 42%; }
-.checks .source {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--pk-muted);
-}
-.checks .source a { color: var(--pk-ink); text-decoration: underline; text-underline-offset: 2px; }
-.actions {
-  margin: 10px 14px 16px 14px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.button, button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 1px solid var(--pk-border);
-  border-radius: 10px;
-  background: var(--pk-surface);
-  color: var(--pk-ink);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  line-height: normal;
-}
-@media (prefers-reduced-motion: no-preference) {
-  button:not([disabled]):hover { transform: translatey(-1px); }
-  button:active { transform: scale(0.97); }
-}
-button:focus-visible {
-  outline: 3px solid #E8814D;
-  outline-offset: 2px;
-}
-.button.primary, button.primary {
-  background: #1E2A44;
-  color: #FFFFFF;
-  border-color: #1E2A44;
-}
-.button.ghost { color: #5B6478; }
-.button.danger { background: #7f1d1d; border-color: #7f1d1d; color: #FFFFFF; }
-.hermes-status {
-  font-size: 12px;
-  color: var(--pk-muted);
-  margin-left: 8px;
-}
-.empty {
-  grid-column: 1 / -1;
-  padding: 40px;
-  color: var(--pk-muted);
-  text-align: center;
-}
-@media (prefers-color-scheme: dark) {
-  .frame.feed video, .frame.feed img { background: #0B1120; }
-  .target-card .hard-banner { background: #3E1E18; border-color: #7f1d1d; color: #F5CFC6; }
-}
-"""
+
+PLAY_SVG = (
+    '<svg class="play" viewBox="0 0 32 32" aria-hidden="true">'
+    '<circle cx="16" cy="16" r="15" fill="#1E2A44" opacity="0.82"/>'
+    '<path d="M12.5 10.5l9 5.5-9 5.5z" fill="#F7F1E5"/></svg>'
+)
 
 HTML_HEAD = """\
 <!DOCTYPE html>
@@ -578,6 +254,13 @@ HTML_HEAD = """\
 <body>
 """
 
+INLINE_CAP = 6 * 1024 * 1024
+TEMPLATES = Path(__file__).resolve().parent / "templates"
+
+
+def load_css() -> str:
+    return (TEMPLATES / "board.css").read_text(encoding="utf-8")
+
 
 def esc(value: Any) -> str:
     return html.escape(str(value), quote=True)
@@ -587,11 +270,202 @@ def esc_attr(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
-def status_badge(status: str) -> str:
-    color = STATUS_COLORS.get(status, "#5B6478")
+def platform_name(platform: str) -> str:
+    return PLATFORM_NAMES.get(platform, str(platform).replace("_", " ").title())
+
+
+def target_label(target: dict) -> str:
+    platform = str(target.get("platform") or "")
+    tid = str(target.get("id") or "")
+    suffix = tid[len(platform) + 1:] if tid.startswith(platform + "_") else ""
+    name = platform_name(platform)
+    if suffix:
+        return f"{name} · {suffix.replace('_', ' ').title()}"
+    return name
+
+
+def format_duration(seconds: Any) -> str:
+    try:
+        total = float(seconds)
+    except (TypeError, ValueError):
+        return ""
+    total = max(0.0, total)
+    minutes = int(total // 60)
+    secs = int(round(total % 60))
+    if minutes:
+        return f"{minutes}:{secs:02d}"
+    return f"{secs} s"
+
+
+def clock(seconds: Any) -> str:
+    """m:ss for durations on the cards and in the check lines."""
+    try:
+        total = int(round(max(0.0, float(seconds))))
+    except (TypeError, ValueError):
+        return ""
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def fmt_num(value: float, places: int = 1) -> str:
+    text = f"{value:.{places}f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def fmt_bytes(value: Any) -> str:
+    n = float(value)
+    if n >= 1e9:
+        return f"{fmt_num(n / 1e9, 2)} GB"
+    if n >= 1e6:
+        return f"{fmt_num(n / 1e6)} MB"
+    if n >= 1e3:
+        return f"{fmt_num(n / 1e3, 0)} KB"
+    return f"{int(n)} B"
+
+
+def fmt_bitrate(value: Any) -> str:
+    n = float(value)
+    if n >= 1e6:
+        return f"{fmt_num(n / 1e6)} Mbps"
+    return f"{fmt_num(n / 1e3, 0)} kbps"
+
+
+def fmt_ratio(value: float) -> str:
+    frac = Fraction(value).limit_denominator(20)
+    if abs(float(frac) - value) < 0.005 and frac.numerator > 0:
+        return f"{frac.numerator}:{frac.denominator}"
+    return fmt_num(value, 2)
+
+
+def check_stem(check_id: str) -> str:
+    for suffix in ("_min", "_max"):
+        if check_id.endswith(suffix):
+            return check_id[: -len(suffix)]
+    return check_id
+
+
+def fmt_value(stem: str, value: Any) -> str:
+    """Human text for one measured or expected value of a check."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(fmt_value(stem, v) for v in value)
+    if isinstance(value, dict):
+        if {"width", "height"} <= set(value):
+            return f"{value['width']} × {value['height']}"
+        return ", ".join(f"{k} {fmt_value(stem, v)}" for k, v in value.items())
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)):
+        if stem.endswith("bytes"):
+            return fmt_bytes(value)
+        if stem.endswith("bitrate"):
+            return fmt_bitrate(value)
+        if stem.endswith("duration"):
+            return clock(value)
+        if stem.endswith("fps"):
+            return f"{fmt_num(float(value))} fps"
+        if stem.endswith((".width", ".height")):
+            return f"{fmt_num(float(value), 0)} px"
+        if stem.endswith("sample_rate"):
+            return f"{fmt_num(float(value) / 1000, 1)} kHz"
+        if stem.endswith("aspect"):
+            return fmt_ratio(float(value))
+        if stem.endswith("subjects_inside"):
+            return f"{fmt_num(float(value) * 100, 0)}%"
+        return fmt_num(float(value), 2)
+    return str(value)
+
+
+def merge_checks(checks: list[dict]) -> list[dict]:
+    """Fold fooX_min and fooX_max into one row with a "low to high" limit."""
+    rows: list[dict] = []
+    by_stem: dict[str, dict] = {}
+    for check in checks:
+        cid = str(check.get("id") or "")
+        stem = check_stem(cid)
+        side = "min" if cid.endswith("_min") else "max" if cid.endswith("_max") else "exact"
+        row = by_stem.get(stem) if side != "exact" else None
+        if row is None:
+            row = {"stem": stem, "ids": [], "status": "pass", "hard": False,
+                   "measured": check.get("measured"), "limits": {}, "message": "",
+                   "bad_messages": [], "source_url": None, "checked_on": None,
+                   "exact": side == "exact", "expected": check.get("expected")}
+            rows.append(row)
+            if side != "exact":
+                by_stem[stem] = row
+        row["ids"].append(cid)
+        if side in ("min", "max"):
+            row["limits"][side] = check.get("expected")
+        status = check.get("status") or "pass"
+        if status == "fail" or (status == "advisory" and row["status"] == "pass"):
+            row["status"] = status
+        if status != "pass" and check.get("message"):
+            row["bad_messages"].append(str(check["message"]))
+        row["hard"] = row["hard"] or bool(check.get("hard"))
+        if check.get("message") and not row["message"]:
+            row["message"] = str(check["message"])
+        if check.get("source_url") and not row["source_url"]:
+            row["source_url"] = check["source_url"]
+            row["checked_on"] = check.get("checked_on")
+    return rows
+
+
+def limit_text(row: dict) -> str:
+    stem = row["stem"]
+    if row["exact"]:
+        expected = row["expected"]
+        if isinstance(expected, (list, tuple)):
+            return "allowed " + fmt_value(stem, expected)
+        if stem.endswith("metadata_stripped"):
+            return ""
+        return "required " + fmt_value(stem, expected)
+    lo, hi = row["limits"].get("min"), row["limits"].get("max")
+    if lo is not None and hi is not None:
+        low, high = fmt_value(stem, lo), fmt_value(stem, hi)
+        if " " in low and low.rsplit(" ", 1)[1] == high.rsplit(" ", 1)[-1]:
+            low = low.rsplit(" ", 1)[0]
+        return f"limit {low} to {high}"
+    if hi is not None:
+        return f"limit up to {fmt_value(stem, hi)}"
+    if lo is not None:
+        return f"limit at least {fmt_value(stem, lo)}"
+    return ""
+
+
+def source_label(url: str) -> str:
+    for needle, name in SOURCE_NAMES:
+        if needle in url:
+            return name
+    host = re.sub(r"^https?://(www\.)?", "", url).split("/")[0]
+    return host or "source"
+
+
+def long_date(value: Any) -> str:
+    text = str(value or "")
+    try:
+        stamp = datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    return f"{stamp.day} {stamp:%b %Y}"
+
+
+def job_stamp(value: Any) -> str:
+    text = str(value or "")
+    try:
+        stamp = datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    return f"{stamp.day} {stamp:%b %Y}, {stamp:%H:%M}"
+
+
+def pill(status: str) -> str:
+    key = status if status in ICONS else "skipped"
     return (
-        f'<span class="badge" style="background:{esc_attr(color)};">'
-        f'{esc(STATUS_LABELS.get(status, status))}</span>'
+        f'<span class="pill {esc_attr(key)}">'
+        f'<svg viewBox="0 0 12 12" aria-hidden="true">{ICONS[key]}</svg>'
+        f'{esc(STATUS_LABELS.get(status, str(status).title()))}</span>'
     )
 
 
@@ -611,56 +485,19 @@ def safe_area_bands(checks: list[dict]) -> str:
             bottom = float(measured["bottom"])
             side = float(measured["side"])
             return (
-                '<div class="safe-area" style="'
+                '<div class="safe" style="'
                 f"--top: {top * 100:.2f}%; --bottom: {bottom * 100:.2f}%; --side: {side * 100:.2f}%;"
-                '">'
-                '<band class="top"></band>'
-                '<band class="bottom"></band>'
-                '<band class="left"></band>'
-                '<band class="right"></band>'
-                "</div>"
+                '"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>'
             )
     return ""
 
 
-def media_html(target: dict, inline: bool, cache: dict, base_dir: Path,
-               max_side: int = 720, quality: int = 80) -> str:
-    kind = target.get("kind")
-    file_rel = target.get("file") or ""
-    cover_rel = target.get("cover")
-    alt = target.get("alt") or ""
-    if kind == "video":
-        mime = mimetypes.guess_type(file_rel)[0] or "video/mp4"
-        file_name = os.path.basename(file_rel)
-        if inline:
-            poster = image_data_uri_capped(base_dir / cover_rel, cache, max_side,
-                                           quality) if cover_rel else ""
-            play = (
-                '<svg class="play-badge" viewBox="0 0 32 32" aria-hidden="true">'
-                '<circle cx="16" cy="16" r="14" fill="#1E2A44" opacity="0.85"/>'
-                '<path d="M11 12.3l8 5.7v-11.4z" fill="#F7F1E5"/>'
-                '</svg>'
-            )
-            return (
-                '<div class="video-media">'
-                + (f'<img src="{esc_attr(poster)}" alt="Poster for {esc_attr(file_name)}" class="poster">' if poster else "")
-                + play
-                + f'<span class="file-name">{esc(file_name)}</span>'
-                + '</div>'
-            )
-        poster_attr = f' poster="{esc_attr(cover_rel)}"' if cover_rel else ""
-        return (
-            '<div class="video-media">'
-            f'<video controls muted playsinline loop preload="metadata"{poster_attr}>'
-            f'<source src="{esc_attr(file_rel)}" type="{esc_attr(mime)}"></video>'
-            f'<span class="file-name">{esc(file_name)}</span>'
-            '</div>'
-        )
-    if kind == "image":
-        src = image_data_uri_capped(base_dir / file_rel, cache, max_side, quality) if inline \
-            else file_rel
-        return f'<img src="{esc_attr(src)}" alt="{esc_attr(alt)}" class="thumb">'
-    return f'<div class="missing-media">{esc(kind or "media")}</div>'
+def ImageOps_exif_transpose(image: Image.Image) -> Image.Image:
+    try:
+        from PIL import ImageOps
+        return ImageOps.exif_transpose(image)
+    except Exception:
+        return image
 
 
 def image_data_uri_capped(path: Any, cache: dict, max_side: int, quality: int) -> str:
@@ -673,8 +510,7 @@ def image_data_uri_capped(path: Any, cache: dict, max_side: int, quality: int) -
     if not full.is_file():
         return ""
     mime, _ = mimetypes.guess_type(str(full))
-    mime = mime or "application/octet-stream"
-    if not mime.startswith("image/"):
+    if not (mime or "").startswith("image/"):
         return ""
     try:
         with Image.open(full) as image:
@@ -683,217 +519,315 @@ def image_data_uri_capped(path: Any, cache: dict, max_side: int, quality: int) -
             image.thumbnail((max_side, max_side), Image.LANCZOS)
             buffer = io.BytesIO()
             image.save(buffer, format="JPEG", quality=quality, optimize=True)
-        data = base64.b64encode(buffer.getvalue()).decode("ascii")
-        result = f"data:image/jpeg;base64,{data}"
+        result = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
     except Exception:
         return ""
     cache[key] = result
     return result
 
 
-def ImageOps_exif_transpose(image: Image.Image) -> Image.Image:
-    try:
-        from PIL import ImageOps
-        return ImageOps.exif_transpose(image)
-    except Exception:
-        return image
-
-
 def copy_info(manifest: dict, platform: str) -> dict:
     return (manifest.get("copy") or {}).get(platform, {}) or {}
 
 
-def format_duration(seconds: Any) -> str:
+class Ctx:
+    """Everything one render pass needs."""
+
+    def __init__(self, job_dir: Path, manifest: dict, inline: bool, cache: dict,
+                 max_side: int = 720, quality: int = 80, drop_dupes: bool = False,
+                 drop_all_posters: bool = False) -> None:
+        self.job_dir = job_dir
+        self.manifest = manifest
+        self.inline = inline
+        self.cache = cache
+        self.max_side = max_side
+        self.quality = quality
+        self.drop_dupes = drop_dupes
+        self.drop_all_posters = drop_all_posters
+        self.seen_posters: set[str] = set()
+        self.inputs = {str(i.get("id")): i for i in manifest.get("inputs") or []
+                       if isinstance(i, dict)}
+        self.alt_texts = manifest.get("alt_text") or {}
+        self.job_id = str(manifest.get("job") or "job")
+
+
+def target_dims(target: dict) -> tuple[int, int]:
     try:
-        total = float(seconds)
+        width, height = int(target.get("width") or 0), int(target.get("height") or 0)
     except (TypeError, ValueError):
-        return ""
-    total = max(0.0, total)
-    minutes = int(total // 60)
-    secs = int(round(total % 60))
-    if minutes:
-        return f"{minutes}:{secs:02d}"
-    return f"{secs} s"
+        width = height = 0
+    return (width, height) if width > 0 and height > 0 else (16, 9)
 
 
-def build_target_card(target: dict, manifest: dict, alt_texts: dict, inline: bool,
-                      cache: dict, job_id: str, base_dir: Path, max_side: int = 720,
-                      quality: int = 80) -> str:
-    status = target.get("status", "unknown")
-    checks = target.get("checks") or []
-    repairs = target.get("repairs") or []
-    hard_fails = [c for c in checks if c.get("hard") and c.get("status") == "fail"]
-
-    hard_html = ""
-    if hard_fails:
-        messages = " ".join(esc(c.get("message", "")) for c in hard_fails)
-        hard_html = (
-            '<div class="hard-banner">'
-            '<span class="b-icon" aria-hidden="true">!</span>'
-            f'<span>{esc(STATUS_LABELS["failed"].upper())}: {messages}</span>'
-            '</div>'
-        )
-
-    frame_class = target_frame_class(target)
-    bands = safe_area_bands(checks)
-    toggle = (
-        '<button type="button" class="toggle-safe-area" data-toggle-safe-area>'
-        'Show safe area</button>' if bands else ""
-    )
-    ear = '<div class="earpiece"></div>' if frame_class == "phone" else ""
+def media_html(target: dict, ctx: Ctx, alt: str, overlay: str = "") -> str:
+    """One media frame with the target's exact aspect; previews are never cropped."""
+    width, height = target_dims(target)
+    kind = target.get("kind")
     file_rel = target.get("file") or ""
-    alt = alt_texts.get(target.get("id")) or alt_texts.get(os.path.basename(file_rel)) or ""
-    target = {**target, "alt": alt}
-    media = media_html(target, inline, cache, base_dir, max_side, quality)
-
-    platform = target.get("platform", "")
-    copy = copy_info(manifest, platform)
-    parts = copy.get("parts") or []
-    counts = copy.get("counts") or []
-    unit = copy.get("unit") or ""
-    limit = copy.get("limit")
-    copy_ok = copy.get("ok")
-
-    copy_html = ""
-    if parts:
-        rendered_parts = []
-        for index, part in enumerate(parts):
-            suffix = f' <span class="part-badge">Part {index + 1} of {len(parts)}</span>' if len(parts) > 1 else ""
-            rendered_parts.append(f'<p>{esc(part)}</p>{suffix}')
-            if index < len(parts) - 1:
-                rendered_parts.append('<span class="fold">... more</span>')
-        copy_html = '<div class="copy-box">' + "".join(rendered_parts) + "</div>"
-        count_text = ""
-        if limit is not None:
-            measured = max(counts) if counts else 0
-            count_text = (
-                f'<span class="count">{esc(measured)}</span> / '
-                f'<span class="limit">{esc(limit)}</span> '
-                f'<span class="unit">{esc(unit)}</span>'
-                f' <span class="{"ok" if copy_ok else "over"}">'
-                f'{"within limit" if copy_ok else "over limit"}</span>'
-            )
-        copy_html += f'<div class="count-line">{count_text}</div>'
-
-    layout = target.get("layout") or {}
-    note = layout.get("note") or ""
-    layout_html = f'<div class="layout-note">{esc(note)}</div>' if note else ""
-
-    repairs_html = ""
-    if repairs:
-        items = []
-        for repair in repairs:
-            action = esc(repair.get("action", ""))
-            check = esc(repair.get("check", ""))
-            ok = repair.get("ok")
-            items.append(
-                f'{action}{(" fixed " + esc(check)) if check else ""}'
-                + ("." if ok else " (not resolved).")
-            )
-        repairs_html = (
-            '<div class="repairs">Repairs: ' + " ".join(items) + "</div>"
+    cover_rel = target.get("cover")
+    style = f"--ar: {width} / {height}; --ar-n: {width / height:.5f}"
+    label = target_label(target)
+    if kind == "video" and file_rel:
+        if ctx.inline:
+            poster = ""
+            dupe = cover_rel in ctx.seen_posters
+            if cover_rel and not ctx.drop_all_posters and not (ctx.drop_dupes and dupe):
+                poster = image_data_uri_capped(ctx.job_dir / cover_rel, ctx.cache,
+                                               ctx.max_side, ctx.quality)
+            if cover_rel:
+                ctx.seen_posters.add(cover_rel)
+            img = (f'<img src="{esc_attr(poster)}" width="{width}" height="{height}" '
+                   f'alt="Poster frame, {esc_attr(label)}">' if poster else "")
+            return f'<div class="frame video" style="{style}">{img}{PLAY_SVG}{overlay}</div>'
+        mime = mimetypes.guess_type(file_rel)[0] or "video/mp4"
+        poster_attr = f' poster="{esc_attr(cover_rel)}"' if cover_rel else ""
+        return (
+            f'<div class="frame video" style="{style}">'
+            f'<video controls muted playsinline preload="metadata"{poster_attr} '
+            f'aria-label="{esc_attr(label)} video">'
+            f'<source src="{esc_attr(file_rel)}" type="{esc_attr(mime)}"></video>{overlay}</div>'
         )
-
-    checks_items = []
-    for check in checks:
-        measured = check.get("measured")
-        expected = check.get("expected")
-        measured_s = json.dumps(measured) if not isinstance(measured, str) else measured
-        expected_s = json.dumps(expected) if not isinstance(expected, str) else expected
-        source = ""
-        source_url = check.get("source_url")
-        checked_on = check.get("checked_on")
-        if source_url:
-            date_part = f" (checked {esc(checked_on)})" if checked_on else ""
-            source = (
-                '<span class="source">'
-                f'<a href="{esc_attr(source_url)}">source</a>{esc(date_part)}'
-                "</span>"
-            )
-        checks_items.append(
-            '<div class="check-row">'
-            f'{status_badge(check.get("status", ""))}'
-            f'<span class="id">{esc(check.get("id", ""))}</span>'
-            f'<span class="measured">{esc(measured_s)}</span>'
-            f'<span class="expected">of {esc(expected_s)}</span>'
-            f'<span class="message">{esc(check.get("message", ""))}</span>'
-            f'{source}'
-            "</div>"
+    if kind == "image" and file_rel:
+        src = (image_data_uri_capped(ctx.job_dir / file_rel, ctx.cache, ctx.max_side,
+                                     ctx.quality) if ctx.inline else file_rel)
+        return (
+            f'<div class="frame image" style="{style}">'
+            f'<img src="{esc_attr(src)}" width="{width}" height="{height}" '
+            f'alt="{esc_attr(alt or "Preview, " + label)}" loading="lazy">{overlay}</div>'
         )
-    checks_html = ""
-    if checks:
-        summary_badge = status_badge(status)
-        checks_html = (
-            '<div class="checks">'
-            f'<summary>{esc(STATUS_LABELS.get(status, status))} '
-            f'<span class="check-count">({len(checks)})</span>{summary_badge}</summary>'
-            + "".join(checks_items)
-            + "</div>"
-        )
+    return f'<div class="frame" style="{style}">{overlay}</div>'
 
-    redo_prompts = {
-        "Focus left person": f"Use postkitty_redo on job {esc(job_id)} target {esc(target.get('id',''))} with focus left",
-        "Focus right person": f"Use postkitty_redo on job {esc(job_id)} target {esc(target.get('id',''))} with focus right",
-        "Split": f"Use postkitty_redo on job {esc(job_id)} target {esc(target.get('id',''))} with layout split",
-        "Fit whole frame": f"Use postkitty_redo on job {esc(job_id)} target {esc(target.get('id',''))} with layout pad",
-    }
+
+def file_size(target: dict, ctx: Ctx) -> int | None:
+    rel = target.get("file")
+    if rel:
+        try:
+            return (ctx.job_dir / rel).stat().st_size
+        except OSError:
+            pass
+    for check in target.get("checks") or []:
+        if str(check.get("id", "")).endswith("bytes_max") and isinstance(
+                check.get("measured"), (int, float)):
+            return int(check["measured"])
+    return None
+
+
+def spec_line(target: dict, ctx: Ctx) -> str:
+    bits = []
+    if target.get("width") and target.get("height"):
+        bits.append(f"{target['width']} × {target['height']}")
+    if target.get("kind") == "video" and target.get("duration"):
+        bits.append(clock(target["duration"]))
+    size = file_size(target, ctx)
+    if size:
+        bits.append(fmt_bytes(size))
+    return " · ".join(bits)
+
+
+def effective_status(target: dict) -> str:
+    status = str(target.get("status") or "unknown")
+    checks = target.get("checks") or []
+    if any(c.get("hard") and c.get("status") == "fail" for c in checks):
+        return "failed"
+    if status == "ready" and any(c.get("status") == "advisory" for c in checks):
+        return "advisory"
+    return status
+
+
+def check_row_html(row: dict) -> str:
+    stem = row["stem"]
+    text = (" ".join(row["bad_messages"]) if row["status"] != "pass"
+            else PASS_TEXT.get(stem) or row["message"])
+    mono = []
+    measured = row["measured"]
+    if measured is not None and not isinstance(measured, bool):
+        mono.append(esc("measured " + fmt_value(stem, measured)))
+    limit = limit_text(row)
+    if limit:
+        mono.append(esc(limit))
+    if row["source_url"]:
+        when = f", checked {long_date(row['checked_on'])}" if row["checked_on"] else ""
+        mono.append(
+            f'source (<a href="{esc_attr(row["source_url"])}" rel="noopener">'
+            f'{esc(source_label(str(row["source_url"])))}</a>{esc(when)})'
+        )
+    mono_html = f'<div class="mono">{" · ".join(mono)}</div>' if mono else ""
+    return (
+        f'<li title="{esc_attr(", ".join(row["ids"]))}">'
+        f'<span class="dot {esc_attr(row["status"])}"></span>'
+        f'<div><div class="msg">{esc(text)}</div>{mono_html}</div></li>'
+    )
+
+
+def checks_html(checks: list[dict]) -> str:
+    rows = merge_checks(checks)
+    if not rows:
+        return ""
+    bad = [r for r in rows if r["status"] != "pass"]
+    hard_fail = any(r["hard"] and r["status"] == "fail" for r in rows)
+    if bad:
+        head = f"{len(bad)} need attention" if len(bad) > 1 else "1 needs attention"
+        if len(rows) > len(bad):
+            head += f", {len(rows) - len(bad)} passed"
+    else:
+        head = f"{len(rows)} checks passed" if len(rows) > 1 else "1 check passed"
+    attn = ' class="attn"' if bad else ""
+    return (
+        f'<details class="checks"{" open" if hard_fail else ""}>'
+        f'<summary{attn}>{esc(head)}</summary>'
+        f'<ul class="check-list">{"".join(check_row_html(r) for r in rows)}</ul></details>'
+    )
+
+
+def redo_prompt(ctx: Ctx, target: dict, what: str) -> str:
+    return f"Use postkitty_redo on job {ctx.job_id} target {target.get('id', '')} with {what}"
+
+
+def adjust_html(target: dict, ctx: Ctx) -> str:
+    width, height = target_dims(target)
+    mode = (target.get("layout") or {}).get("mode")
+    people = int((ctx.inputs.get(str(target.get("input"))) or {}).get("people") or 0)
+    options: list[tuple[str, str]] = []
+    if people > 1:
+        for n in range(1, min(people, 8) + 1):
+            options.append((f"Focus person {n}", f"focus person:{n}"))
+    if people == 2 and height > width and mode != "split":
+        options.append(("Split screen", "layout split"))
+    if mode != "pad":
+        options.append(("Fit whole frame", "layout pad"))
     trim = target.get("trim")
-    if trim and len(trim) == 2:
-        redo_prompts["Trim"] = (
-            f"Use postkitty_redo on job {esc(job_id)} target {esc(target.get('id',''))} "
-            f"with trim {float(trim[0])}, {float(trim[1])}"
-        )
+    if target.get("kind") == "video" and isinstance(trim, (list, tuple)) and len(trim) == 2:
+        options.append(("Trim", f"trim {float(trim[0])}, {float(trim[1])}"))
+    if not options:
+        return ""
+    buttons = "".join(
+        f'<button type="button" class="btn tiny" '
+        f'data-hermes-send="{esc_attr(redo_prompt(ctx, target, what))}">{esc(label)}</button>'
+        for label, what in options
+    )
+    return (f'<details class="adjust"><summary>Adjust</summary>'
+            f'<div class="adjust-menu">{buttons}</div></details>')
 
-    action_buttons = []
-    caption = ""
-    if parts:
-        caption = "\n\n".join(str(p) for p in parts)
+
+LAYOUT_NAMES = {"split": "Split screen", "pad": "Whole frame", "crop": "Cropped",
+                "seam": "Seam squeeze"}
+
+
+def layout_note(layout: dict) -> str:
+    note = str(layout.get("note") or "").strip()
+    name = LAYOUT_NAMES.get(str(layout.get("mode") or ""), "")
+    if not note:
+        return ""
+    if name and not note.lower().startswith(name.lower().split()[0]):
+        text = f"{name}: {note}"
+    else:
+        text = note
+    return text if text.endswith(".") else text + "."
+
+
+def repairs_html(repairs: list[dict]) -> str:
+    if not repairs:
+        return ""
+    lines = []
+    for repair in repairs:
+        action = str(repair.get("action", "")).strip()
+        check = str(repair.get("check", "")).strip()
+        text = action[:1].upper() + action[1:] if action else "Repaired"
+        if check:
+            text += f" ({check})"
+        text += "." if repair.get("ok") else ", not resolved."
+        lines.append(f"<li>{esc(text)}</li>")
+    return f'<ul class="repairs">{"".join(lines)}</ul>'
+
+
+def build_card(target: dict, ctx: Ctx) -> str:
+    checks = target.get("checks") or []
+    status = effective_status(target)
+    file_rel = target.get("file") or ""
+    alt = (ctx.alt_texts.get(target.get("id"))
+           or ctx.alt_texts.get(os.path.basename(file_rel)) or "")
+
+    hard = [c for c in checks if c.get("hard") and c.get("status") == "fail"]
+    banner = ""
+    if hard:
+        banner = ('<div class="banner" role="alert">'
+                  + esc(" ".join(str(c.get("message", "")) for c in hard)) + "</div>")
+
+    bands = safe_area_bands(checks)
+    toggle = ('<button type="button" class="btn tiny safe-toggle" data-toggle-safe-area>'
+              'Show safe area</button>' if bands else "")
+    note = layout_note(target.get("layout") or {})
+    note_html = f'<p class="note">{esc(note)}</p>' if note else ""
+    alt_html = f'<p class="alt"><b>Alt text</b> {esc(alt)}</p>' if alt else ""
+    actions = []
     if file_rel:
-        action_buttons.append(
-            f'<a class="button" href="{esc_attr(file_rel)}">Open file</a>'
-        )
-    if caption:
-        action_buttons.append(
-            f'<button type="button" class="button ghost" data-copy-caption="{esc_attr(caption)}">'
-            'Copy caption</button>'
-        )
-    for label, prompt in redo_prompts.items():
-        action_buttons.append(
-            f'<button type="button" class="button" data-hermes-send="{esc_attr(prompt)}">{esc(label)}</button>'
-        )
-    action_buttons.append(
-        '<span class="hermes-status"></span>'
-    )
+        actions.append(f'<a class="btn" href="{esc_attr(file_rel)}">Open</a>')
+    actions.append(adjust_html(target, ctx))
+    actions.append('<span class="hermes-status" role="status"></span>')
 
     return (
-        '<article class="target-card">'
-        f'<div class="status-strip">{esc(target.get("id",""))} {status_badge(status)}</div>'
-        f'{hard_html}'
-        f'<div class="frame-wrap">{toggle}'
-        f'<div class="frame {frame_class}">{ear}'
-        f'<div class="screen">{bands}{media}</div>'
-        '</div></div>'
-        f'{copy_html}{layout_html}{repairs_html}{checks_html}'
-        f'<div class="actions">{"".join(action_buttons)}</div>'
-        '</article>'
+        '<article class="card">'
+        f'<div class="plabel">{esc(target_label(target))}</div>'
+        '<div class="body">'
+        f'<div class="stage">{toggle}{media_html(target, ctx, alt, bands)}</div>'
+        '<div class="info">'
+        f'{banner}'
+        f'<div class="specs"><span class="dims">{esc(spec_line(target, ctx))}</span>{pill(status)}</div>'
+        f'{note_html}{repairs_html(target.get("repairs") or [])}{alt_html}{checks_html(checks)}'
+        f'<div class="actions">{"".join(actions)}</div>'
+        '</div></div></article>'
     )
 
 
-def build_header(job_name: str, created: str, chips: list[tuple[str, int]]) -> str:
-    items = []
-    for label, count in chips:
-        items.append(
-            f'<span class="chip">{esc(label)} <span class="value">{count}</span></span>'
-        )
+def status_tally(targets: list[dict]) -> dict[str, int]:
+    tally = {"ready": 0, "repaired": 0, "advisory": 0, "failed": 0}
+    for target in targets:
+        status = effective_status(target)
+        if status in tally:
+            tally[status] += 1
+    return tally
+
+
+def board_title(manifest: dict) -> str:
+    advice = manifest.get("advice") or {}
+    topic = str(advice.get("topic") or "").strip()
+    if topic:
+        return topic
+    names = []
+    for item in manifest.get("inputs") or []:
+        name = os.path.basename(str(item.get("path") or "")) if isinstance(item, dict) else ""
+        if name:
+            names.append(name)
+    return " + ".join(names) or str(manifest.get("job") or "Review board")
+
+
+def build_header(ctx: Ctx) -> str:
+    manifest = ctx.manifest
+    targets = manifest.get("targets") or []
+    tally = status_tally(targets)
+    files = sum(1 for t in targets if t.get("file"))
+    meta = [job_stamp(manifest.get("created")), f"{files} file{'s' if files != 1 else ''}",
+            f"job {manifest.get('job', '')}"]
+    meta_text = " · ".join(m for m in meta if m.strip())
+    chips = []
+    for key, label in (("ready", "ready"), ("repaired", "repaired"),
+                       ("advisory", "advisory"), ("failed", "failed")):
+        count = tally[key]
+        cls = "zero" if count == 0 else "bad" if key == "failed" else "ok" if key == "ready" else ""
+        chips.append(f'<div class="chip {cls}"><span class="num">{count}</span>'
+                     f'<span class="lbl">{label}</span></div>')
+    path = str(ctx.job_dir.resolve())
     return (
-        '<header class="header">'
+        '<header class="header"><div class="wrap">'
         f'<div class="possy-mark">{POSSY_SVG}</div>'
         '<div class="title-group">'
-        f'<h1>{esc(job_name)}</h1>'
-        f'<div class="created">{esc(created)}</div>'
+        f'<h1>{esc(board_title(manifest))}</h1>'
+        f'<p class="meta">{esc(meta_text)}</p>'
+        f'<div class="path-chip"><code>{esc(path)}</code>'
+        f'<button type="button" class="btn tiny" data-copy-text="{esc_attr(path)}">Copy</button></div>'
         '</div>'
-        f'<div class="chips">{"".join(items)}</div>'
-        '</header>'
+        f'<div class="chips" role="group" aria-label="Summary">{"".join(chips)}</div>'
+        '</div></header>'
     )
 
 
@@ -901,165 +835,233 @@ def build_advice(manifest: dict) -> str:
     advice = manifest.get("advice") or {}
     if not advice:
         return ""
-    parts = ['<section class="advice">']
-    topic = advice.get("topic")
-    audience = advice.get("audience")
-    tone = advice.get("tone")
-    key_message = advice.get("key_message")
+    topic = str(advice.get("topic") or "").strip()
+    facts = []
+    for key, label in (("audience", "Audience"), ("tone", "Tone")):
+        if advice.get(key):
+            facts.append(f"<dt>{label}</dt><dd>{esc(advice[key])}</dd>")
+    about = ['<div class="about"><h3 class="eyebrow">About this post</h3>']
     if topic:
-        parts.append('<div class="field"><span class="label">Topic</span>'
-                     f'<p>{esc(topic)}</p></div>')
-    if audience:
-        parts.append('<div class="field"><span class="label">Audience</span>'
-                     f'<p>{esc(audience)}</p></div>')
-    if tone:
-        parts.append('<div class="field"><span class="label">Tone</span>'
-                     f'<p>{esc(tone)}</p></div>')
-    if key_message:
-        parts.append('<div class="field"><span class="label">Key message</span>'
-                     f'<p>{esc(key_message)}</p></div>')
-    ranking = advice.get("ranking") or []
-    if isinstance(ranking, list) and ranking:
-        parts.append('<div class="field"><span class="label">Platform ranking</span>'
-                     '<ol>')
-        for item in ranking:
-            if not isinstance(item, dict):
-                continue
-            platform = str(item.get("platform") or "")
-            reason = str(item.get("reason") or "")
-            parts.append(
-                f'<li><strong>{esc(platform)}</strong> {esc(reason) if reason else ""}</li>'
-            )
-        parts.append('</ol></div>')
-    tips = advice.get("tips") or []
-    if isinstance(tips, list) and tips:
-        parts.append('<div class="field"><span class="label">Tips</span><ul>')
-        for tip in tips:
-            if str(tip).strip():
-                parts.append(f'<li>{esc(str(tip))}</li>')
-        parts.append('</ul></div>')
-    parts.append("</section>")
-    return "".join(parts)
+        about.append(f'<p class="topic">{esc(topic)}</p>')
+    if facts:
+        about.append(f'<dl class="facts">{"".join(facts)}</dl>')
+    if advice.get("key_message"):
+        about.append(f'<blockquote class="quote">{esc(advice["key_message"])}</blockquote>')
+    about.append("</div>")
+
+    ranking = [r for r in advice.get("ranking") or [] if isinstance(r, dict)]
+    where = ""
+    if ranking:
+        items = "".join(
+            f'<li><div><strong>{esc(platform_name(str(r.get("platform") or "")))}</strong>'
+            f'<span>{esc(r.get("reason") or "")}</span></div></li>'
+            for r in ranking
+        )
+        where = (f'<div class="where"><h3 class="eyebrow">Where it fits</h3>'
+                 f'<ol class="rank">{items}</ol></div>')
+    tips = [str(t) for t in advice.get("tips") or [] if str(t).strip()]
+    tips_html = ""
+    if tips:
+        tips_html = ('<div class="tips"><h3 class="eyebrow">Tips</h3><ul>'
+                     + "".join(f"<li>{esc(t)}</li>" for t in tips) + "</ul></div>")
+    return (f'<section class="section" aria-label="Advice"><div class="advice">'
+            f'{"".join(about)}{where}{tips_html}</div></section>')
 
 
-def group_targets(manifest: dict) -> list[tuple[str, list[dict]]]:
-    grouped: dict[str, list[dict]] = {}
-    order: list[str] = []
-    for target in manifest.get("targets") or []:
-        platform = target.get("platform") or "other"
-        if platform not in grouped:
-            grouped[platform] = []
-            order.append(platform)
-        grouped[platform].append(target)
-    return [(platform, grouped[platform]) for platform in order]
+def split_at_fold(text: str, fold: int) -> tuple[str, str]:
+    if fold <= 0 or len(text) <= fold:
+        return text, ""
+    cut = text[:fold]
+    if " " in cut:
+        cut = cut.rsplit(" ", 1)[0]
+    return cut, text[len(cut):].lstrip(" ")
 
 
-def target_status_tally(targets: list[dict]) -> dict[str, int]:
-    tally = {key: 0 for key in ("ready", "repaired", "failed", "skipped")}
-    advisory = 0
-    for target in targets:
-        status = target.get("status")
-        if status in tally:
-            tally[status] += 1
-        for check in target.get("checks") or []:
-            if check.get("status") == "advisory":
-                advisory += 1
-    failed = tally["failed"] + sum(
-        1 for target in targets
-        for check in target.get("checks") or []
-        if check.get("hard") and check.get("status") == "fail"
+def count_line(count: Any, limit: Any, unit: str) -> str:
+    name = UNIT_NAMES.get(unit, unit)
+    if limit is None:
+        return f"{count} {name}"
+    return f"{count} of {limit} {name}"
+
+
+def build_copy_card(platform: str, info: dict, ctx: Ctx) -> str:
+    parts = [str(p) for p in info.get("parts") or []]
+    if not parts:
+        return ""
+    counts = info.get("counts") or []
+    limit = info.get("limit")
+    unit = str(info.get("unit") or "")
+    ok = info.get("ok") is not False
+    fold = info.get("fold") if isinstance(info.get("fold"), int) else FOLD_AT.get(platform)
+    rendered = []
+    for index, text in enumerate(parts):
+        head, tail = split_at_fold(text, fold or 0) if index == 0 else (text, "")
+        body = esc(head)
+        if tail:
+            body += f'<span class="more"></span><span class="tail">{esc(tail)}</span>'
+        count = counts[index] if index < len(counts) else len(text)
+        part_head = ""
+        if len(parts) > 1:
+            part_head = (f'<div class="part-head"><span>Part {index + 1} of {len(parts)}</span>'
+                         f'<span>{esc(count_line(count, limit, unit))}</span></div>')
+        rendered.append(f'<div class="part">{part_head}<p class="text-part">{body}</p></div>')
+    total = max((int(c) for c in counts if isinstance(c, (int, float))), default=0)
+    over = not ok or (isinstance(limit, (int, float)) and total > limit)
+    if len(parts) > 1:
+        summary = f"{len(parts)} parts, limit {limit} {UNIT_NAMES.get(unit, unit)} each" \
+            if limit is not None else f"{len(parts)} parts"
+    else:
+        summary = count_line(total, limit, unit)
+    meter = ""
+    if isinstance(limit, (int, float)) and limit > 0:
+        pct = min(100.0, 100.0 * total / limit)
+        meter = f'<div class="meter{" over" if over else ""}"><i style="width:{pct:.1f}%"></i></div>'
+    joined = "\n\n".join(parts)
+    tags = len(re.findall(r"(?<!\w)#\w+", joined))
+    mentions = len(re.findall(r"(?<!\w)@\w+", joined))
+    tag_line = (f'{tags} hashtag{"" if tags == 1 else "s"} · '
+                f'{mentions} mention{"" if mentions == 1 else "s"}')
+    fold_note = ""
+    if fold and any(len(p) > fold for p in parts[:1]):
+        fold_note = f" · cut after about {fold} characters"
+    links = ""
+    post = f"ready/{platform}/post.txt"
+    if (ctx.job_dir / post).is_file():
+        links = f' <a href="{esc_attr(post)}">post.txt</a>'
+    return (
+        '<article class="copy-card">'
+        f'<div class="copy-head"><h3>{esc(PLATFORM_COPY_NAMES.get(platform, platform_name(platform)))}</h3>'
+        f'<span class="counts{" over" if over else ""}">{esc(summary)}</span></div>'
+        f'{meter}<div class="parts">{"".join(rendered)}</div>'
+        f'<p class="tags">{esc(tag_line + fold_note)}{links}</p>'
+        f'<button type="button" class="btn primary" data-copy-text="{esc_attr(joined)}">Copy text</button>'
+        '</article>'
     )
-    return {"ready": tally["ready"], "repaired": tally["repaired"],
-            "advisory": advisory, "failed": failed}
+
+
+def build_copy(ctx: Ctx) -> str:
+    copy = ctx.manifest.get("copy") or {}
+    order = []
+    for target in ctx.manifest.get("targets") or []:
+        platform = target.get("platform")
+        if platform in copy and platform not in order:
+            order.append(platform)
+    order += [p for p in copy if p not in order]
+    cards = [build_copy_card(p, copy[p], ctx) for p in order if isinstance(copy[p], dict)]
+    cards = [c for c in cards if c]
+    if not cards:
+        return ""
+    return ('<section class="section" aria-label="Copy"><h2>Copy</h2>'
+            f'<div class="copy-grid">{"".join(cards)}</div></section>')
+
+
+def build_files(ctx: Ctx) -> str:
+    targets = ctx.manifest.get("targets") or []
+    if not targets:
+        return '<section class="section"><p>No targets yet.</p></section>'
+    cards = "".join(build_card(t, ctx) for t in targets)
+    return (f'<section class="section" aria-label="Files"><h2>Files '
+            f'<small>{len(targets)} targets</small></h2><div class="grid">{cards}</div></section>')
+
+
+def build_footer(ctx: Ctx) -> str:
+    links = []
+    for name in ("manifest.json", "contact.png", "advice.md"):
+        if name == "contact.png" or (ctx.job_dir / name).is_file():
+            links.append(f'<a href="{name}">{name}</a>')
+    return (
+        '<footer class="footer"><div class="wrap">'
+        f'<div class="possy-mark">{POSSY_SVG}</div>'
+        '<span>Made with postkitty</span>'
+        f'<nav aria-label="Job files">{"".join(links)}</nav>'
+        '</div></footer>'
+    )
+
+
+def render_page(ctx: Ctx) -> tuple[str, int]:
+    title = esc(board_title(ctx.manifest)) + " - postkitty review board"
+    if ctx.inline:
+        title += " (inline)"
+    body = [
+        HTML_HEAD.format(title=title, css=load_css()),
+        build_header(ctx),
+        "<main><div class=\"wrap\">",
+        build_advice(ctx.manifest),
+        build_files(ctx),
+        build_copy(ctx),
+        "</div></main>",
+        build_footer(ctx),
+        _script(),
+        "\n</body>\n</html>",
+    ]
+    text = "".join(body)
+    return text, len(text.encode("utf-8"))
 
 
 def render_board_html(job_dir: Path, manifest: dict, inline: bool, cache: dict) -> str:
-    base_dir = job_dir
-    job_id = manifest.get("job", "job")
-    job_name = manifest.get("job", "Review board")
-    created = manifest.get("created", "")
-    targets = manifest.get("targets") or []
-    tally = target_status_tally(targets)
-    chips = [
-        ("Ready", tally["ready"]),
-        ("Repaired", tally["repaired"]),
-        ("Advisory", tally["advisory"]),
-        ("Failed", tally["failed"]),
-    ]
-    parts = [HTML_HEAD.format(title=esc(job_name) + " - Postkitty review board", css=CSS)]
-    parts.append(build_header(job_name, created, chips))
-    parts.append('<div class="section">')
-    parts.append(build_advice(manifest))
-    grouped = group_targets(manifest)
-    if grouped:
-        for platform, targets_list in grouped:
-            parts.append('<section class="platform-group">')
-            parts.append(f'<h2>{esc(platform.title())}</h2>')
-            parts.append('<div class="card-grid">')
-            for target in targets_list:
-                parts.append(build_target_card(target, manifest,
-                                               manifest.get("alt_text") or {},
-                                               inline, cache, job_id, base_dir))
-            parts.append('</div>')
-            parts.append('</section>')
-    else:
-        parts.append('<p class="empty">No targets yet.</p>')
-    parts.append('</div>')
-    parts.append(_script())
-    parts.append("\n</body>\n</html>")
-    return "".join(parts)
+    return render_page(Ctx(job_dir, manifest, inline, cache))[0]
 
 
 def _script() -> str:
     return """\
 <script>
 (function () {
-  var toast = document.getElementById("pk-toast");
-  if (!toast) {
-    toast = document.createElement("div");
-    toast.id = "pk-toast";
-    toast.className = "toast";
-    document.body.appendChild(toast);
-  }
+  var toast = document.createElement("div");
+  toast.className = "toast";
+  toast.setAttribute("role", "status");
+  document.body.appendChild(toast);
+  var timer;
   function show(message) {
     toast.textContent = message;
     toast.classList.add("show");
-    setTimeout(function () { toast.classList.remove("show"); }, 2500);
+    clearTimeout(timer);
+    timer = setTimeout(function () { toast.classList.remove("show"); }, 2200);
+  }
+  function copy(text, done) {
+    function fallback() {
+      var area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      try { document.execCommand("copy"); done(); } catch (e) { show("Copy failed."); }
+      document.body.removeChild(area);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
   }
   document.body.addEventListener("click", function (event) {
-    var button = event.target.closest("[data-copy-caption]");
+    var button = event.target.closest("[data-copy-text]");
     if (button) {
       event.preventDefault();
-      navigator.clipboard.writeText(button.getAttribute("data-copy-caption")).then(function () {
-        show("Caption copied.");
-      });
+      copy(button.getAttribute("data-copy-text"), function () { show("Copied."); });
       return;
     }
     button = event.target.closest("[data-hermes-send]");
     if (button) {
       event.preventDefault();
       var prompt = button.getAttribute("data-hermes-send");
-      var container = button.closest(".actions");
-      var status = container ? container.querySelector(".hermes-status") : null;
+      var status = button.closest(".actions").querySelector(".hermes-status");
       if (window.hermes && typeof window.hermes.send === "function") {
-        if (status) status.textContent = "Sending to Hermes...";
+        status.textContent = "Sending to Hermes...";
         window.hermes.send(prompt).then(function (result) {
-          if (status) status.textContent = "Sent. " + String(result);
-        }).catch(function () {
-          if (status) status.textContent = "Send failed.";
-        });
+          status.textContent = "Sent. " + String(result);
+        }).catch(function () { status.textContent = "Send failed."; });
       } else {
-        navigator.clipboard.writeText(prompt).then(function () {
+        copy(prompt, function () {
           show("Copied. Paste it to Hermes.");
-          if (status) status.textContent = "Copied to clipboard.";
+          status.textContent = "Copied to clipboard.";
         });
       }
       return;
     }
     button = event.target.closest("[data-toggle-safe-area]");
     if (button) {
-      event.preventDefault();
-      var area = button.closest(".frame-wrap").querySelector(".safe-area");
+      var area = button.closest(".stage").querySelector(".safe");
       if (area) {
         area.classList.toggle("show");
         button.textContent = area.classList.contains("show") ? "Hide safe area" : "Show safe area";
@@ -1167,7 +1169,7 @@ def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
                 draw.rounded_rectangle([tx, y + 14, tx + tw, y + 14 + th], radius=8, fill="#1E2A44")
                 draw.text((tx + 6, y + 14 + th / 2 - 8), "media", font=font_small, fill="#F7F1E5")
             ly = y + 14 + th + 12
-            draw.text((x + 12, ly), str(target.get("platform", "")).title(), font=font_badge, fill=NAVY)
+            draw.text((x + 12, ly), platform_name(str(target.get("platform", ""))), font=font_badge, fill=NAVY)
             draw.text((x + 12, ly + 20), str(target.get("id", "")), font=font_small, fill=MUTED)
             size_text = f"{int(target.get('width') or 0)}x{int(target.get('height') or 0)}"
             dur = format_duration(target.get("duration"))
@@ -1186,65 +1188,14 @@ def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
     return out_path
 
 
-def render_inline_level(job_dir: Path, manifest: dict, cache: dict, max_side: int,
-                        quality: int, drop_duplicates: bool,
-                        drop_all_posters: bool) -> tuple[str, int]:
-    """Render one inline board variant; return (html, byte size)."""
-    base_dir = job_dir
-    job_id = manifest.get("job", "job")
-    job_name = manifest.get("job", "Review board")
-    created = manifest.get("created", "")
-    targets = manifest.get("targets") or []
-    tally = target_status_tally(targets)
-    chips = [
-        ("Ready", tally["ready"]),
-        ("Repaired", tally["repaired"]),
-        ("Advisory", tally["advisory"]),
-        ("Failed", tally["failed"]),
-    ]
-    parts = [HTML_HEAD.format(
-        title=esc(job_name) + " - Postkitty review board (inline)", css=CSS)]
-    parts.append(build_header(job_name, created, chips))
-    parts.append('<div class="section">')
-    parts.append(build_advice(manifest))
-    grouped = group_targets(manifest)
-    if grouped:
-        seen_posters: set[str] = set()
-        for platform, targets_list in grouped:
-            parts.append('<section class="platform-group">')
-            parts.append(f'<h2>{esc(platform.title())}</h2>')
-            parts.append('<div class="card-grid">')
-            for target in targets_list:
-                kind = target.get("kind")
-                cover_rel = target.get("cover")
-                if drop_all_posters or (kind == "video" and cover_rel
-                                        and os.path.abspath(str(cover_rel)) in seen_posters):
-                    target = dict(target)
-                    target["cover"] = None
-                parts.append(build_target_card(target, manifest,
-                                               manifest.get("alt_text") or {},
-                                               True, cache, job_id, base_dir, max_side,
-                                               quality))
-                if cover_rel and kind == "video" and not drop_all_posters:
-                    seen_posters.add(os.path.abspath(str(job_dir / cover_rel)))
-            parts.append('</div>')
-            parts.append('</section>')
-    else:
-        parts.append('<p class="empty">No targets yet.</p>')
-    parts.append('</div>')
-    parts.append('<div class="visually-hidden">Inline board: self-contained preview, no file access.</div>')
-    parts.append(_script())
-    parts.append("\n</body>\n</html>")
-    html_text = "".join(parts)
-    return html_text, len(html_text.encode("utf-8"))
 
 
 def render_inline_html(job_dir: Path, manifest: dict, cache: dict) -> tuple[str, int]:
     """Same design as board.html, fully self-contained with data URIs.
 
     Honors the 6 MB cap: start at JPEG 720 px / quality 80, fall back to
-    480 px / quality 70, then drop posters for duplicates, then drop all
-    posters. Returns the final variant and its byte size.
+    480 px / quality 70, then drop posters that repeat, then drop all posters.
+    Returns the final variant and its byte size.
     """
     levels = [
         (720, 80, False, False),
@@ -1252,14 +1203,11 @@ def render_inline_html(job_dir: Path, manifest: dict, cache: dict) -> tuple[str,
         (480, 70, True, False),
         (480, 70, True, True),
     ]
-    html_text = ""
-    inline_size = 0
-    for max_side, quality, drop_duplicates, drop_all_posters in levels:
-        # Re-render with per-level image parameters by wrapping cache keys.
-        html_text, inline_size = render_inline_level(job_dir, manifest, cache, max_side,
-                                                     quality, drop_duplicates,
-                                                     drop_all_posters)
-        if inline_size <= 6 * 1024 * 1024:
+    html_text, inline_size = "", 0
+    for max_side, quality, drop_dupes, drop_all in levels:
+        ctx = Ctx(job_dir, manifest, True, cache, max_side, quality, drop_dupes, drop_all)
+        html_text, inline_size = render_page(ctx)
+        if inline_size <= INLINE_CAP:
             break
     return html_text, inline_size
 
@@ -1272,8 +1220,7 @@ def write_board(job_dir: Path, manifest: dict) -> dict:
     """
     job_dir = Path(job_dir)
     job_dir.mkdir(parents=True, exist_ok=True)
-    here = Path(__file__).resolve().parent
-    mark_path = here / "templates" / "possy-mark-64.png"
+    mark_path = TEMPLATES / "possy-mark-64.png"
 
     cache: dict = {}
 
