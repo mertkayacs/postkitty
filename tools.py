@@ -444,6 +444,8 @@ def scan(args: dict) -> dict:
     manifest["text"] = {"source": "scan", "chars": len(text)} if text else {}
     kinds = {i.kind for i in infos}
     targets = platforms.targets_for(kinds, wanted) if kinds else []
+    if kinds:
+        notes.extend(_kind_mismatch_notes(wanted, kinds))
     plans = []
     for target in targets:
         info = advise.source_for(infos, target)
@@ -459,6 +461,21 @@ def scan(args: dict) -> dict:
     return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,
             "fit": advise.fit_facts(infos, text or None, wanted or None, plans),
             "text": copyfit.text_stats(text) if text else None, "peek": peek, "notes": notes}
+
+
+def _kind_mismatch_notes(wanted: list[str], kinds: set[str]) -> list[str]:
+    """One note per requested platform or target that has nothing to make from the input kinds."""
+    have = " and ".join(sorted("photos" if kind == "image" else "videos" for kind in kinds))
+    notes = []
+    for name in wanted:
+        if name in platforms.platform_names():
+            takes = {t.kind for t in platforms.get_platform(name).targets.values()}
+        else:
+            takes = {platforms.get_target(name).kind}
+        if "image_or_video" in takes or takes & kinds:
+            continue
+        notes.append(f"{name} takes {'video' if takes == {'video'} else 'photos'}; the inputs are {have}")
+    return notes
 
 
 def _drop_targets(job: jobs.Job, manifest: dict) -> None:
@@ -615,6 +632,9 @@ def make(args: dict) -> dict:
     targets, overrides = _list_arg(args, "targets"), _dict_arg(args, "overrides")
     scan_doc = jobs.read_json(job.work / "scan.json") if (job.work / "scan.json").is_file() else {}
     planned = [t["id"] for t in scan_doc.get("targets", [])]
+    if not planned and jobs.load_manifest(job).get("inputs"):
+        why = "; ".join(scan_doc.get("notes", [])) or "no requested platform fits the input kinds"
+        raise ValueError(f"no media targets were planned ({why}); run postkitty_scan again with other platforms")
     if not planned:
         files = sorted(_rel(job, p) for p in job.ready.rglob("*.txt")) if job.ready.is_dir() else []
         return {"job": job.id, "job_dir": str(job.root), "targets": [], "files": files,
