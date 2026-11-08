@@ -775,6 +775,9 @@ def _check_file(path: Path, target_id: Any, layout: dict | None, subjects_inside
     (tid,) = _platform_names([target_id])
     target = platforms.get_target(tid)
     info = probe.probe(path, "check")
+    if target.kind in {"image", "video"} and info.kind != target.kind:
+        this = "a video" if info.kind == "video" else "a photo"
+        raise ValueError(f"{path.name} is {this}; {tid} takes {'videos' if target.kind == 'video' else 'photos'}")
     try:
         _engine(info.kind)  # registers the media checkers when the engine exists
     except Unavailable:
