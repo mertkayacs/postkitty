@@ -134,7 +134,7 @@ Offer concrete options: another person as the focus, another layout, a different
 uses `split`, tell the user once that two other choices exist: `speaker` cuts to whoever is talking, and `pad` keeps
 the whole wide shot. Use `postkitty_redo` with `target` and only the keys that change. Person numbers count from 1,
 left to right, in the first frame where they appear. After each redo, read the new status again and show the new
-`media_line`.
+`media_line`. When a redo fails, the earlier passing file stays in `ready/` and the row names it in `kept`; say so.
 
 For the copy, offer a shorter or longer version, another tone or hook, other hashtags, or a thread instead of one
 post. For a copy change, rewrite only that platform's draft and call `postkitty_copy` again with the same `job`. The

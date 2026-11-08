@@ -295,14 +295,10 @@ def _render(media: _Media, info: probe.InputInfo, target: platforms.TargetSpec, 
 
 
 def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, override: dict,
-           media: _Media, masters: dict) -> dict:
+           media: _Media, masters: dict, previous: dict | None = None) -> dict:
     started = time.monotonic()
     entry: dict[str, Any] = {"id": target.id, "platform": target.platform, "kind": info.kind,
                              "input": info.id, "override": override}
-    folder = job.ready / target.platform
-    for pattern in (f"{_stem(target)}.*", f"{_stem(target)}_cover.*"):
-        for stale in folder.glob(pattern) if folder.is_dir() else []:
-            stale.unlink()
     try:
         result, plan, rerender = _render(media, info, target, override, masters)
     except Unavailable as exc:
@@ -316,7 +312,11 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
                  duration=result.duration, layout=layout,
                  trim=list(getattr(plan, "trim", []) or []) or None, subjects_inside=result.subjects_inside)
     if ok:
-        dest = jobs.ready_dir(job, target.platform) / f"{_stem(target)}{result.file.suffix}"
+        folder = jobs.ready_dir(job, target.platform)
+        for pattern in (f"{_stem(target)}.*", f"{_stem(target)}_cover.*"):
+            for stale in folder.glob(pattern):
+                stale.unlink()
+        dest = folder / f"{_stem(target)}{result.file.suffix}"
         shutil.copy2(result.file, dest)
         entry["file"] = _rel(job, dest)
         entry["status"] = "repaired" if any(r["ok"] for r in repairs) else "ready"
@@ -333,6 +333,9 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
         shutil.copy2(result.file, dest)
         entry["status"] = "failed"
         entry["failed_file"] = _rel(job, dest)
+        kept = (previous or {}).get("file")
+        if kept and (job.root / kept).is_file():
+            entry["kept"] = kept  # the earlier passing file stays in ready/ until a render succeeds
     entry["render_seconds"] = round(time.monotonic() - started, 2)
     return entry
 
@@ -364,7 +367,7 @@ def _table(entries: list[dict]) -> list[dict]:
             "size": f"{e['width']}x{e['height']}" if e.get("width") else None, "layout": e.get("layout"),
             "problems": bad or None, "advisory": advisory or None,
             "repairs": [f"{r['check']}: {r['action']}" for r in e.get("repairs", []) if r["ok"]] or None,
-            "reason": e.get("reason")}.items() if v is not None})
+            "kept": e.get("kept"), "reason": e.get("reason")}.items() if v is not None})
     return rows
 
 
@@ -390,7 +393,8 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict, merge_old: bool = Fal
         if tid not in planned:
             raise ValueError(f"target {tid!r} is not planned in this job; planned: {sorted(planned)}")
         override = {**(old.get(tid, {}).get("override", {}) if merge_old else {}), **(overrides.get(tid) or {})}
-        built.append(_entry(job, by_id[planned[tid]], platforms.get_target(tid), override, media, masters))
+        built.append(_entry(job, by_id[planned[tid]], platforms.get_target(tid), override, media, masters,
+                            old.get(tid)))
     merged = {**old, **{e["id"]: e for e in built}}
     manifest["targets"] = [merged[t["id"]] for t in scan["targets"] if t["id"] in merged]
     jobs.save_manifest(job, manifest)

@@ -158,8 +158,12 @@ def test_alt_text_accepts_input_name_and_ready_path(out_dir, tmp_path, stub_imag
     assert "x_image:\nA generated crop." in (ready.parent / "alt.txt").read_text()
 
 
-def test_make_on_text_only_job_explains(out_dir, text_job):
-    assert "no media targets" in call(tools.make, job=text_job)["error"]
+def test_make_on_text_only_job_lists_the_copy_files_without_an_error(out_dir, text_job):
+    call(tools.copy, job=text_job, drafts={"x": LONG_X, "linkedin": "A short note."})
+    out = call(tools.make, job=text_job)
+    assert "error" not in out and out["targets"] == [] and out["job_dir"] == str(out_dir / text_job)
+    assert sorted(out["files"]) == ["ready/linkedin/post.txt", "ready/x/thread.txt"]
+    assert "text only" in out["note"] and "ready/" in out["note"]
 
 
 def test_image_scan_plans_every_image_target(out_dir, tmp_path):
@@ -365,6 +369,26 @@ def test_make_subset_and_failed_target_stays_out_of_ready(out_dir, tmp_path, stu
     assert row["status"] == "failed" and row["problems"] == ["too big"] and row.get("file") is None
     assert not (out_dir / job / "ready/x/image.jpg").exists()
     assert (out_dir / job / "work/failed/x_image.jpg").is_file()
+
+
+def test_failed_redo_keeps_the_previous_ready_file(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    assert call(tools.make, job=job)["targets"][0]["status"] == "ready"
+    ready = out_dir / job / "ready/x/image.jpg"
+    before = ready.read_bytes()
+
+    def failing(res, target):
+        return [checks.Check("image.bytes_max", target.id, "fail", True, 9, 1, "too big")]
+
+    checks.register_checker("image", failing)
+    row = call(tools.redo, job=job, target="x_image", layout="pad")["targets"][0]
+
+    assert row["status"] == "failed" and row.get("file") is None
+    assert ready.read_bytes() == before and row["kept"] == "ready/x/image.jpg"
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+    assert manifest["targets"][0]["status"] == "failed" and manifest["targets"][0]["kept"] == "ready/x/image.jpg"
 
 
 def test_repair_marks_target_repaired(out_dir, tmp_path, stub_image_engine):
