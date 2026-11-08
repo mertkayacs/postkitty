@@ -293,6 +293,21 @@ def test_contact_sheet_keeps_thumbnail_aspect_and_centers_it(tmp_path):
     assert abs((columns.max() + columns.min()) / 2 - tile_center) < 3
 
 
+def test_missing_media_file_gets_an_empty_frame(tmp_path):
+    job_dir = tmp_path / "job"
+    manifest = _manifest(job_dir)
+    manifest["targets"].append(
+        {"id": "linkedin_image", "platform": "linkedin", "kind": "image", "status": "ready",
+         "input": "in1", "file": "ready/linkedin/image.jpg", "width": 1080, "height": 1080,
+         "layout": {"mode": "crop", "note": ""}, "checks": [], "repairs": []})
+    paths = write_board(job_dir, manifest)
+    html = Path(paths["board"]).read_text(encoding="utf-8")
+    inline_html = Path(paths["board_inline"]).read_text(encoding="utf-8")
+    assert 'src=""' not in inline_html
+    assert 'src="ready/linkedin/image.jpg"' not in html
+    assert 'href="ready/linkedin/image.jpg"' in html
+
+
 def test_write_board_handles_empty_job(tmp_path):
     job_dir = tmp_path / "job"
     manifest = {"schema": "postkitty.manifest/1", "job": "empty",

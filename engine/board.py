@@ -587,9 +587,11 @@ def media_html(target: dict, ctx: Ctx, alt: str, overlay: str = "") -> str:
             f'aria-label="{esc_attr(label)} video">'
             f'<source src="{esc_attr(file_rel)}" type="{esc_attr(mime)}"></video>{overlay}</div>'
         )
-    if kind == "image" and file_rel:
+    if kind == "image" and file_rel and (ctx.job_dir / file_rel).is_file():
         src = (image_data_uri_capped(ctx.job_dir / file_rel, ctx.cache, ctx.max_side,
                                      ctx.quality) if ctx.inline else file_rel)
+        if not src:
+            return f'<div class="frame" style="{style}">{overlay}</div>'
         return (
             f'<div class="frame image" style="{style}">'
             f'<img src="{esc_attr(src)}" width="{width}" height="{height}" '
