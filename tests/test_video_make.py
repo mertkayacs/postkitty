@@ -265,3 +265,31 @@ def test_split_panels_have_even_heights_for_odd_half_targets(tmp_path: Path) -> 
     assert len(heights) == 2
     assert sum(heights) == 1350
     assert all(height % 2 == 0 for height in heights)
+
+
+
+def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypatch: Any) -> None:
+    # AAC lands a little above its nominal rate: a stereo film clip encoded at "-b:a 128k" measured
+    # 128,621 bit/s against Instagram's 128,000 cap and failed the hard check.
+    import engine.video_make as video_make
+
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
+    target = Target("instagram_reel", 180, 320, {"audio_bps_max": Spec(128000)})
+    plan = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "proof", [_box(110.0, 0.0, 100.0, 180.0)] * 10)
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        Path(command[-1]).write_bytes(b"video")
+
+    monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_probe_render", lambda path: {
+        "streams": [{"codec_type": "video", "width": 180, "height": 320}],
+        "format": {"duration": "1.0", "size": "5"},
+    })
+
+    render_video(info, plan, target, tmp_path / "reel.mp4", tmp_path / "work")
+
+    command = seen["command"]
+    assert int(command[command.index("-b:a") + 1]) <= 0.95 * 128000

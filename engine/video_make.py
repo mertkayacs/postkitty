@@ -388,7 +388,12 @@ def render_video(
             "[v]",
         ]
         if info.has_audio:
-            audio_bitrate = "128k" if target.id in {"instagram_reel", "facebook_reel"} else "160k"
+            audio_cap = _limit(target, "audio_bps_max")
+            if audio_cap is not None:
+                # AAC lands a little above its nominal rate, so stay under the platform cap.
+                audio_bitrate = str(int(int(audio_cap) * 0.94))
+            else:
+                audio_bitrate = "128k" if target.id in {"instagram_reel", "facebook_reel"} else "160k"
             command.extend(
                 [
                     "-map",

@@ -418,7 +418,8 @@ def repair_bitrate(
     result: RenderResult, target: Any, check: Check, rerender: dict[str, Any]
 ) -> RenderResult:
     maximum = int(check.expected)
-    audio_maximum = int(_value(_spec(target, "audio_bps_max"), 128000))
+    # AAC lands a little above its nominal rate, so stay under the platform cap.
+    audio_maximum = int(int(_value(_spec(target, "audio_bps_max"), 128000)) * 0.94)
     bitrate = max(100000, round(maximum * 0.92))
     return _transcode(result, video_bitrate=bitrate, audio_bitrate=audio_maximum)
 
@@ -428,7 +429,8 @@ def repair_size(
 ) -> RenderResult | None:
     if not result.duration:
         return None
-    audio_maximum = int(_value(_spec(target, "audio_bps_max"), 128000))
+    # AAC lands a little above its nominal rate, so stay under the platform cap.
+    audio_maximum = int(int(_value(_spec(target, "audio_bps_max"), 128000)) * 0.94)
     total_bitrate = int(check.expected * 8 / result.duration * 0.9)
     video_bitrate = max(100000, total_bitrate - audio_maximum)
     platform_maximum = _value(_spec(target, "video_bps_max"))
