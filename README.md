@@ -52,6 +52,21 @@ Install the postkitty plugin for me: run `hermes plugins install mertkayacs/post
 Use postkitty to turn this into posts for X, LinkedIn and Instagram and fix my wording: [your draft, or the path to a photo or video]
 ```
 
+## What you can ask Hermes
+
+Say what you have and what you want, in plain words. Each of these is a message you can paste.
+
+- **A draft for several platforms.** "Fix my wording and write this for X, LinkedIn and Threads: [your draft]"
+- **A thread from a long post.** "This is too long for one X post. Turn it into a thread."
+- **A group photo.** "Make team.jpg ready for Instagram and Bluesky, and keep everyone in the picture."
+- **A landscape video.** "Turn talk.mp4 into vertical clips for TikTok, Reels and Shorts."
+- **Two people on camera.** "Put both hosts in a split screen", "Cut to whoever is talking" or "Keep the whole wide shot."
+- **A trim or a cover frame.** "Use only 0:12 to 0:48 of the clip, and take the cover frame at 0:20."
+- **A file from somewhere else.** "Will this file upload to TikTok? [path to the file]"
+- **A change after the first result.** "Shorter for X", "More formal on LinkedIn", "Other hashtags for Instagram" or "Focus on the person on the left in the TikTok clip."
+
+postkitty never posts, uploads or schedules anything. You upload the files in `ready/` yourself.
+
 ## Your draft, fixed for every platform
 
 Paste a rough draft. postkitty fixes the spelling, grammar and punctuation, smooths out clumsy sentences and keeps your voice. Then it writes a version for each platform and counts it the way that platform does, so nothing gets cut off. This is one real run.
@@ -205,7 +220,7 @@ My draft: New episode is out...
 
 Text alone works too: paste a draft and name the platforms.
 
-postkitty needs Hermes Agent 0.22.7 or newer and `ffmpeg` with `ffprobe` on your PATH. Type `/postkitty` in a Hermes chat to list every target with its size and main limits.
+postkitty needs Hermes Agent 0.22.7 or newer and `ffmpeg` with `ffprobe` on your PATH. Type `/postkitty` in a Hermes chat for a short description, example requests and every target with its size and main limits, or `/postkitty tiktok` for one platform.
 
 ## Launch video
 
