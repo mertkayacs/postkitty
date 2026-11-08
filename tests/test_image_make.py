@@ -311,6 +311,24 @@ def test_transparent_input_flattens_to_jpeg_when_png_is_not_allowed(
     assert result.extra["format"] == "jpeg"
 
 
+def test_transparent_input_over_the_byte_cap_falls_back_to_jpeg(tmp_path: Path) -> None:
+    source = tmp_path / "noise.png"
+    random = np.random.default_rng(3)
+    Image.fromarray(random.integers(0, 256, (300, 300, 4), dtype=np.uint8), "RGBA").save(source)
+    info = InputInfo(source, "noise", 300, 300, has_alpha=True)
+    target = Target("bluesky_image", 300, 300, {"bytes_max": Spec(120_000)})
+
+    result = render_image(
+        info, Layout("crop", [Box(0, 0, 300, 300)], "noise"), target, tmp_path / "image.png"
+    )
+
+    assert result.file.suffix == ".jpg"
+    assert result.bytes <= 120_000
+    assert not (tmp_path / "image.png").exists()
+    with Image.open(result.file) as rendered:
+        assert rendered.format == "JPEG"
+
+
 def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
     source = tmp_path / "rotated.jpg"
     image = Image.new("RGB", (100, 50), "blue")

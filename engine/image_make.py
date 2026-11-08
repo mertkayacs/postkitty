@@ -338,10 +338,14 @@ def _flatten(image: Image.Image) -> Image.Image:
 
 def _save(
     image: Image.Image, out_path: Path, use_png: bool, bytes_max: int | None
-) -> int | None:
+) -> tuple[int | None, Path]:
     if use_png:
         image.save(out_path, format="PNG", optimize=True)
-        return None
+        if bytes_max is None or out_path.stat().st_size <= bytes_max:
+            return None, out_path
+        # PNG has no quality ladder; a photo with alpha over the cap only fits as JPEG.
+        out_path.unlink()
+        out_path = out_path.with_suffix(".jpg")
     image = _flatten(image)
     selected = 70
     for quality in (92, 85, 78, 70):
@@ -349,7 +353,7 @@ def _save(
         selected = quality
         if bytes_max is None or out_path.stat().st_size <= bytes_max:
             break
-    return selected
+    return selected, out_path
 
 
 def _result_type() -> type:
@@ -378,7 +382,7 @@ def render_image(
     use_png = has_alpha and "png" in formats
     if not use_png and out_path.suffix.lower() == ".png":
         out_path = out_path.with_suffix(".jpg")
-    quality = _save(
+    quality, out_path = _save(
         rendered,
         out_path,
         use_png,
