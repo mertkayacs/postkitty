@@ -14,5 +14,5 @@ def register(ctx) -> None:
     ctx.register_skill("postkitty", Path(__file__).parent / "skills" / "postkitty" / "SKILL.md",
                        description="Turn one post into files for every social platform.")
     ctx.register_command("postkitty", handler=tools.targets_overview,
-                         description="List supported platform targets, sizes and limits.",
+                         description="What postkitty does, example requests, and every platform target with its size and limits.",
                          args_hint="[platforms]")

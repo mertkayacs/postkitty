@@ -570,6 +570,17 @@ def test_slash_command_text():
     assert tools.targets_overview("zzz") == "No matching platform."
 
 
+def test_slash_command_header_explains_postkitty_only_without_a_filter():
+    text = tools.targets_overview("")
+    header, _, targets = text.partition("Targets")
+    assert header.startswith("postkitty: one post in, every platform out.")
+    assert "never posts, uploads or schedules" in header and "Try saying:" in header
+    assert header.count("\n  ") == 5 and "Will this file upload to TikTok?" in header
+    assert "tiktok: 1080x1920 video" in targets and "/postkitty tiktok" in targets
+    filtered = tools.targets_overview("tiktok")
+    assert filtered.startswith("TikTok:") and "Try saying" not in filtered and "/postkitty" not in filtered
+
+
 def test_speaker_layout_is_exposed_by_the_tool_schema() -> None:
     layout = tools.SCHEMAS["postkitty_redo"]["parameters"]["properties"]["layout"]
 

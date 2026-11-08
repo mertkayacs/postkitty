@@ -882,7 +882,22 @@ HANDLERS = {"postkitty_scan": scan, "postkitty_copy": copy, "postkitty_make": ma
 
 
 def targets_overview(filter_text: str = "") -> str:
-    """Text for the /postkitty command: every target with its size and main limits."""
+    """Text for the /postkitty command: what postkitty does, then every target with its size and main limits."""
+    header = """postkitty: one post in, every platform out.
+Give Hermes a draft, photos or a landscape video. postkitty fixes the wording and writes a
+version for each platform, crops photos and reframes video with every face in frame, and
+checks every file against the platform's limits. It never posts, uploads or schedules; you
+upload the files in ready/ yourself.
+
+Try saying:
+  Fix my wording and write this for X, LinkedIn and Threads: [your draft]
+  Make team.jpg ready for Instagram and Bluesky, and keep everyone in the picture.
+  Turn talk.mp4 into vertical clips for TikTok, Reels and Shorts.
+  In the TikTok clip, cut to whoever is talking.
+  Will this file upload to TikTok? [path to the file]
+
+Targets (size, main limits). Type /postkitty tiktok to see one platform.
+"""
     want = {_ALIASES.get(w, w) for w in filter_text.lower().split() if w != "platforms"}
     lines = []
     for name, plat in platforms.load_platforms().items():
@@ -894,4 +909,6 @@ def targets_overview(filter_text: str = "") -> str:
         for t in plat.targets.values():
             extras = [f"{k.replace('_max', '')} <= {t.limits[k].value}" for k in ("duration_max", "bytes_max") if k in t.limits]
             lines.append(f"  {t.id}: {t.width}x{t.height} {t.kind}" + (f" ({', '.join(extras)})" if extras else ""))
-    return "\n".join(lines) or "No matching platform."
+    if not lines:
+        return "No matching platform."
+    return ("" if want else header) + "\n".join(lines)
