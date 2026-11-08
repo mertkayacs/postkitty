@@ -6,6 +6,7 @@ import json
 import os
 import re
 import tempfile
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,6 +17,8 @@ from . import __version__
 
 MANIFEST_SCHEMA = "postkitty.manifest/1"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+# Letters NFKD cannot fold to a base letter: dotless i (Turkish), sharp s (German) and a few ligatures.
+_SLUG_FOLD = str.maketrans({"ı": "i", "ß": "ss", "æ": "ae", "ø": "o", "œ": "oe"})
 
 
 @dataclass
@@ -42,7 +45,9 @@ class Job:
 
 
 def slugify(seed: str, limit: int = 32) -> str:
-    slug = _SLUG_RE.sub("-", str(seed).lower()).strip("-")
+    folded = unicodedata.normalize("NFKD", str(seed).lower().translate(_SLUG_FOLD))
+    ascii_text = "".join(char for char in folded if not unicodedata.combining(char))
+    slug = _SLUG_RE.sub("-", ascii_text).strip("-")
     if len(slug) > limit:
         slug = slug[:limit].rstrip("-")
     return slug or "post"

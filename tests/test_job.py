@@ -11,6 +11,12 @@ def test_slugify():
     assert len(jobs.slugify("x" * 100)) <= 32
 
 
+def test_slugify_folds_turkish_and_german_letters_to_ascii():
+    assert jobs.slugify("bugün İstanbul'da çay") == "bugun-istanbul-da-cay"
+    assert jobs.slugify("Straße Köln Übung") == "strasse-koln-ubung"
+    assert jobs.slugify("Işık Şöğüç") == "isik-soguc"
+
+
 def test_create_job_layout_and_manifest(tmp_path):
     job = jobs.create_job(tmp_path, ["/some/where/Beach Day.mp4"])
     assert job.id.endswith("-beach-day") and job.root.parent == tmp_path
