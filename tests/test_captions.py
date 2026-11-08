@@ -44,6 +44,18 @@ def test_parse_srt_and_vtt(tmp_path: Path) -> None:
     ]
 
 
+def test_parse_drops_vtt_inline_tags(tmp_path: Path) -> None:
+    # YouTube and Whisper exports wrap words in <i>, <b>, <c.class> and <00:01.000> tags that must not be burned in.
+    vtt = tmp_path / "styled.vtt"
+    vtt.write_text(
+        "WEBVTT\n\n00:00.000 --> 00:01.000\n<c.yellow>Hello</c> <i>there</i>, <b>friend</b>\n\n"
+        "00:01.000 --> 00:02.000\nword<00:01.500>-by-word\n",
+        encoding="utf-8",
+    )
+
+    assert [entry["text"] for entry in parse_captions(vtt)] == ["Hello there, friend", "word-by-word"]
+
+
 def test_ass_uses_safe_area_and_never_exceeds_two_lines() -> None:
     target = Target(1080, 1920, {"safe_area": Spec({"side": 0.06, "bottom": 0.35})})
     text = " ".join(["caption"] * 30)

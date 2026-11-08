@@ -34,7 +34,8 @@ def parse_captions(path: Path) -> list[dict[str, Any]]:
             continue
         start_text, end_text = lines[0].split("-->", 1)
         end_text = end_text.strip().split()[0]
-        caption = " ".join(lines[1:]).strip()
+        # WebVTT inline tags (<i>, <c.class>, <00:01.000> word timings) are styling, never caption text.
+        caption = " ".join(re.sub(r"<[^>]*>", "", line) for line in lines[1:]).strip()
         if not caption:
             continue
         start = _timestamp(start_text)
