@@ -222,6 +222,31 @@ def test_render_reuses_matching_master(tmp_path: Path) -> None:
     assert len(list((tmp_path / "work" / "render").glob("reuse-*.mp4"))) == 1
 
 
+def test_render_uses_requested_loudness(tmp_path: Path, monkeypatch: Any) -> None:
+    import engine.video_make as video_make
+
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
+    target = Target("square_video", 180, 180)
+    plan = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "proof", [_box(70.0, 0.0, 180.0, 180.0)] * 10)
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        Path(command[-1]).write_bytes(b"video")
+
+    monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_probe_render", lambda path: {
+        "streams": [{"codec_type": "video", "width": 180, "height": 180}],
+        "format": {"duration": "1.0", "size": "5"},
+    })
+
+    render_video(info, plan, target, tmp_path / "loud.mp4", tmp_path / "work", loudness_lufs=-16.5)
+
+    graph = seen["command"][seen["command"].index("-filter_complex") + 1]
+    assert "loudnorm=I=-16.5:TP=-1.5:LRA=11" in graph
+
+
 def test_split_panels_have_even_heights_for_odd_half_targets(tmp_path: Path) -> None:
     # 1350 / 2 is odd; ffmpeg 6.1 corrupted its heap scaling 4:2:0 panels to 675 rows.
     import re

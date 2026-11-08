@@ -269,7 +269,7 @@ def _pad_filter(target: Any, fps: float) -> str:
     )
 
 
-def _plan_key(info: Any, plan: VideoPlan, target: Any) -> str:
+def _plan_key(info: Any, plan: VideoPlan, target: Any, loudness_lufs: float) -> str:
     windows = []
     for window in plan.windows:
         items = window if plan.layout == "split" else (window,)
@@ -283,6 +283,7 @@ def _plan_key(info: Any, plan: VideoPlan, target: Any) -> str:
             "layout": plan.layout,
             "trim": plan.trim,
             "windows": windows,
+            "loudness_lufs": loudness_lufs,
         },
         separators=(",", ":"),
     )
@@ -340,13 +341,14 @@ def render_video(
     target: Any,
     out_path: Path,
     work_dir: Path,
+    loudness_lufs: float = -14.0,
 ) -> Any:
     if not plan.windows:
         raise ValueError("video plan has no camera windows")
     fps = min(float(info.fps), 60.0)
     render_dir = work_dir / "render"
     render_dir.mkdir(parents=True, exist_ok=True)
-    key = _plan_key(info, plan, target)
+    key = _plan_key(info, plan, target, loudness_lufs)
     master = render_dir / f"reuse-{key}.mp4"
     commands_path = render_dir / f"reuse-{key}.commands"
     if not master.exists():
@@ -378,7 +380,7 @@ def render_video(
             "-filter_complex",
             filter_graph
             + (
-                ";[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]"
+                f";[0:a]loudnorm=I={loudness_lufs:g}:TP=-1.5:LRA=11,aresample=48000[a]"
                 if info.has_audio
                 else ""
             ),

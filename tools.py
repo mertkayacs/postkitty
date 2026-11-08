@@ -232,7 +232,9 @@ def _render(media: _Media, info: probe.InputInfo, target: platforms.TargetSpec, 
     def render(plan: Any, out: Path) -> checks.RenderResult:
         if info.kind == "image":
             return eng.image_make.render_image(info, plan, target, out)
-        return eng.video_make.render_video(info, plan, target, out, media.job.work)
+        return eng.video_make.render_video(
+            info, plan, target, out, media.job.work, loudness_lufs=float(_config("loudness_lufs", -14))
+        )
 
     def rerender(extra: dict) -> checks.RenderResult:
         return render(media.plan(info, target, {**override, **(extra or {})}), fresh())
