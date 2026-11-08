@@ -83,6 +83,8 @@ def _image_info(path: Path, input_id: str, sha: str) -> InputInfo:
                 orientation = int(image.getexif().get(274, 1))
             except Exception:
                 orientation = 1
+            # The header of a cut-off upload parses; only a full decode shows the file is truncated.
+            image.load()
     except Exception as exc:
         hint = ""
         if path.suffix.lower() in {".heic", ".avif"}:

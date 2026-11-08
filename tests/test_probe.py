@@ -49,6 +49,17 @@ def test_unreadable_heic_tells_the_user_what_to_do(tmp_path):
         probe.probe(photo, "in1")
 
 
+def test_truncated_jpeg_fails_at_probe(tmp_path):
+    # The header of a cut-off upload still parses, so the failure used to surface later as an unexpected error.
+    whole = tmp_path / "whole.jpg"
+    Image.radial_gradient("L").resize((640, 480)).save(whole, quality=95)
+    data = whole.read_bytes()
+    truncated = tmp_path / "truncated.jpg"
+    truncated.write_bytes(data[: len(data) // 2])
+    with pytest.raises(probe.ProbeError, match="Could not read image"):
+        probe.probe(truncated, "in1")
+
+
 def test_corrupt_image(tmp_path):
     bad = tmp_path / "bad.jpg"
     bad.write_bytes(b"not an image")
