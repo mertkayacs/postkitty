@@ -630,7 +630,8 @@ SCHEMAS = {
             "First step for any social post. Takes the user's photos, landscape videos and draft text, creates a "
             "job folder, detects people, shots and scenes, plans a framing per platform target and returns fit "
             "facts (sizes, character counts, limits) plus the path of a preview image to look at. Does not render "
-            "anything. Works with text only. Never posts or uploads."),
+            "anything. Works with text only. Never posts or uploads. Load the skill postkitty:postkitty first "
+            "(skill_view) for the full workflow."),
         "parameters": {"type": "object", "properties": {
             "inputs": {"type": "array", "items": {"type": "string"}, "description": "Absolute paths of images or videos."},
             "text": {"type": "string", "description": "The user's draft post, if any."},
