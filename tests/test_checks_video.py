@@ -26,6 +26,7 @@ from engine.checks_video import (
     repair_fps,
     repair_subjects,
 )
+from engine.framing import Box
 from engine.video_make import VideoPlan, render_video
 
 
@@ -102,14 +103,13 @@ def _render(tmp_path: Path) -> tuple[Any, Target]:
             "video_bps_max": Spec(5_000_000),
         },
     )
-    box = sys.modules["engine.framing"].Box(0.0, 0.0, 320.0, 180.0)
+    box = Box(0.0, 0.0, 320.0, 180.0)
     plan = VideoPlan(target.id, "crop", (0.0, 2.0), 1.0, "checks", [box] * 40)
     result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "work")
     return result, target
 
 
 def test_video_checker_passes_rendered_output(tmp_path: Path) -> None:
-    _install_stub("framing")
     result, target = _render(tmp_path)
 
     checks = check_video(result, target)
@@ -128,7 +128,6 @@ def test_video_checker_passes_rendered_output(tmp_path: Path) -> None:
 
 
 def test_video_checker_reports_hard_and_advisory_failures(tmp_path: Path) -> None:
-    _install_stub("framing")
     result, _ = _render(tmp_path)
     target = Target(
         "strict_video",
@@ -161,7 +160,6 @@ def test_repairs_are_registered() -> None:
 
 
 def test_duration_and_subject_repairs_use_rerender_context(tmp_path: Path) -> None:
-    _install_stub("framing")
     result, target = _render(tmp_path)
     duration_check = checks_stub.Check(
         "video.duration_max", target.id, "fail", True, 2.0, 1.0, "too long"
@@ -182,7 +180,6 @@ def test_duration_and_subject_repairs_use_rerender_context(tmp_path: Path) -> No
 
 
 def test_fps_repair_caps_real_output(tmp_path: Path) -> None:
-    _install_stub("framing")
     result, target = _render(tmp_path)
     check = checks_stub.Check(
         "video.fps_max", target.id, "fail", True, 20.0, 10.0, "too fast"

@@ -20,9 +20,9 @@ def _install_stub(name: str) -> None:
     spec.loader.exec_module(module)
 
 
-_install_stub("framing")
 _install_stub("checks")
 
+from engine.framing import Box
 from engine.video_make import VideoPlan, export_cover, plan_video, render_video
 from engine.video_scan import Track, TrackPoint, VideoScan
 
@@ -94,7 +94,7 @@ def _moving_video(path: Path, duration: float = 2.0) -> InputInfo:
 
 
 def _box(x: float, y: float, w: float, h: float) -> Any:
-    return sys.modules["engine.framing"].Box(x, y, w, h)
+    return Box(x, y, w, h)
 
 
 def _probe(path: Path) -> dict[str, Any]:

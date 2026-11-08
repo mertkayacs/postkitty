@@ -1,22 +1,7 @@
 from __future__ import annotations
 
-import importlib.util
 import math
-import sys
 from dataclasses import dataclass
-from pathlib import Path
-
-
-def _install_framing_stub() -> None:
-    path = Path(__file__).parent / "_stubs" / "framing.py"
-    spec = importlib.util.spec_from_file_location("engine.framing", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-
-
-_install_framing_stub()
 
 from engine.camera import build_camera_path
 from engine.video_scan import Track, TrackPoint, VideoScan
