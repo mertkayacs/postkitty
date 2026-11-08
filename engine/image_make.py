@@ -160,7 +160,10 @@ def plan_image(
     selected, anchor = _focus(focus, subjects)
     requested = str(override.get("layout", "auto"))
     if requested == "speaker":
-        requested = "auto"
+        raise ValueError(
+            "unsupported image layout: speaker follows whoever talks in a video; "
+            "use crop, split, seam or pad for a photo"
+        )
 
     if requested == "auto" and focus == "auto":
         if subjects and not face_boxes:

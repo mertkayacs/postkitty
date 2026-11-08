@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 from PIL import Image, ImageDraw
 
 from engine import image_make, seams
@@ -95,17 +96,15 @@ def test_seam_layout_is_explicit_only(tmp_path: Path) -> None:
     assert explicit.mode == "seam"
 
 
-def test_speaker_layout_is_ignored_for_images(tmp_path: Path) -> None:
+def test_speaker_layout_is_rejected_for_images(tmp_path: Path) -> None:
     source = tmp_path / "wide.png"
     faces = [Box(80, 200, 80, 100), Box(1840, 200, 80, 100)]
     _scene(source, faces, size=(2000, 1000))
     info = InputInfo(source, "wide", 2000, 1000)
     target = Target("story", 1080, 1920)
 
-    automatic = plan_image(info, _faces(faces), target)
-    speaker = plan_image(info, _faces(faces), target, {"layout": "speaker"})
-
-    assert speaker == automatic
+    with pytest.raises(ValueError, match="speaker"):
+        plan_image(info, _faces(faces), target, {"layout": "speaker"})
 
 
 def test_plan_uses_saliency_without_faces(tmp_path: Path) -> None:
