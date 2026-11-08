@@ -396,6 +396,44 @@ def test_alt_text_file_name_matching_two_targets_is_ambiguous(out_dir, tmp_path,
     assert (out_dir / job / "ready/x/alt.txt").read_text() == "x_image:\nA door.\n"
 
 
+def test_override_values_are_validated_before_rendering(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    bad = ({"trim": 5}, {"trim": [None, 2]}, {"trim": [3, 1]}, {"trim": "0-2"}, {"cover_at": [1]}, {"cover_at": -1},
+           {"focus": "person:0"}, {"focus": 3}, {"focus": "x:1.5"}, {"layout": "blur"})
+    for args in bad:
+        out = call(tools.redo, job=job, target="x_image", **args)
+        assert "error" in out and "Error:" not in out["error"] and "Unexpected" not in out["hint"], (args, out)
+        key = next(iter(args))
+        assert key in out["error"] or (key == "focus" and "person" in out["error"]), (args, out)
+    out = call(tools.make, job=job, overrides={"x_image": {"trim": 5}})
+    assert "trim" in out["error"] and "Unexpected" not in out["hint"]
+
+    out = call(tools.redo, job=job, target="x_image", trim=[0, 1], cover_at=0.5)
+    assert "video only" in out["error"]
+    assert not stub_image_engine, "nothing may render when an override is rejected"
+
+
+def test_check_names_a_media_kind_mismatch(out_dir, tmp_path):
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        pytest.skip("ffmpeg not installed")
+    import subprocess
+
+    clip = tmp_path / "c.mp4"
+    subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=10:d=1", "-pix_fmt",
+                    "yuv420p", str(clip)], check=True)
+    photo = tmp_path / "p.jpg"
+    Image.new("RGB", (1080, 1920), "red").save(photo)
+
+    out = call(tools.check, path=str(clip), target="x_image")
+    assert out["error"] == "c.mp4 is a video; x_image takes photos"
+    out = call(tools.check, path=str(photo), target="tiktok")
+    assert out["error"] == "p.jpg is a photo; tiktok takes videos"
+    assert call(tools.check, path=str(photo), target="instagram_story")["pass"] is True
+
+
 def test_make_rejects_unknown_override_targets_and_keys(out_dir, tmp_path, stub_image_engine):
     photo = tmp_path / "me.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(photo)

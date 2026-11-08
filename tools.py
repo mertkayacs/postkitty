@@ -394,6 +394,8 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
         if tid not in planned:
             raise ValueError(f"target {tid!r} is not planned in this job; planned: {sorted(planned)}")
         override = {**old.get(tid, {}).get("override", {}), **(overrides.get(tid) or {})}
+        if by_id[planned[tid]].kind == "image" and {"trim", "cover_at"} & set(override):
+            raise ValueError(f"{tid} is made from a photo; trim and cover_at apply to video only")
         built.append(_entry(job, by_id[planned[tid]], platforms.get_target(tid), override, media, masters,
                             old.get(tid)))
     merged = {**old, **{e["id"]: e for e in built}}
@@ -629,8 +631,44 @@ def _target_for_ready_file(platform: str, name: str) -> str | None:
 
 # ------------------------------------------------------------------ make, redo, check
 
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _check_focus(value: Any) -> None:
+    if not isinstance(value, str):
+        raise ValueError(f"focus must be a string, got {type(value).__name__}")
+    if value in {"auto", "left", "center", "right"}:
+        return
+    if value.startswith("person:"):
+        if not value.removeprefix("person:").isdigit() or int(value.removeprefix("person:")) < 1:
+            raise ValueError("focus person must be a positive integer, for example person:1")
+        return
+    if value.startswith("x:"):
+        try:
+            if 0.0 <= float(value.removeprefix("x:")) <= 1.0:
+                return
+        except ValueError:
+            pass
+        raise ValueError("focus x must be between 0 and 1, for example x:0.3")
+    raise ValueError(f"focus {value!r} is not auto, person:N, left, center, right or x:0.0-1.0")
+
+
 def _override(args: dict) -> dict:
-    return {k: args[k] for k in _OVERRIDE_KEYS if args.get(k) not in (None, "")}
+    """The override keys of ``args`` with their values checked, so a bad value is an argument error."""
+    out = {k: args[k] for k in _OVERRIDE_KEYS if args.get(k) not in (None, "")}
+    layouts = _OVERRIDE_PROPS["layout"]["enum"]
+    if "layout" in out and out["layout"] not in layouts:
+        raise ValueError(f"layout must be one of {layouts}, got {out['layout']!r}")
+    if "focus" in out:
+        _check_focus(out["focus"])
+    trim = out.get("trim")
+    if trim is not None and not (isinstance(trim, list) and len(trim) == 2 and all(_is_number(v) for v in trim)
+                                 and 0 <= trim[0] < trim[1]):
+        raise ValueError(f"trim must be [start, end] in seconds with 0 <= start < end, got {trim!r}")
+    if "cover_at" in out and not (_is_number(out["cover_at"]) and out["cover_at"] >= 0):
+        raise ValueError(f"cover_at must be a time in seconds, got {out['cover_at']!r}")
+    return out
 
 
 def _overrides(raw: dict, planned: list[str]) -> dict:
