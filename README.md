@@ -14,7 +14,7 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 
 <p align="center">
   <a href="https://postkitty.mertkayacs.com"><b>Site</b></a> ·
-  <a href="https://postkitty.mertkayacs.com"><b>Launch video</b></a> ·
+  <a href="https://postkitty.mertkayacs.com/media/postkitty-launch.mp4"><b>Launch video</b></a> ·
   <a href="#install"><b>Install</b></a> ·
   <a href="https://github.com/mertkayacs/postkitty/issues"><b>Issues</b></a>
 </p>
@@ -27,6 +27,8 @@ draft, some photos and a landscape video. You get back a folder of upload-ready 
 where to post, and a review board that shows every file before you upload it.
 
 Everything runs on your machine. There are no API keys and nothing is uploaded.
+
+<p align="center"><a href="https://postkitty.mertkayacs.com/media/postkitty-launch.mp4"><img src="docs/launch-poster.jpg" width="720" alt="Watch the postkitty launch video"></a></p>
 
 ![Center crops lose people. postkitty keeps them.](docs/before-after.jpg)
 
