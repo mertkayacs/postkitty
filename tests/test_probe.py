@@ -60,6 +60,20 @@ def test_truncated_jpeg_fails_at_probe(tmp_path):
         probe.probe(truncated, "in1")
 
 
+def test_still_gif_is_an_image_and_animated_gif_is_refused(tmp_path):
+    # x_image lists gif as an allowed format, so a still GIF must probe as an image.
+    still = tmp_path / "still.gif"
+    Image.new("RGB", (40, 30), "red").save(still)
+    info = probe.probe(still, "in1")
+    assert (info.kind, info.width, info.height) == ("image", 40, 30)
+
+    animated = tmp_path / "anim.gif"
+    frames = [Image.new("RGB", (40, 30), color) for color in ("red", "blue")]
+    frames[0].save(animated, save_all=True, append_images=frames[1:], duration=100, loop=0)
+    with pytest.raises(probe.ProbeError, match="animated GIF"):
+        probe.probe(animated, "in1")
+
+
 def test_corrupt_image(tmp_path):
     bad = tmp_path / "bad.jpg"
     bad.write_bytes(b"not an image")

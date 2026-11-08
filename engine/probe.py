@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif"}
+_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".avif"}
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi", ".mts", ".m2ts"}
 _ALPHA_PIX_FMTS = {"rgba", "argb", "abgr", "bgra", "ya8", "ya16le", "ya16be"}
 _INSTALL_HINT = "Install ffmpeg (which provides ffprobe) and retry."
@@ -85,11 +85,16 @@ def _image_info(path: Path, input_id: str, sha: str) -> InputInfo:
                 orientation = 1
             # The header of a cut-off upload parses; only a full decode shows the file is truncated.
             image.load()
+            animated = getattr(image, "n_frames", 1) > 1
     except Exception as exc:
         hint = ""
         if path.suffix.lower() in {".heic", ".avif"}:
             hint = " HEIC and AVIF photos need the pillow-heif package, or export the photo as JPEG."
         raise ProbeError(f"Could not read image {path.name}: {exc}.{hint}") from exc
+    if animated:
+        raise ProbeError(
+            f"{path.name} is an animated GIF; export the frame you want as JPEG or PNG, or give a video."
+        )
 
     rotation = 0
     if orientation == 3:
@@ -218,6 +223,6 @@ def probe(path: Path, input_id: str) -> InputInfo:
     if suffix in _IMAGE_SUFFIXES:
         return _image_info(path, input_id, sha)
     raise ProbeError(
-        f"unsupported input type {suffix or '(no extension)'}; use a JPEG, PNG, WebP image "
+        f"unsupported input type {suffix or '(no extension)'}; use a JPEG, PNG, WebP or GIF image "
         "or an MP4, MOV, WebM video."
     )
