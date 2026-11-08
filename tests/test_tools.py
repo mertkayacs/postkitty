@@ -92,8 +92,13 @@ def test_platform_aliases_map_to_the_canonical_name(out_dir, text_job):
     assert set(out["platforms"]) == {"x", "instagram"}
 
 
-def test_drafts_are_per_platform_not_per_target(out_dir, text_job):
-    assert "per platform" in call(tools.copy, job=text_job, drafts={"x_video": "hi"})["error"]
+def test_drafts_accept_targets_and_prefer_platform_keys(out_dir, text_job):
+    out = call(tools.copy, job=text_job, drafts={"x_video": "target", "x": "platform"})
+
+    assert out["platforms"]["x"]["parts"][0]["text"] == "platform"
+    assert out["platforms"]["x"]["notes"] == ["Used the x platform draft instead of the x_video target draft."]
+    assert "fold" not in out["platforms"]["x"]
+    assert "fold_note" not in out["platforms"]["x"]
 
 
 def test_alt_text_by_target_and_file(out_dir, text_job):
@@ -104,6 +109,21 @@ def test_alt_text_by_target_and_file(out_dir, text_job):
     assert out["alt_text_unmatched"] == ["nope"]
     assert "A red door." in (job / "ready/x/alt.txt").read_text()
     assert "A cat on a sofa." in (job / "ready/instagram/alt.txt").read_text()
+
+
+def test_alt_text_accepts_input_name_and_ready_path(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "team.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    call(tools.make, job=job)
+    ready = out_dir / job / "ready/x/image.jpg"
+
+    by_input = call(tools.copy, job=job, alt_text={"team.jpg": "A team photo."})
+    by_ready = call(tools.copy, job=job, alt_text={str(ready): "A generated crop."})
+
+    assert by_input["alt_text_unmatched"] is None
+    assert by_ready["alt_text_unmatched"] is None
+    assert "x_image:\nA generated crop." in (ready.parent / "alt.txt").read_text()
 
 
 def test_make_on_text_only_job_explains(out_dir, text_job):

@@ -403,10 +403,8 @@ def copy(args: dict) -> dict:
         manifest["advice"] = advice
         jobs.write_advice(job, advice)
     result: dict[str, Any] = {}
-    for raw, draft in (args.get("drafts") or {}).items():
-        (name,) = _platform_names([raw])
-        if name not in platforms.platform_names():
-            raise ValueError(f"drafts are per platform, not per target: {raw!r}")
+    drafts, draft_notes = _platform_drafts(args.get("drafts") or {})
+    for name, draft in drafts.items():
         report = copyfit.fit(name, draft, split_threads=split)
         rules = copyfit.rules_for(name)
         folder = jobs.ready_dir(job, name)
@@ -419,13 +417,16 @@ def copy(args: dict) -> dict:
             files.append(_rel(job, folder / target))
         manifest.setdefault("copy", {})[name] = {
             "parts": report.parts, "counts": report.counts, "unit": report.unit, "limit": report.limit, "ok": report.ok}
-        result[name] = {"ok": report.ok, "enforcement": "hard" if rules.hard else "recommendation",
-                        "unit": report.unit, "limit": report.limit, "count": max(report.counts),
-                        "overflow": report.overflow, "split": report.split,
-                        "parts": [{"text": t, "count": c} for t, c in zip(report.parts, report.counts, strict=True)],
-                        "hashtags": report.hashtags, "mentions": report.mentions, "fold": report.fold,
-                        "fold_note": f"about {report.fold_limit} characters show before 'more' (advisory)",
-                        "notes": report.notes, "files": files}
+        details = {"ok": report.ok, "enforcement": "hard" if rules.hard else "recommendation",
+                   "unit": report.unit, "limit": report.limit, "count": max(report.counts),
+                   "overflow": report.overflow, "split": report.split,
+                   "parts": [{"text": t, "count": c} for t, c in zip(report.parts, report.counts, strict=True)],
+                   "hashtags": report.hashtags, "mentions": report.mentions,
+                   "notes": report.notes + draft_notes.get(name, []), "files": files}
+        if name != "x":
+            details.update(fold=report.fold,
+                           fold_note=f"about {report.fold_limit} characters show before 'more' (advisory)")
+        result[name] = details
     unknown = _write_alt(job, manifest, args.get("alt_text") or {})
     jobs.save_manifest(job, manifest)
     return {"job": job.id, "all_ok": all(r["ok"] or r["enforcement"] != "hard" for r in result.values()),
@@ -433,24 +434,68 @@ def copy(args: dict) -> dict:
             "alt_text_unmatched": unknown or None}
 
 
+def _platform_drafts(drafts: dict) -> tuple[dict[str, Any], dict[str, list[str]]]:
+    chosen: dict[str, tuple[int, str, Any]] = {}
+    notes: dict[str, list[str]] = {}
+    platform_names = set(platforms.platform_names())
+    for raw, draft in drafts.items():
+        (name,) = _platform_names([raw])
+        is_platform = name in platform_names
+        platform = name if is_platform else platforms.platform_for_target(name)
+        priority = int(is_platform)
+        previous = chosen.get(platform)
+        if previous and priority != previous[0]:
+            target = previous[1] if priority else name
+            notes[platform] = [f"Used the {platform} platform draft instead of the {target} target draft."]
+        if previous is None or priority >= previous[0]:
+            chosen[platform] = (priority, name, draft)
+    return {platform: item[2] for platform, item in chosen.items()}, notes
+
+
 def _write_alt(job: jobs.Job, manifest: dict, alt: dict) -> list[str]:
     by_platform: dict[str, dict[str, str]] = {}
     unknown = []
     for key, text in alt.items():
-        names = [p for p in (job.ready.iterdir() if job.ready.is_dir() else []) if (p / key).exists()]
-        try:
-            platform = platforms.platform_for_target(key)
-        except KeyError:
-            platform = names[0].name if names else None
-        if platform is None:
+        matches = _alt_matches(job, manifest, key)
+        if not matches:
             unknown.append(key)
             continue
-        by_platform.setdefault(platform, {})[key] = str(text).strip()
+        for platform, target_key in matches:
+            by_platform.setdefault(platform, {})[target_key] = str(text).strip()
     manifest.setdefault("alt_text", {}).update({k: v for d in by_platform.values() for k, v in d.items()})
     for platform, items in by_platform.items():
         lines = "\n\n".join(f"{key}:\n{text}" for key, text in items.items())
         (jobs.ready_dir(job, platform) / "alt.txt").write_text(lines + "\n", encoding="utf-8")
     return unknown
+
+
+def _alt_matches(job: jobs.Job, manifest: dict, key: str) -> list[tuple[str, str]]:
+    try:
+        return [(platforms.platform_for_target(key), key)]
+    except KeyError:
+        pass
+    entries = manifest.get("targets", [])
+    if not entries and (job.work / "scan.json").is_file():
+        entries = jobs.read_json(job.work / "scan.json").get("targets", [])
+    input_ids = {item["id"] for item in manifest.get("inputs", []) if Path(item["path"]).name == key}
+    matches = [(platforms.platform_for_target(item["id"]), item["id"])
+               for item in entries if item.get("input") in input_ids]
+    key_path = Path(key).expanduser()
+    for item in manifest.get("targets", []):
+        if not item.get("file"):
+            continue
+        ready_path = (job.root / item["file"]).resolve()
+        if key_path.name == ready_path.name or key_path.resolve() == ready_path:
+            match = (item["platform"], item["id"])
+            if match not in matches:
+                matches.append(match)
+    if not key_path.is_absolute() and len(key_path.parts) == 1 and job.ready.is_dir():
+        for folder in job.ready.iterdir():
+            if (folder / key).is_file():
+                match = (folder.name, key)
+                if match not in matches:
+                    matches.append(match)
+    return matches
 
 
 # ------------------------------------------------------------------ make, redo, check
