@@ -51,6 +51,11 @@ jobs:
           python -m pip install ruamel.yaml pytest hypothesis
           python -c "from ruamel.yaml import YAML; print('\n'.join(YAML(typ='safe').load(open('plugin.yaml'))['python_dependencies']))" > "$RUNNER_TEMP/requirements.txt"
           python -m pip install -r "$RUNNER_TEMP/requirements.txt"
+      - name: Cache the YuNet model
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/postkitty/models
+          key: yunet-8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
       - name: Run real detector tests
         run: |
           mkdir -p tests-output

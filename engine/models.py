@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -22,6 +24,8 @@ YUNET_URL = (
     "48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_detection_yunet/"
     f"{YUNET_FILENAME}"
 )
+# GitHub's file host sometimes answers 5xx or times out for a minute; retry those, fail fast on the rest.
+RETRY_DELAYS = (2.0, 5.0, 10.0)
 
 
 def model_cache_dir() -> Path:
@@ -53,6 +57,19 @@ def get_yunet_model(cache_dir: Path | None = None) -> Path:
         raise ValueError(f"YuNet model checksum mismatch: {path}")
 
     directory.mkdir(parents=True, exist_ok=True)
+    for delay in (*RETRY_DELAYS, None):
+        try:
+            _download(directory, path)
+            return path
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            transient = not isinstance(error, urllib.error.HTTPError) or error.code == 429 or error.code >= 500
+            if delay is None or not transient:
+                raise
+            time.sleep(delay)
+    return path
+
+
+def _download(directory: Path, path: Path) -> None:
     request = urllib.request.Request(YUNET_URL, headers={"User-Agent": "postkitty/0.1"})
     temporary: Path | None = None
     try:
@@ -69,4 +86,3 @@ def get_yunet_model(cache_dir: Path | None = None) -> Path:
     finally:
         if temporary is not None and temporary.exists():
             temporary.unlink()
-    return path
