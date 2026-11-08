@@ -145,7 +145,16 @@ def _video_info(path: Path, input_id: str, sha: str) -> InputInfo:
         raise ProbeError(f"ffprobe returned invalid JSON for {path.name}.") from exc
 
     streams = data.get("streams") or []
-    video = next((stream for stream in streams if stream.get("codec_type") == "video"), None)
+    # Cover art in an audio file is listed as a video stream; it is not a video.
+    video = next(
+        (
+            stream
+            for stream in streams
+            if stream.get("codec_type") == "video"
+            and not (stream.get("disposition") or {}).get("attached_pic")
+        ),
+        None,
+    )
     if video is None:
         raise ProbeError(f"{path.name} has no video stream.")
     audio = any(stream.get("codec_type") == "audio" for stream in streams)
