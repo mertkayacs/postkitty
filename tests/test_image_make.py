@@ -428,3 +428,10 @@ def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
     with Image.open(result.file) as rendered:
         array = np.asarray(rendered)
         assert array[:40, :, 0].mean() > array[-40:, :, 0].mean() + 100
+
+
+def test_upscale_is_one_when_no_window_has_an_area() -> None:
+    image = Image.new("RGB", (100, 100))
+    outside = Layout("crop", [Box(500.0, 500.0, 10.0, 10.0)], "window outside the frame")
+
+    assert image_make._upscale(image, outside, (1080, 1350)) == 1.0

@@ -321,7 +321,7 @@ def _upscale(image: Image.Image, layout: Layout, size: tuple[int, int]) -> float
         factors = [max(size[0] / image.width, size[1] / image.height)]
     else:
         factors = [max(size[0] / box.w, size[1] / box.h) for box in windows if box.area]
-    return round(max(1.0, *factors), 2)
+    return round(max([1.0, *factors]), 2)
 
 
 def _render_pixels(
