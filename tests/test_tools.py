@@ -319,6 +319,38 @@ def test_make_rejects_unknown_override_targets_and_keys(out_dir, tmp_path, stub_
     assert made["targets"][0]["layout"]["mode"] == "pad"
 
 
+def test_make_refuses_an_input_that_changed_since_the_scan(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    Image.new("RGB", (900, 900), "blue").save(photo)
+
+    out = call(tools.make, job=job)
+    assert "changed since the scan" in out["error"] and "postkitty_scan" in out["error"]
+    assert "changed since the scan" in call(tools.redo, job=job, target="x_image", layout="pad")["error"]
+    photo.unlink()
+    assert "missing" in call(tools.make, job=job)["error"]
+
+
+def test_rescan_with_new_inputs_drops_stale_targets_and_ready_media(out_dir, tmp_path, stub_image_engine):
+    first, second = tmp_path / "a.jpg", tmp_path / "b.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(first)
+    Image.new("RGB", (1200, 1600), "blue").save(second)
+    job = call(tools.scan, inputs=[str(first)], platforms=["x"])["job"]
+    call(tools.make, job=job)
+    call(tools.copy, job=job, drafts={"x": "keep me"})
+    assert (out_dir / job / "ready/x/image.jpg").is_file()
+
+    out = call(tools.scan, job=job, inputs=[str(second)], platforms=["instagram_feed"])
+
+    assert out["job"] == job and [p["id"] for p in out["plan"]] == ["instagram_feed"]
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+    assert manifest["targets"] == [] and manifest["inputs"][0]["path"] == str(second)
+    assert not (out_dir / job / "ready/x/image.jpg").exists()
+    assert (out_dir / job / "ready/x/post.txt").read_text().strip() == "keep me"
+    assert call(tools.check, job=job)["targets"] == {}
+
+
 def test_make_subset_and_failed_target_stays_out_of_ready(out_dir, tmp_path, stub_image_engine):
     photo = tmp_path / "me.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(photo)

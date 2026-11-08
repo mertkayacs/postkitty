@@ -368,12 +368,22 @@ def _table(entries: list[dict]) -> list[dict]:
     return rows
 
 
+def _verify_unchanged(info: probe.InputInfo) -> None:
+    """Cached detections are keyed by content hash, so a rewritten or missing input must not be rendered."""
+    if not info.path.is_file():
+        raise FileNotFoundError(f"input {info.id} is missing ({info.path}); run postkitty_scan again")
+    if probe.sha256_file(info.path) != info.sha256:
+        raise ValueError(f"input {info.id} ({info.path.name}) changed since the scan; run postkitty_scan again")
+
+
 def _build(job: jobs.Job, ids: list[str], overrides: dict, merge_old: bool = False) -> dict:
     manifest = jobs.load_manifest(job)
     infos = _infos(manifest)
     scan = jobs.read_json(job.work / "scan.json")
     planned = {t["id"]: t["input"] for t in scan.get("targets", [])}
     by_id = {i.id: i for i in infos}
+    for info in {planned[tid] for tid in ids if tid in planned}:
+        _verify_unchanged(by_id[info])
     old = {t["id"]: t for t in manifest.get("targets", [])}
     media, masters, built = _Media(job), {}, []
     for tid in ids:
