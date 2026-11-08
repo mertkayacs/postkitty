@@ -60,6 +60,15 @@ def test_skill_frontmatter_and_size():
         assert tool in skill
 
 
+def test_skill_uses_vision_and_does_not_recheck_generated_files():
+    skill = (ROOT / "skills/postkitty/SKILL.md").read_text()
+
+    assert "Never call `postkitty_check` on files made by `postkitty_make` or `postkitty_redo`." in skill
+    assert "only for files the user brings from elsewhere" in skill
+    assert "under 180 words plus the file list" in skill
+    assert "If no vision tool is available" in skill
+
+
 def test_no_em_dashes_or_emoji_in_shipped_text():
     for path in [*ROOT.glob("*.py"), *ROOT.glob("engine/*.py"), *ROOT.glob("skills/*/SKILL.md"), ROOT / "plugin.yaml"]:
         text = path.read_text(encoding="utf-8")

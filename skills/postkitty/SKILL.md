@@ -39,7 +39,7 @@ Work through the five tools in order. Every tool returns JSON; an `error` key me
 2. Understand the post, then write advice and copy.
 3. `postkitty_copy` with `job`, `advice`, `drafts`, `alt_text`. Repeat until every platform is `ok`.
 4. `postkitty_make` with `job` (add `targets` or `overrides` only when needed).
-5. `postkitty_redo` for each change the user asks for. `postkitty_check` answers "will this upload?" for any file.
+5. `postkitty_redo` for each change the user asks for. Use `postkitty_check` only for files the user brings from elsewhere.
 
 ## Quick Reference
 
@@ -49,7 +49,7 @@ Work through the five tools in order. Every tool returns JSON; an `error` key me
 | `postkitty_copy` | count, split and store drafts, advice and alt text | `job`, `drafts`, `advice`, `alt_text` |
 | `postkitty_make` | render, check, repair, build the board | `job`, `targets`, `overrides` |
 | `postkitty_redo` | change one target | `job`, `target`, `layout`, `focus`, `trim`, `cover_at` |
-| `postkitty_check` | check one file or a whole job | `path` + `target`, or `job` |
+| `postkitty_check` | check a file that postkitty did not make | `path` + `target` |
 
 Layouts: `crop` follows the subject, `split` stacks two people in a vertical frame, `seam` squeezes the background
 so two people fit, `pad` keeps the whole frame on a blurred fill. Focus: `auto`, `person:N` (1 is the leftmost
@@ -64,8 +64,10 @@ Call `postkitty_scan` first, even for text only. Read `inputs` (kind, size, dura
 grapheme, hashtag, mention and URL counts). Keep the `job` id for every later call. Read `notes` too: a note means
 a media step was skipped and says why.
 
-If `peek` is set, look at that image with `vision_analyze`. It is a still or a keyframe strip of the user's media.
-Without a vision tool, work from the `inputs` facts and the user's words and say so.
+If a vision tool is available (`vision_analyze` or similar), inspect the scan's `peek` image and every photo input
+before writing advice or alt text. The peek is a still or a keyframe strip of the user's media.
+If no vision tool is available, say so once. Write alt text only from the user's words and facts reported by scan,
+and never invent visual details.
 
 ### 2. Understand
 
@@ -106,14 +108,20 @@ is ready to upload only when `status` is `ready` or `repaired`. For `failed` tar
 redo with a different layout or explain what blocks it. `skipped` means the media engine for that kind is not
 available. Report every `advisory` honestly, for example a safe-area or bitrate recommendation.
 
+`postkitty_make` and `postkitty_redo` already run every check and repair.
+Never call `postkitty_check` on files made by `postkitty_make` or `postkitty_redo`.
+
 ### 6. Reply
 
-Give a short summary: what was made for which platform, what was repaired, what failed or was skipped and why, the
-ranking and the one-line reason for each platform. Then:
+Keep the reply under 180 words plus the file list. Use this order:
 
-- Put `media_line` from the result on its own line, exactly as returned (it starts with `MEDIA:`).
-- On Hermes Desktop, put `preview_directive` on its own paragraph, exactly as returned, so the review board opens.
-- Give the job folder path from `job_dir`. Files for upload are under `ready/<platform>/`.
+1. A short summary of what was made, repaired, failed or skipped.
+2. The ranked platforms with one reason each.
+3. "What to check before posting", containing only advisory items actually returned by the tools. Omit it when there
+   are no advisories.
+4. The job folder path from `job_dir`, then the file list. Upload files are under `ready/<platform>/`.
+5. The exact `media_line` alone on its own line.
+6. On Hermes Desktop, the exact `preview_directive` as its own paragraph so the review board opens.
 
 If the result has no `media_line` or `preview_directive`, skip that line and do not invent one.
 
@@ -130,6 +138,7 @@ first frame where they appear. After each redo, read the new status again and sh
 - Do not state platform limits from memory. Quote the numbers the tools return.
 - Do not put facts in copy that are not in the user's material. This includes statistics, product claims and quotes.
 - Do not run image or video work yourself with `terminal` (no ffmpeg or OpenCV calls). Use the tools.
+- Use `postkitty_check` only for an external file when the user asks whether it will upload.
 - Do not reuse a stale job after the user changes the inputs; run `postkitty_scan` again with `job` unset.
 - A text-only job has no media targets; `postkitty_make` will say so. That is fine, copy files are already in `ready/`.
 
@@ -137,5 +146,4 @@ first frame where they appear. After each redo, read the new status again and sh
 
 - Every platform in `postkitty_copy` shows `ok: true` (or a recommendation-only limit with a note).
 - Every target you call finished shows `ready` or `repaired` in the `postkitty_make` or `postkitty_redo` table.
-- `postkitty_check` with the `job` id returns `all_pass: true` for the final set.
 - The reply contains the exact `media_line` string from the tool result.
