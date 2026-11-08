@@ -329,6 +329,26 @@ def test_transparent_input_over_the_byte_cap_falls_back_to_jpeg(tmp_path: Path) 
         assert rendered.format == "JPEG"
 
 
+def test_palette_png_keeps_its_transparency(tmp_path: Path) -> None:
+    source = tmp_path / "logo.png"
+    image = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    ImageDraw.Draw(image).ellipse((20, 20, 80, 80), fill=(255, 0, 0, 255))
+    image.convert("P", palette=Image.Palette.ADAPTIVE).save(source)
+    with Image.open(source) as palette:
+        assert palette.mode == "P" and "transparency" in palette.info
+    info = InputInfo(source, "logo", 100, 100, has_alpha=True)
+
+    result = render_image(
+        info, Layout("crop", [Box(0, 0, 100, 100)], "logo"), Target("logo", 100, 100), tmp_path / "logo-out.png"
+    )
+
+    with Image.open(result.file) as rendered:
+        assert rendered.format == "PNG"
+        assert rendered.mode == "RGBA"
+        assert rendered.getpixel((2, 2))[3] == 0
+        assert rendered.getpixel((50, 50))[:3] == (255, 0, 0)
+
+
 def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
     source = tmp_path / "rotated.jpg"
     image = Image.new("RGB", (100, 50), "blue")

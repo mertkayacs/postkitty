@@ -211,6 +211,8 @@ def plan_image(
 
 
 def _srgb(image: Image.Image) -> Image.Image:
+    if image.mode in {"P", "PA"} and "transparency" in image.info:
+        image = image.convert("RGBA")
     alpha = image.getchannel("A") if "A" in image.getbands() else None
     rgb = image.convert("RGB")
     profile = image.info.get("icc_profile")
@@ -372,11 +374,8 @@ def render_image(
 ) -> Any:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(info.path) as opened:
-        oriented = ImageOps.exif_transpose(opened)
-        has_alpha = bool(
-            getattr(info, "has_alpha", False) or "A" in oriented.getbands()
-        )
-        image = _srgb(oriented)
+        image = _srgb(ImageOps.exif_transpose(opened))
+        has_alpha = bool(getattr(info, "has_alpha", False) or "A" in image.getbands())
     rendered, engine = _render_pixels(image, info, layout, target, out_path)
     formats = {str(value).lower() for value in _limit(target, "formats", ["jpeg", "png"])}
     use_png = has_alpha and "png" in formats
