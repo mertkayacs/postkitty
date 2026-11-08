@@ -190,3 +190,83 @@ def test_person_focus_disables_auto_split() -> None:
 
     assert path.layout == "crop"
     assert path.windows[0].cx > InputInfo.width / 2
+
+
+def test_speaker_layout_cuts_from_first_person_to_second(speaker_media) -> None:
+    info, scan = speaker_media.info, speaker_media.scan
+    target = Target(1080, 1920)
+    path = build_camera_path(
+        info, scan, target, (0.0, 9.0), layout_override="speaker"
+    )
+
+    assert path.layout == "speaker"
+    assert path.windows[round(1.0 * info.fps)].cx < info.width / 2
+    assert path.windows[round(4.5 * info.fps)].cx > info.width / 2
+    assert "cuts to whoever is talking" in path.note
+
+
+def test_speaker_layout_with_one_person_matches_crop() -> None:
+    left = _track(1, [(index / 5, 40.0) for index in range(10)])
+    scan = _scan([left], [(0.0, 2.0)])
+    target = Target(1080, 1920)
+    crop = build_camera_path(
+        InputInfo(), scan, target, (0.0, 2.0), layout_override="crop"
+    )
+    speaker = build_camera_path(
+        InputInfo(), scan, target, (0.0, 2.0), layout_override="speaker"
+    )
+
+    assert speaker.windows == crop.windows
+    assert speaker.subjects_inside == crop.subjects_inside
+
+
+@dataclass(frozen=True)
+class VideoInfo24:
+    width: int = 1280
+    height: int = 720
+    fps: float = 24.0
+    path: str = "unused.mp4"
+    sha256: str = "0" * 64
+
+
+def test_speaker_cut_between_frames_keeps_every_subject_inside(monkeypatch) -> None:
+    import numpy as np
+
+    from engine import speakers
+
+    left = _track(1, [(index / 5, 40.0) for index in range(10)])
+    right = _track(2, [(index / 5, 1120.0) for index in range(10)])
+    scan = _scan([left, right], [(0.0, 2.0)])
+    monkeypatch.setattr(
+        speakers,
+        "cached_activity",
+        lambda *args, **kwargs: (np.zeros(1), np.zeros((1, 2)), np.ones(1, dtype=bool)),
+    )
+    # 1.19 s falls after the frame at 28/24 s and before the face sample at 1.2 s.
+    monkeypatch.setattr(
+        speakers,
+        "speaker_segments",
+        lambda *args, **kwargs: [(0.0, 1.19, 0), (1.19, 2.0, 1)],
+    )
+    path = build_camera_path(
+        VideoInfo24(), scan, Target(1080, 1920), (0.0, 2.0), layout_override="speaker"
+    )
+
+    assert path.layout == "speaker"
+    assert path.subjects_inside == 1.0
+    assert path.windows[0].cx != path.windows[-1].cx
+
+
+def test_speaker_option_does_not_change_auto_or_split() -> None:
+    left = _track(1, [(index / 5, 40.0) for index in range(10)])
+    right = _track(2, [(index / 5, 1120.0) for index in range(10)])
+    scan = _scan([left, right], [(0.0, 2.0)])
+    target = Target(1080, 1920)
+    automatic = build_camera_path(InputInfo(), scan, target, (0.0, 2.0))
+    split = build_camera_path(
+        InputInfo(), scan, target, (0.0, 2.0), layout_override="split"
+    )
+
+    assert automatic.layout == "split"
+    assert automatic.windows == split.windows
+    assert automatic.subjects_inside == split.subjects_inside

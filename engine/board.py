@@ -709,8 +709,8 @@ def adjust_html(target: dict, ctx: Ctx) -> str:
             f'<div class="adjust-menu">{buttons}</div></details>')
 
 
-LAYOUT_NAMES = {"split": "Split screen", "pad": "Whole frame", "crop": "Cropped",
-                "seam": "Seam squeeze"}
+LAYOUT_NAMES = {"split": "Split screen", "speaker": "Follows the speaker",
+                "pad": "Whole frame", "crop": "Cropped", "seam": "Seam squeeze"}
 
 
 def layout_note(layout: dict) -> str:

@@ -67,6 +67,11 @@ def test_skill_uses_vision_and_does_not_recheck_generated_files():
     assert "only for files the user brings from elsewhere" in skill
     assert "under 180 words plus the file list" in skill
     assert "If no vision tool is available" in skill
+    assert "`speaker` cuts to whoever is talking" in skill
+    assert "two other choices exist" in skill
+
+    readme = (ROOT / "README.md").read_text()
+    assert "When two people talk, you choose: a split screen, a cut to whoever is speaking, or the whole wide shot." in readme
 
 
 def test_no_em_dashes_or_emoji_in_shipped_text():

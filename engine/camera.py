@@ -10,7 +10,7 @@ from .video_scan import Track, TrackPoint, VideoScan
 
 @dataclass(frozen=True)
 class CameraPath:
-    layout: Literal["crop", "split", "pad"]
+    layout: Literal["crop", "split", "speaker", "pad"]
     windows: list[Any]
     note: str
     subjects_inside: float
@@ -438,6 +438,13 @@ def _rendered_window(box: Any, width: int, height: int) -> Any:
     return Box(float(x), float(y), float(crop_width), float(crop_height))
 
 
+def _on_frame(value: float, scene: tuple[float, float], start: float, fps: float) -> float:
+    # Cuts land on rendered frames, so a face sample at a cut is judged against its own shot.
+    if value <= scene[0] or value >= scene[1]:
+        return value
+    return start + math.ceil((value - start) * fps - 1e-9) / fps
+
+
 def build_camera_path(
     info: Any,
     scan: VideoScan,
@@ -450,7 +457,7 @@ def build_camera_path(
         raise ValueError("video fps must be positive")
     if trim[0] < 0 or trim[1] <= trim[0]:
         raise ValueError("trim must be an increasing non-negative range")
-    if layout_override not in {"auto", "crop", "split", "pad"}:
+    if layout_override not in {"auto", "crop", "split", "speaker", "pad"}:
         raise ValueError(f"unsupported video layout: {layout_override}")
 
     person, anchor_x = _focus(focus)
@@ -467,8 +474,10 @@ def build_camera_path(
         for scene in scenes
     }
     split_available = any(value is not None for value in split_scenes.values())
-    if layout_override == "pad":
-        layout: Literal["crop", "split", "pad"] = "pad"
+    if layout_override == "speaker":
+        layout: Literal["crop", "split", "speaker", "pad"] = "speaker"
+    elif layout_override == "pad":
+        layout = "pad"
     elif split_available and (
         layout_override == "split"
         or layout_override == "auto" and person is None
@@ -481,15 +490,17 @@ def build_camera_path(
     windows: list[Any] = [Box(0.0, 0.0, info.width, info.height)] * frame_count
     inside_count = 0
     subject_count = 0
+    speaker_cuts = 0
     for scene in scenes:
         indices = [index for index, t in enumerate(times) if scene[0] <= t < scene[1]]
         if not indices:
             continue
         scene_times = [times[index] for index in indices]
         tracks = _present_tracks(scan, *scene)
+        accounting: list[tuple[Track | None, float, float, int | None]] = []
         if layout == "pad":
             scene_windows = [Box(0.0, 0.0, info.width, info.height)] * len(indices)
-            selected = [_select_track(tracks, person, *scene)]
+            accounting.append((_select_track(tracks, person, *scene), *scene, None))
         elif layout == "split":
             pair = split_scenes[scene]
             if pair is None:
@@ -515,7 +526,79 @@ def build_camera_path(
                 panel_aspect,
             )
             scene_windows = list(zip(first, second, strict=True))
-            selected = [pair[0], pair[1]]
+            accounting.extend(
+                [(pair[0], *scene, 0), (pair[1], *scene, 1)]
+            )
+        elif layout == "speaker":
+            from .speakers import cached_activity, speaker_segments
+
+            speaker_tracks = _present_tracks(scan, *scene, minimum=0.3)[:4]
+            segments: list[tuple[float, float, int]] = []
+            if len(speaker_tracks) >= 2:
+                activity_times, activity, speech = cached_activity(
+                    info.path,
+                    info.sha256,
+                    speaker_tracks,
+                    scene[0],
+                    scene[1],
+                    info.width,
+                    info.height,
+                    scan.work_dir,
+                )
+                segments = speaker_segments(activity_times, activity, speech)
+            if not segments:
+                selected_track = _select_track(tracks, person, *scene)
+                scene_windows = _track_windows(
+                    selected_track,
+                    scene_times,
+                    scene,
+                    info.width,
+                    info.height,
+                    target.aspect,
+                    fps,
+                    anchor_x,
+                )
+                accounting.append((selected_track, *scene, None))
+            else:
+                segments = [
+                    (
+                        _on_frame(start, scene, trim[0], fps),
+                        _on_frame(stop, scene, trim[0], fps),
+                        speaker,
+                    )
+                    for start, stop, speaker in segments
+                ]
+                segments[0] = (scene[0], segments[0][1], segments[0][2])
+                segments[-1] = (segments[-1][0], scene[1], segments[-1][2])
+                scene_windows = [None] * len(indices)
+                for segment_start, segment_end, speaker_index in segments:
+                    positions = [
+                        index
+                        for index, t in enumerate(scene_times)
+                        if segment_start <= t < segment_end
+                    ]
+                    if not positions:
+                        continue
+                    segment_times = [scene_times[index] for index in positions]
+                    selected_track = speaker_tracks[speaker_index]
+                    segment_windows = _track_windows(
+                        selected_track,
+                        segment_times,
+                        (segment_start, segment_end),
+                        info.width,
+                        info.height,
+                        target.aspect,
+                        fps,
+                        anchor_x,
+                    )
+                    for index, window in zip(
+                        positions, segment_windows, strict=True
+                    ):
+                        scene_windows[index] = window
+                    accounting.append(
+                        (selected_track, segment_start, segment_end, None)
+                    )
+                speaker_cuts += max(0, len(segments) - 1)
         else:
             selected_track = _select_track(tracks, person, *scene)
             scene_windows = _track_windows(
@@ -528,26 +611,29 @@ def build_camera_path(
                 fps,
                 anchor_x,
             )
-            selected = [selected_track]
+            accounting.append((selected_track, *scene, None))
 
         for index, window in zip(indices, scene_windows, strict=True):
             windows[index] = window
 
-        for selected_index, track in enumerate(selected):
+        for track, selected_start, selected_end, panel_index in accounting:
             if track is None:
                 continue
-            for point in _points_in_scene(track, *scene):
+            for point in _points_in_scene(track, selected_start, selected_end):
                 index = math.floor((point.t - trim[0]) * fps + 1e-9)
                 if not 0 <= index < len(windows):
                     continue
                 window = windows[index]
-                candidate = window[selected_index] if layout == "split" else window
+                candidate = window[panel_index] if panel_index is not None else window
                 rendered = _rendered_window(candidate, info.width, info.height)
                 subject_count += 1
                 inside_count += int(_inside(rendered, _face_box(point)))
 
     if layout == "split":
         note = "two subjects cannot share one vertical window"
+    elif layout == "speaker":
+        suffix = "cut" if speaker_cuts == 1 else "cuts"
+        note = f"cuts to whoever is talking ({speaker_cuts} {suffix})"
     elif layout == "pad":
         note = "full source retained over a blurred fill"
     else:

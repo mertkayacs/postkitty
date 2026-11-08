@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import shutil
 import sys
 import types
 from dataclasses import dataclass
@@ -340,6 +341,34 @@ def test_slash_command_text():
     assert "tiktok: 1080x1920 video" in text and "X: text 280 x_weighted" in text
     assert tools.targets_overview("platforms x").count("X:") == 1 and "TikTok" not in tools.targets_overview("x")
     assert tools.targets_overview("zzz") == "No matching platform."
+
+
+def test_speaker_layout_is_exposed_by_the_tool_schema() -> None:
+    layout = tools.SCHEMAS["postkitty_redo"]["parameters"]["properties"]["layout"]
+
+    assert "speaker" in layout["enum"]
+    assert "speaker cuts to whoever is talking" in layout["description"]
+
+
+def test_speaker_layout_make_returns_ready(out_dir, speaker_media) -> None:
+    shared = Path(os.environ["POSTKITTY_FACES_CACHE"])
+    shared.mkdir(parents=True, exist_ok=True)
+    source = speaker_media.work / "faces" / f"{speaker_media.info.sha256}.json"
+    shutil.copyfile(source, shared / source.name)
+    scanned = call(
+        tools.scan,
+        inputs=[str(speaker_media.info.path)],
+        platforms=["linkedin_video"],
+    )
+
+    made = call(
+        tools.make,
+        job=scanned["job"],
+        overrides={"linkedin_video": {"layout": "speaker", "cover_at": 1.0}},
+    )
+
+    assert made["targets"][0]["status"] == "ready"
+    assert made["targets"][0]["layout"]["mode"] == "speaker"
 
 
 def test_scan_reuses_shared_detections_without_building_a_detector(out_dir, tmp_path, monkeypatch):

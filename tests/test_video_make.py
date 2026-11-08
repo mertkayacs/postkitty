@@ -267,6 +267,24 @@ def test_split_panels_have_even_heights_for_odd_half_targets(tmp_path: Path) -> 
     assert all(height % 2 == 0 for height in heights)
 
 
+def test_speaker_layout_uses_the_crop_renderer(tmp_path: Path) -> None:
+    from engine.video_make import _crop_filter
+
+    @dataclass(frozen=True)
+    class Info:
+        width: int = 1280
+        height: int = 720
+
+    target = Target("tiktok", 1080, 1920)
+    windows = [_box(0.0, 0.0, 405.0, 720.0)] * 10
+    crop = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "crop", windows)
+    speaker = VideoPlan(target.id, "speaker", (0.0, 1.0), 0.5, "speaker", windows)
+
+    assert _crop_filter(Info(), speaker, target, 10.0, tmp_path / "c.txt") == _crop_filter(
+        Info(), crop, target, 10.0, tmp_path / "c.txt"
+    )
+
+
 
 def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypatch: Any) -> None:
     # AAC lands a little above its nominal rate: a stereo film clip encoded at "-b:a 128k" measured

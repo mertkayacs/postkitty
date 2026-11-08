@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 
 from PIL import Image
-from postkitty.engine.board import write_board
+from postkitty.engine.board import layout_note, write_board
 
 CAP = 6 * 1024 * 1024
 
@@ -225,6 +225,12 @@ def test_check_values_are_human_readable():
     assert "source (" in out and "Meta" in out and "checked 7 Nov 2026" in out
     assert "[" not in out.replace("[]", "")
     assert "<details class=\"checks\" open>" not in out
+
+
+def test_speaker_layout_note_is_readable() -> None:
+    assert layout_note({"mode": "speaker", "note": "cuts to whoever is talking"}) == (
+        "Follows the speaker: cuts to whoever is talking."
+    )
 
 
 def test_adjust_menu_only_offers_what_applies(tmp_path):

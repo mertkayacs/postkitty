@@ -6,7 +6,9 @@ as ``postkitty.engine.*``. The repository root is also put on ``sys.path`` for t
 
 import importlib.util
 import os
+import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -47,6 +49,96 @@ class _BlindDetector:
 
     def detect(self, image):
         return []
+
+
+@dataclass(frozen=True)
+class SpeakerMedia:
+    info: object
+    scan: object
+    work: Path
+
+
+class SpeakerDetector:
+    """Returns the two synthetic face boxes without running a model."""
+
+    name = "test-speakers"
+
+    def detect(self, image):
+        from engine.faces import Face
+        from engine.framing import Box
+
+        height, width = image.shape[:2]
+        x_scale = width / 1280
+        y_scale = height / 720
+        return [
+            Face(Box(80 * x_scale, 150 * y_scale, 240 * x_scale, 300 * y_scale), 0.99),
+            Face(Box(960 * x_scale, 150 * y_scale, 240 * x_scale, 300 * y_scale), 0.99),
+        ]
+
+
+def make_speaker_clip(root: Path) -> Path:
+    import cv2
+    import numpy as np
+
+    root.mkdir(parents=True, exist_ok=True)
+    video_only = root / "speaker-video-only.mp4"
+    output = root / "speaker.mp4"
+    command = [
+        "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "-nostdin", "-threads", "4", "-y", "-f", "rawvideo", "-pix_fmt",
+        "bgr24", "-s", "1280x720", "-r", "15", "-i", "pipe:0", "-an",
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+        str(video_only),
+    ]
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert process.stdin is not None
+    for index in range(9 * 15):
+        t = index / 15
+        frame = np.full((720, 1280, 3), 42, dtype=np.uint8)
+        for center_x in (200, 1080):
+            cv2.ellipse(frame, (center_x, 300), (120, 150), 0, 0, 360, (210, 210, 210), -1)
+            cv2.circle(frame, (center_x - 42, 255), 12, (28, 28, 28), -1)
+            cv2.circle(frame, (center_x + 42, 255), 12, (28, 28, 28), -1)
+        first_open = (t < 3 or 6 <= t < 8) and index % 3 != 0
+        second_open = (3 <= t < 8) and index % 3 != 0
+        for center_x, is_open in ((200, first_open), (1080, second_open)):
+            mouth_height = 48 if is_open else 6
+            cv2.rectangle(
+                frame,
+                (center_x - 58, 390 - mouth_height // 2),
+                (center_x + 58, 390 + mouth_height // 2),
+                (22, 22, 22),
+                -1,
+            )
+        process.stdin.write(frame.tobytes())
+    process.stdin.close()
+    stderr = process.stderr.read() if process.stderr is not None else b""
+    assert process.wait() == 0, stderr.decode(errors="replace")
+
+    subprocess.run(
+        [
+            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-nostdin", "-threads", "4", "-y", "-i", str(video_only), "-f",
+            "lavfi", "-i", "sine=frequency=220:sample_rate=16000:duration=8",
+            "-filter_complex", "[1:a]apad=pad_dur=1[a]", "-map", "0:v", "-map",
+            "[a]", "-c:v", "copy", "-c:a", "aac", "-t", "9", str(output),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return output
+
+
+@pytest.fixture(scope="session")
+def speaker_media(tmp_path_factory):
+    from engine.probe import probe
+    from engine.video_scan import scan_video
+
+    root = tmp_path_factory.mktemp("speaker-media")
+    info = probe(make_speaker_clip(root), "speaker")
+    work = root / "work"
+    scan = scan_video(info, SpeakerDetector(), work)
+    return SpeakerMedia(info, scan, work)
 
 
 @pytest.fixture(autouse=True)

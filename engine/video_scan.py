@@ -20,6 +20,7 @@ class TrackPoint:
     w: float
     h: float
     score: float
+    landmarks: tuple[tuple[float, float], ...] = ()
 
     @property
     def cx(self) -> float:
@@ -51,6 +52,7 @@ class VideoScan:
     tracks: list[Track]
     faces: dict[str, Any]
     audio_rms: list[tuple[float, float]]
+    work_dir: Path | None = None
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -303,6 +305,18 @@ def _scene_index(t: float, scenes: list[tuple[float, float]]) -> int:
     return len(scenes) - 1
 
 
+def _track_point(t: float, face: dict[str, Any]) -> TrackPoint:
+    return TrackPoint(
+        t=t,
+        x=float(face["x"]),
+        y=float(face["y"]),
+        w=float(face["w"]),
+        h=float(face["h"]),
+        score=float(face["score"]),
+        landmarks=tuple((float(x), float(y)) for x, y in face.get("landmarks", [])),
+    )
+
+
 def _build_tracks(faces: dict[str, Any], scenes: list[tuple[float, float]]) -> list[Track]:
     sample_fps = float(faces["sample_fps"])
     width = int(faces["width"])
@@ -330,34 +344,14 @@ def _build_tracks(faces: dict[str, Any], scenes: list[tuple[float, float]]) -> l
             if track_index in used_tracks or face_index in used_faces:
                 continue
             face = frame["faces"][face_index]
-            pending[track_index].append(
-                TrackPoint(
-                    t=t,
-                    x=float(face["x"]),
-                    y=float(face["y"]),
-                    w=float(face["w"]),
-                    h=float(face["h"]),
-                    score=float(face["score"]),
-                )
-            )
+            pending[track_index].append(_track_point(t, face))
             used_tracks.add(track_index)
             used_faces.add(face_index)
 
         for face_index, face in enumerate(frame["faces"]):
             if face_index in used_faces:
                 continue
-            pending.append(
-                [
-                    TrackPoint(
-                        t=t,
-                        x=float(face["x"]),
-                        y=float(face["y"]),
-                        w=float(face["w"]),
-                        h=float(face["h"]),
-                        score=float(face["score"]),
-                    )
-                ]
-            )
+            pending.append([_track_point(t, face)])
 
     kept = [
         points
@@ -419,6 +413,7 @@ def scan_video(
         tracks=_build_tracks(faces, scenes),
         faces=faces,
         audio_rms=audio_rms,
+        work_dir=work_dir,
     )
 
 

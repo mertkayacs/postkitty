@@ -19,7 +19,7 @@ from .video_scan import VideoScan
 @dataclass(frozen=True)
 class VideoPlan:
     target: str
-    layout: Literal["crop", "split", "pad"]
+    layout: Literal["crop", "split", "speaker", "pad"]
     trim: tuple[float, float]
     cover_at: float
     note: str

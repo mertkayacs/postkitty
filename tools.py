@@ -616,8 +616,9 @@ def _check_file(path: Path, target_id: Any, layout: dict | None, subjects_inside
 # ------------------------------------------------------------------ schemas
 
 _OVERRIDE_PROPS = {
-    "layout": {"type": "string", "enum": ["crop", "split", "seam", "pad", "auto"],
-               "description": "crop keeps the subject, split stacks two people, seam carves width, pad adds a blurred fill."},
+    "layout": {"type": "string", "enum": ["crop", "split", "speaker", "seam", "pad", "auto"],
+               "description": "crop keeps the subject, split stacks two people, speaker cuts to whoever is talking, "
+                              "seam carves width, pad keeps the whole frame on a blurred fill."},
     "focus": {"type": "string", "description": "auto, person:N (1 = leftmost), left, center, right or x:0.0-1.0."},
     "trim": {"type": "array", "items": {"type": "number"}, "description": "[start, end] seconds (video)."},
     "cover_at": {"type": "number", "description": "Cover frame time in seconds (video)."},
@@ -667,7 +668,7 @@ SCHEMAS = {
     "postkitty_make": {
         "name": "postkitty_make",
         "description": (
-            "Third step. Renders every planned target (crop, split, seam or pad), checks each file against the "
+            "Third step. Renders every planned target (crop, split, speaker, seam or pad), checks each file against the "
             "platform's published limits, repairs failures, and puts only passing files into ready/. Writes the "
             "review board and contact sheet. Returns a status table plus media_line and preview_directive strings "
             "to show the user. Only files with status ready or repaired are ready to upload."),

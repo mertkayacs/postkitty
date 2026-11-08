@@ -161,6 +161,8 @@ def plan_image(
     focus = str(override.get("focus", "auto"))
     selected, anchor = _focus(focus, subjects)
     requested = str(override.get("layout", "auto"))
+    if requested == "speaker":
+        requested = "auto"
 
     if requested == "auto" and focus == "auto":
         if subjects and not face_boxes:
