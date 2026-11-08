@@ -284,8 +284,12 @@ def _render(media: _Media, info: probe.InputInfo, target: platforms.TargetSpec, 
         return render(media.plan(info, target, {**override, **(extra or {})}), fresh())
 
     plan = media.plan(info, target, override)
+    # A transparent photo becomes PNG or JPEG depending on the target's formats and byte cap, so only targets that
+    # share both may share its render. Opaque photos always become JPEG and share freely.
+    output = [getattr(target.limits.get(name), "value", None) for name in ("formats", "bytes_max")] \
+        if info.kind == "image" and info.has_alpha else []
     key = json.dumps([info.id, target.width, target.height, _mode(plan), list(getattr(plan, "trim", None) or []),
-                      override], default=str, sort_keys=True)
+                      override, output], default=str, sort_keys=True)
     out = fresh()
     if key in masters:
         shutil.copy2(masters[key].file, out)

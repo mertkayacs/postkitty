@@ -664,3 +664,18 @@ def test_scan_reuses_shared_detections_without_building_a_detector(out_dir, tmp_
     monkeypatch.setattr(sys.modules["postkitty.engine.faces"], "get_detector", refuse)
     out = call(tools.scan, inputs=[str(photo)], platforms=["instagram"])
     assert out["inputs"][0]["people"] == 1
+
+
+def test_render_reuse_never_puts_jpeg_data_under_a_png_name(out_dir, tmp_path):
+    # instagram_feed takes JPEG only, so a transparent photo is flattened to JPEG there; threads_image and
+    # bluesky_image share its size and take PNG, and must not receive a copy of that JPEG render.
+    logo = tmp_path / "logo.png"
+    Image.new("RGBA", (1200, 1500), (200, 40, 40, 128)).save(logo)
+    job = call(tools.scan, inputs=[str(logo)], platforms=["instagram", "threads", "bluesky"])["job"]
+    result = call(tools.make, job=job)
+    assert "error" not in result
+    files = [path for path in Path(result["job_dir"], "ready").rglob("*") if path.suffix in {".png", ".jpg"}]
+    assert files
+    for path in files:
+        with Image.open(path) as image:
+            assert image.format == {".png": "PNG", ".jpg": "JPEG"}[path.suffix], path
