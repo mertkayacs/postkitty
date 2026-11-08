@@ -559,6 +559,22 @@ def _override(args: dict) -> dict:
     return {k: args[k] for k in _OVERRIDE_KEYS if args.get(k) not in (None, "")}
 
 
+def _overrides(raw: dict, planned: list[str]) -> dict:
+    """Validate ``postkitty_make`` overrides: planned target ids (aliases allowed) mapped to known keys."""
+    out = {}
+    for key, value in raw.items():
+        (tid,) = _platform_names([key])
+        if tid not in planned:
+            raise ValueError(f"override target {key!r} is not planned in this job; planned: {planned}")
+        if not isinstance(value, dict):
+            raise ValueError(f"override for {key!r} must be an object with layout, focus, trim or cover_at")
+        unknown = sorted(set(value) - set(_OVERRIDE_KEYS))
+        if unknown:
+            raise ValueError(f"unknown override key(s) {unknown} for {key!r}; use {list(_OVERRIDE_KEYS)}")
+        out[tid] = _override(value)
+    return out
+
+
 @_safe
 def make(args: dict) -> dict:
     job = _open_job(args)
@@ -573,7 +589,7 @@ def make(args: dict) -> dict:
         ids = [t for t in planned if t in wanted or platforms.get_target(t).platform in wanted]
         if not ids:
             raise ValueError(f"none of {wanted} is planned in this job; planned: {planned}")
-    return _build(job, ids, overrides)
+    return _build(job, ids, _overrides(overrides, planned))
 
 
 @_safe

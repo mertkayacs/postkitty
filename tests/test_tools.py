@@ -292,6 +292,19 @@ def test_image_flow_make_redo_check(out_dir, tmp_path, stub_image_engine):
     assert "give at least one" in call(tools.redo, job=job, target="x_image")["error"]
 
 
+def test_make_rejects_unknown_override_targets_and_keys(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+
+    assert "tik_tok" in call(tools.make, job=job, overrides={"tik_tok": {"layout": "pad"}})["error"]
+    assert "x_image" in call(tools.make, job=job, overrides={"x_image": "pad"})["error"]
+    assert "person" in call(tools.make, job=job, overrides={"x_image": {"layout": "pad", "person": 2}})["error"]
+    assert "instagram_feed" in call(tools.make, job=job, overrides={"instagram_feed": {"layout": "pad"}})["error"]
+    made = call(tools.make, job=job, overrides={"X_IMAGE": {"layout": "pad"}})
+    assert made["targets"][0]["layout"]["mode"] == "pad"
+
+
 def test_make_subset_and_failed_target_stays_out_of_ready(out_dir, tmp_path, stub_image_engine):
     photo = tmp_path / "me.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(photo)
