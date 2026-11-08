@@ -311,3 +311,16 @@ def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypat
 
     command = seen["command"]
     assert int(command[command.index("-b:a") + 1]) <= 0.95 * 128000
+
+
+def test_cover_at_the_trim_end_still_writes_a_frame(tmp_path: Path) -> None:
+    # ffmpeg seeks past the last frame, exits 0 and writes nothing; the job then points at a missing cover.
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    target = Target("square_video", 180, 180)
+    plan = VideoPlan(target.id, "crop", (0.0, 1.0), 1.0, "cover proof", [_box(70.0, 0.0, 180.0, 180.0)] * 10)
+
+    cover = export_cover(info, plan, target, tmp_path / "cover.jpg")
+
+    assert cover.is_file() and cover.stat().st_size > 0
+    facts = _probe(cover)
+    assert (facts["streams"][0]["width"], facts["streams"][0]["height"]) == (180, 180)

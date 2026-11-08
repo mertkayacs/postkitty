@@ -484,6 +484,8 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         len(plan.windows) - 1,
         max(0, round((plan.cover_at - plan.trim[0]) * fps)),
     )
+    # A seek at or past the last frame decodes nothing and ffmpeg still exits 0 without a file.
+    seek_at = max(plan.trim[0], min(plan.cover_at, plan.trim[1] - 1.0 / fps))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         "nice",
@@ -498,7 +500,7 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         "4",
         "-y",
         "-ss",
-        str(plan.cover_at),
+        str(seek_at),
         "-i",
         str(info.path),
         "-filter_complex",
@@ -512,4 +514,6 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         str(out_path),
     ]
     subprocess.run(command, check=True, capture_output=True)
+    if not out_path.is_file():
+        raise RuntimeError(f"ffmpeg decoded no cover frame at {seek_at:.3f} s")
     return out_path
