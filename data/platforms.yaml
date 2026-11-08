@@ -2,7 +2,7 @@
 # Every limit carries its source, scope and check date. enforcement: hard blocks ready/ and triggers a repair;
 # enforcement: recommendation produces an advisory note only.
 schema: postkitty.platforms/1
-checked_on: "2026-11-07"
+checked_on: "2026-11-08"
 
 platforms:
   instagram:
@@ -14,6 +14,10 @@ platforms:
                      source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
       mentions_max: {value: 20, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
                      source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/"}
+    playbook:
+      - {text: "Caption up to 2,200 characters, up to 30 hashtags and up to 20 mentions per the Instagram Graph API media reference.",
+         source_url: "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/",
+         source_scope: api, checked_on: "2026-11-08"}
     targets:
       instagram_reel:
         kind: video
@@ -63,8 +67,12 @@ platforms:
   tiktok:
     label: TikTok
     text:
-      limit: {value: 2200, unit: utf16, enforcement: hard, source_scope: api, checked_on: "2026-11-07",
+      limit: {value: 2200, unit: utf16, enforcement: hard, source_scope: api, checked_on: "2026-11-08",
               source_url: "https://developers.tiktok.com/doc/content-posting-api-reference-direct-post"}
+    playbook:
+      - {text: "Video caption up to 2,200 UTF-16 runes per the Content Posting API Direct Post reference.",
+         source_url: "https://developers.tiktok.com/doc/content-posting-api-reference-direct-post",
+         source_scope: api, checked_on: "2026-11-08"}
     targets:
       tiktok:
         kind: video
@@ -90,14 +98,18 @@ platforms:
   youtube:
     label: YouTube Shorts
     text:
-      limit: {value: 100, unit: codepoints, enforcement: recommendation, source_scope: secondary, checked_on: null,
-              source_url: null, note: "title length; lane F to verify"}
+      limit: {value: 100, unit: codepoints, enforcement: recommendation, source_scope: official, checked_on: "2026-11-08",
+              source_url: "https://support.google.com/youtube/answer/57407"}
+    playbook:
+      - {text: "Shorts are full-screen 9:16 (1080x1920) and up to three minutes (180 seconds); video titles are limited to 100 characters.",
+         source_url: "https://support.google.com/youtube/answer/15424877",
+         source_scope: official, checked_on: "2026-11-08"}
     targets:
       youtube_shorts:
         kind: video
         width: 1080
         height: 1920
-        duration_max: {value: 180, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+        duration_max: {value: 180, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
                        source_url: "https://support.google.com/youtube/answer/15424877"}
         video_bps_max: {value: 8000000, enforcement: recommendation, source_scope: official, checked_on: "2026-11-07",
                         source_url: "https://support.google.com/youtube/answer/1722171"}
@@ -105,8 +117,12 @@ platforms:
   x:
     label: X
     text:
-      limit: {value: 280, unit: x_weighted, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+      limit: {value: 280, unit: x_weighted, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
               source_url: "https://github.com/twitter/twitter-text/blob/master/config/v3.json"}
+    playbook:
+      - {text: "Posts up to 280 weighted characters per twitter-text v3 (maxWeightedTweetLength 280).",
+         source_url: "https://github.com/twitter/twitter-text/blob/master/config/v3.json",
+         source_scope: official, checked_on: "2026-11-08"}
     targets:
       x_video:
         kind: video
@@ -128,8 +144,12 @@ platforms:
   linkedin:
     label: LinkedIn
     text:
-      limit: {value: 3000, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+      limit: {value: 3000, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
               source_url: "https://www.linkedin.com/help/linkedin/answer/a528176"}
+    playbook:
+      - {text: "Posts up to 3,000 characters. Single image: 1.91:1 horizontal, 1:1 square or 4:5 vertical recommended.",
+         source_url: "https://www.linkedin.com/help/linkedin/answer/a426534",
+         source_scope: ad, checked_on: "2026-11-08"}
     targets:
       linkedin_video:
         kind: video
@@ -157,20 +177,24 @@ platforms:
         kind: image
         width: 1080
         height: 1080
-        aspect_options: {value: ["1:1", "1.91:1"], enforcement: recommendation, source_scope: ad, checked_on: "2026-11-07",
+        aspect_options: {value: ["1:1", "1.91:1", "4:5"], enforcement: recommendation, source_scope: ad, checked_on: "2026-11-08",
                          source_url: "https://www.linkedin.com/help/linkedin/answer/a426534"}
 
   threads:
     label: Threads
     text:
-      limit: {value: 500, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+      limit: {value: 500, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
               source_url: "https://about.fb.com/news/2023/07/introducing-threads-new-app-text-sharing/"}
+    playbook:
+      - {text: "Posts up to 500 characters; videos up to 5 minutes (300 seconds).",
+         source_url: "https://about.fb.com/news/2023/07/introducing-threads-new-app-text-sharing/",
+         source_scope: official, checked_on: "2026-11-08"}
     targets:
       threads_video:
         kind: video
         width: 1080
         height: 1920
-        duration_max: {value: 300, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+        duration_max: {value: 300, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
                        source_url: "https://about.fb.com/news/2023/07/introducing-threads-new-app-text-sharing/"}
       threads_image:
         kind: image
@@ -180,10 +204,14 @@ platforms:
   bluesky:
     label: Bluesky
     text:
-      limit: {value: 300, unit: graphemes, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+      limit: {value: 300, unit: graphemes, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
               source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json"}
-      bytes_max: {value: 3000, unit: utf8_bytes, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
+      bytes_max: {value: 3000, unit: utf8_bytes, enforcement: hard, source_scope: official, checked_on: "2026-11-08",
                   source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json"}
+    playbook:
+      - {text: "Post text up to 300 graphemes and 3,000 bytes (UTF-8) per the app.bsky.feed.post lexicon.",
+         source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json",
+         source_scope: official, checked_on: "2026-11-08"}
     targets:
       bluesky_video:
         kind: video
@@ -191,9 +219,9 @@ platforms:
         height: 1920
         bytes_max: {value: 300000000, enforcement: hard, source_scope: official, checked_on: "2026-11-07",
                     source_url: "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/embed/video.json"}
-        duration_max: {value: 600, enforcement: recommendation, source_scope: official, checked_on: "2026-11-07",
+        duration_max: {value: 600, enforcement: recommendation, source_scope: official, checked_on: "2026-11-08",
                        source_url: "https://github.com/bluesky-social/social-app/blob/main/src/lib/constants.ts",
-                       note: "client constant"}
+                       note: "not specified in the app.bsky.embed.video lexicon; client constant"}
       bluesky_image:
         kind: image
         width: 1080
@@ -204,8 +232,12 @@ platforms:
   facebook:
     label: Facebook
     text:
-      limit: {value: 63206, unit: codepoints, enforcement: recommendation, source_scope: secondary, checked_on: null,
-              source_url: null, note: "lane F to verify"}
+      limit: {value: 63206, unit: codepoints, enforcement: recommendation, source_scope: secondary, checked_on: "2026-11-08",
+              source_url: "https://www.facebook.com/help/", note: "official character-limit help page not reachable for re-verification; value carried from seed data, treated as secondary"}
+    playbook:
+      - {text: "Posts up to 63,206 characters (seed value, secondary; the official Facebook character-limit page was not reachable for re-verification).",
+         source_url: "https://www.facebook.com/help/",
+         source_scope: secondary, checked_on: "2026-11-08"}
     targets:
       facebook_reel:
         kind: video
