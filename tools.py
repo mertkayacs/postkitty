@@ -412,6 +412,8 @@ def scan(args: dict) -> dict:
         infos.append(probe.probe(_input_path(path), f"in{index}"))  # before create_job: a bad path leaves no folder
     job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
     manifest = jobs.load_manifest(job)
+    if [e.get("sha256") for e in manifest.get("inputs", [])] != [i.sha256 for i in infos]:
+        _drop_targets(job, manifest)
     media, entries = _Media(job), []
     peek = None
     for info in infos:
@@ -450,6 +452,15 @@ def scan(args: dict) -> dict:
     return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,
             "fit": advise.fit_facts(infos, text or None, wanted or None, plans),
             "text": copyfit.text_stats(text) if text else None, "peek": peek, "notes": notes}
+
+
+def _drop_targets(job: jobs.Job, manifest: dict) -> None:
+    """A reused job with other inputs: every rendered target is stale, so remove its files and entries."""
+    for entry in manifest.get("targets", []):
+        for key in ("file", "cover", "failed_file"):
+            if entry.get(key):
+                (job.root / entry[key]).unlink(missing_ok=True)
+    manifest["targets"] = []
 
 
 def _image_peek(job: jobs.Job, info: probe.InputInfo) -> str:
