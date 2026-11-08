@@ -152,6 +152,30 @@ def test_split_places_left_person_in_top_panel() -> None:
     assert path.subjects_inside == 1.0
 
 
+def test_split_panels_isolate_one_subject_at_supported_aspects() -> None:
+    left = _track(1, [(index / 5, 40.0) for index in range(10)])
+    right = _track(2, [(index / 5, 1120.0) for index in range(10)])
+
+    for target in (Target(1080, 1350), Target(1080, 1920)):
+        path = build_camera_path(
+            InputInfo(), _scan([left, right], [(0.0, 2.0)]), target, (0.0, 2.0)
+        )
+        top, bottom = path.windows[0]
+
+        assert 2.4 <= top.h / left.points[0].h <= 4.0
+        assert 2.4 <= bottom.h / right.points[0].h <= 4.0
+        assert top.x <= left.points[0].x
+        assert top.x + top.w >= left.points[0].x + left.points[0].w
+        assert bottom.x <= right.points[0].x
+        assert bottom.x + bottom.w >= right.points[0].x + right.points[0].w
+        assert top.x + top.w <= right.points[0].x
+        assert bottom.x >= left.points[0].x + left.points[0].w
+        left_eye = left.points[0].y + left.points[0].h * 0.4
+        right_eye = right.points[0].y + right.points[0].h * 0.4
+        assert math.isclose((left_eye - top.y) / top.h, 1 / 3, abs_tol=0.05)
+        assert math.isclose((right_eye - bottom.y) / bottom.h, 1 / 3, abs_tol=0.05)
+
+
 def test_person_focus_disables_auto_split() -> None:
     left = _track(1, [(index / 5, 40.0) for index in range(10)])
     right = _track(2, [(index / 5, 1120.0) for index in range(10)])

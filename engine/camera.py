@@ -179,6 +179,96 @@ def _contain_face(box: Any, point: TrackPoint, width: int, height: int) -> Any:
     return _clamped_box(x, y, box.w, box.h, width, height)
 
 
+def _faces_overlap(box: Any, point: TrackPoint) -> bool:
+    return (
+        box.x < point.x + point.w
+        and box.x + box.w > point.x
+        and box.y < point.y + point.h
+        and box.y + box.h > point.y
+    )
+
+
+def _panel_box(
+    point: TrackPoint,
+    other: TrackPoint,
+    window_width: float,
+    window_height: float,
+    width: int,
+    height: int,
+) -> Any:
+    eye_y = point.y + point.h * 0.4
+    box = _clamped_box(
+        point.cx - window_width / 2,
+        eye_y - window_height / 3,
+        window_width,
+        window_height,
+        width,
+        height,
+    )
+    box = _contain_face(box, point, width, height)
+    if _faces_overlap(box, other):
+        x = other.x - box.w if other.cx > point.cx else other.x + other.w
+        box = _contain_face(
+            _clamped_box(x, box.y, box.w, box.h, width, height),
+            point,
+            width,
+            height,
+        )
+    return box
+
+
+def _panel_windows(
+    track: Track,
+    other: Track,
+    times: list[float],
+    scene: tuple[float, float],
+    width: int,
+    height: int,
+    aspect: float,
+) -> list[Any]:
+    points = _points_in_scene(track, *scene)
+    other_points = _points_in_scene(other, *scene)
+    minimum_height = 2.4 * max(point.h for point in points)
+    maximum_height = min(
+        4.0 * min(point.h for point in points),
+        float(height),
+        width / aspect,
+    )
+    maximum_height = max(maximum_height, minimum_height)
+
+    representative = _representative(track, *scene)
+    other_representative = _representative(other, *scene)
+    for step in range(21):
+        window_height = maximum_height - (maximum_height - minimum_height) * step / 20
+        window_width = window_height * aspect
+        box = _panel_box(
+            representative,
+            other_representative,
+            window_width,
+            window_height,
+            width,
+            height,
+        )
+        if all(_inside(box, _face_box(point)) for point in points) and not any(
+            _faces_overlap(box, point) for point in other_points
+        ):
+            return [box] * len(times)
+
+    window_height = minimum_height
+    window_width = window_height * aspect
+    return [
+        _panel_box(
+            _interpolate(track, t),
+            _interpolate(other, t),
+            window_width,
+            window_height,
+            width,
+            height,
+        )
+        for t in times
+    ]
+
+
 def _static_window(
     track: Track,
     start: float,
@@ -406,25 +496,23 @@ def build_camera_path(
                 selected_track = _select_track(tracks, person, *scene)
                 pair = (selected_track, selected_track)
             panel_aspect = target.aspect * 2
-            first = _track_windows(
+            first = _panel_windows(
                 pair[0],
-                scene_times,
-                scene,
-                info.width,
-                info.height,
-                panel_aspect,
-                fps,
-                anchor_x,
-            )
-            second = _track_windows(
                 pair[1],
                 scene_times,
                 scene,
                 info.width,
                 info.height,
                 panel_aspect,
-                fps,
-                anchor_x,
+            )
+            second = _panel_windows(
+                pair[1],
+                pair[0],
+                scene_times,
+                scene,
+                info.width,
+                info.height,
+                panel_aspect,
             )
             scene_windows = list(zip(first, second, strict=True))
             selected = [pair[0], pair[1]]
