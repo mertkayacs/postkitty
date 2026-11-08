@@ -8,7 +8,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps
+from PIL import Image, ImageCms, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 from .faces import faces_at, saliency_box
 from .framing import Box, Layout, choose_layout, fit_crop, subject_box
@@ -100,6 +100,25 @@ def _split_windows(
     ]
 
 
+def _tight_pad_box(
+    width: int, height: int, aspect: float, subjects: list[Box]
+) -> Box:
+    if not subjects:
+        return Box(0.0, 0.0, float(width), float(height))
+    combined = subjects[0]
+    for subject in subjects[1:]:
+        combined = combined.union(subject)
+    crop_width = min(float(width), combined.w * 1.12)
+    crop_height = min(float(height), combined.h * 1.12)
+    if crop_width / crop_height > aspect:
+        crop_height = min(float(height), crop_width / aspect)
+    else:
+        crop_width = min(float(width), crop_height * aspect)
+    x = min(max(combined.cx - crop_width / 2, 0.0), width - crop_width)
+    y = min(max(combined.cy - crop_height / 2, 0.0), height - crop_height)
+    return Box(x, y, crop_width, crop_height)
+
+
 def _focus(
     value: str, subjects: list[Box]
 ) -> tuple[list[Box], tuple[float, float] | None]:
@@ -146,6 +165,12 @@ def plan_image(
         )
         if layout.mode == "split" and len(face_boxes) == 2:
             return Layout("split", _split_windows(info, target, face_boxes), layout.note)
+        if layout.mode == "pad":
+            return Layout(
+                "pad",
+                [_tight_pad_box(info.width, info.height, target.aspect, subjects)],
+                layout.note,
+            )
         return layout
     if requested in {"auto", "crop"}:
         fit = fit_crop(info.width, info.height, target.aspect, selected, anchor=anchor)
@@ -157,7 +182,7 @@ def plan_image(
     if requested == "pad":
         return Layout(
             "pad",
-            [Box(0.0, 0.0, float(info.width), float(info.height))],
+            [_tight_pad_box(info.width, info.height, target.aspect, subjects)],
             "pad override",
         )
     if requested == "split":
@@ -208,21 +233,41 @@ def _dominant_color(image: Image.Image) -> tuple[int, int, int]:
     return tuple(palette[start : start + 3])
 
 
-def _pad(image: Image.Image, size: tuple[int, int]) -> Image.Image:
-    background = ImageOps.fit(
-        image.convert("RGB"), size, method=Image.Resampling.LANCZOS
+def _pad(image: Image.Image, box: Box, size: tuple[int, int]) -> Image.Image:
+    longest = max(size)
+    blur_scale = min(1.0, 128 / longest)
+    blur_size = (
+        max(1, round(size[0] * blur_scale)),
+        max(1, round(size[1] * blur_scale)),
     )
-    background = background.filter(ImageFilter.GaussianBlur(radius=24))
-    background = ImageEnhance.Brightness(background).enhance(0.65)
-    foreground = ImageOps.contain(image, size, method=Image.Resampling.LANCZOS)
+    background = ImageOps.fit(
+        image.convert("RGB"), blur_size, method=Image.Resampling.LANCZOS
+    )
+    background = background.filter(
+        ImageFilter.GaussianBlur(radius=max(2.0, min(blur_size) / 16))
+    ).resize(size, Image.Resampling.LANCZOS)
+    background = ImageEnhance.Brightness(background).enhance(0.72)
+    bounded = box.clamp(*image.size).to_int()
+    cropped = image.crop(
+        (int(bounded.x), int(bounded.y), int(bounded.x2), int(bounded.y2))
+    )
+    foreground = ImageOps.contain(cropped, size, method=Image.Resampling.LANCZOS)
     left = (size[0] - foreground.width) // 2
     top = (size[1] - foreground.height) // 2
     if "A" in foreground.getbands():
         background = background.convert("RGBA")
-        background.alpha_composite(foreground, (left, top))
+        foreground_layer = background.copy()
+        foreground_layer.alpha_composite(foreground, (left, top))
     else:
-        background.paste(foreground, (left, top))
-    return background
+        foreground_layer = background.copy()
+        foreground_layer.paste(foreground, (left, top))
+    mask = Image.new("L", size, 0)
+    ImageDraw.Draw(mask).rectangle(
+        (left, top, left + foreground.width - 1, top + foreground.height - 1),
+        fill=255,
+    )
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=12))
+    return Image.composite(foreground_layer, background, mask)
 
 
 def _split(image: Image.Image, boxes: list[Box], size: tuple[int, int]) -> Image.Image:
@@ -253,7 +298,7 @@ def _render_pixels(
     if layout.mode == "crop":
         return _crop(image, layout.boxes[0], size), None
     if layout.mode == "pad":
-        return _pad(image, size), None
+        return _pad(image, layout.boxes[0], size), None
     if layout.mode == "split":
         return _split(image, layout.boxes, size), None
 

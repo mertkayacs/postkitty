@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from engine import image_make
-from engine.framing import Box, Layout
+from engine.framing import Box, Layout, subject_box
 from engine.image_make import plan_image, render_image
 
 
@@ -181,6 +181,44 @@ def test_render_pad_and_jpeg_quality_ladder(tmp_path: Path) -> None:
     assert result.height == 500
     assert result.extra["quality"] in {85, 78, 70}
     assert result.bytes <= 100_000
+
+
+def test_pad_uses_tight_subject_crop(tmp_path: Path) -> None:
+    source = tmp_path / "group.png"
+    faces = [
+        Box(250, 100, 80, 100),
+        Box(360, 100, 80, 100),
+        Box(470, 100, 80, 100),
+    ]
+    _scene(source, faces)
+    info = InputInfo(source, "group", 800, 450)
+
+    layout = plan_image(info, _faces(faces), Target("feed", 400, 500))
+
+    assert layout.mode == "pad"
+    assert layout.boxes[0].w < info.width * 0.75
+    assert all(
+        layout.boxes[0].contains(subject_box(face, info.width, info.height))
+        for face in faces
+    )
+
+
+def test_pad_enlarges_subject_and_feathers_seam(tmp_path: Path) -> None:
+    source = tmp_path / "subject.png"
+    image = Image.new("RGBA", (800, 450), "black")
+    ImageDraw.Draw(image).rectangle((300, 75, 499, 374), fill="white")
+    image.save(source)
+    info = InputInfo(source, "subject", 800, 450, has_alpha=True)
+    layout = Layout("pad", [Box(300, 75, 200, 300)], "tight pad")
+
+    result = render_image(info, layout, Target("feed", 400, 500), tmp_path / "pad.png")
+
+    with Image.open(result.file) as rendered:
+        pixels = np.asarray(rendered.convert("RGB"))
+    white = np.all(pixels > 235, axis=2)
+    transition = pixels[250, 20:55, 0]
+    assert np.count_nonzero(white) > 100_000
+    assert len(np.unique(transition)) > 5
 
 
 def test_transparent_input_exports_png(tmp_path: Path) -> None:
