@@ -177,6 +177,20 @@ def test_bad_input_file_is_reported(out_dir, tmp_path):
     assert "not found" in out["error"]
 
 
+def test_failed_scan_leaves_no_job_folder_behind(out_dir, tmp_path):
+    (tmp_path / "notes.txt").write_text("hello")
+    assert "error" in call(tools.scan, inputs=[str(tmp_path / "missing.jpg")], text="hi")
+    assert "error" in call(tools.scan, inputs=[str(tmp_path / "notes.txt")])
+    assert not out_dir.exists() or list(out_dir.iterdir()) == []
+
+
+def test_directory_input_is_named_as_such(out_dir, tmp_path):
+    out = call(tools.scan, inputs=[str(tmp_path)])
+    assert "is a directory" in out["error"] and "not found" not in out["error"]
+    out = call(tools.check, path=str(tmp_path), target="x_image")
+    assert "is a directory" in out["error"]
+
+
 def test_check_reports_dimension_failure(out_dir, tmp_path):
     photo = tmp_path / "p.jpg"
     Image.new("RGB", (1000, 1000), "red").save(photo)

@@ -390,11 +390,11 @@ def scan(args: dict) -> dict:
     if not paths and not text.strip():
         raise ValueError("give at least one input file or a draft text")
     wanted = _platform_names(_list_arg(args, "platforms") or _config("default_platforms", []))
-    job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
-    manifest = jobs.load_manifest(job)
     infos, notes = [], []
     for index, path in enumerate(paths, start=1):
-        infos.append(probe.probe(Path(path), f"in{index}"))
+        infos.append(probe.probe(Path(path), f"in{index}"))  # before create_job, so a bad path leaves no folder
+    job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
+    manifest = jobs.load_manifest(job)
     media, entries = _Media(job), []
     peek = None
     for info in infos:
