@@ -45,7 +45,7 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 Two messages. The first installs the plugin. The second goes in a new chat, because Hermes loads a plugin's tools when the next chat starts.
 
 ```text
-Install the postkitty plugin for me: run `hermes plugins install mertkayacs/postkitty --yes-deps --enable` in the terminal. When it finishes, tell me to open a new chat so its tools load.
+Install the postkitty plugin for me: run `hermes plugins install postkitty --yes-deps --enable` in the terminal. When it finishes, tell me to open a new chat so its tools load.
 ```
 
 ```text
@@ -202,10 +202,10 @@ The board opens with the audience and tone of your post, the platforms ranked fo
 
 ## Quick start
 
-Install the plugin and turn it on:
+Install it from the official Hermes plugin catalog and answer yes when it asks to install the dependencies and turn it on:
 
 ```sh
-hermes plugins install mertkayacs/postkitty --yes-deps --enable
+hermes plugins install postkitty
 ```
 
 Or let Hermes install it with the two messages in [Say this to your Hermes](#say-this-to-your-hermes).
