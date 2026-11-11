@@ -373,3 +373,13 @@ def test_a_skipped_target_says_why(tmp_path):
                                "reason": "The image engine needs the Python package 'cv2'."}
     html = Path(write_board(job_dir, manifest)["board"]).read_text(encoding="utf-8")
     assert "The image engine needs the Python package &#x27;cv2&#x27;." in html
+
+
+def test_the_logo_carries_no_mascot_wording_and_no_repeated_ids(tmp_path):
+    import re
+
+    job_dir = tmp_path / "job"
+    html = Path(write_board(job_dir, _manifest(job_dir))["board"]).read_text(encoding="utf-8")
+    assert "mascot" not in html.lower() and 'aria-label="postkitty"' in html
+    ids = re.findall(r"""\sid=["']([^"']+)""", html)
+    assert len(ids) == len(set(ids))
