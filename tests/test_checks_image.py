@@ -128,6 +128,18 @@ def test_metadata_is_advisory_for_a_file_postkitty_did_not_frame(tmp_path: Path)
     assert own_render.status == "fail" and own_render.hard
 
 
+def test_a_user_file_with_only_technical_fields_is_not_reported_as_carrying_metadata(tmp_path: Path) -> None:
+    path = tmp_path / "web.jpg"
+    Image.new("RGB", (100, 100), "navy").save(path, quality=90, progressive=True, dpi=(72, 72))
+    with Image.open(path) as saved:
+        assert {"dpi", "progressive"} <= set(saved.info)
+    result = _result(path, None)
+
+    check = next(c for c in check_image(result, Target("image", 100, 100)) if c.id == "image.metadata_stripped")
+
+    assert check.status == "pass"
+
+
 def test_size_repair_lowers_jpeg_quality(tmp_path: Path) -> None:
     path = tmp_path / "noise.jpg"
     Image.effect_noise((300, 300), 100).convert("RGB").save(path, quality=92)

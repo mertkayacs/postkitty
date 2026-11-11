@@ -28,6 +28,14 @@ except ImportError:
 # Output pixels per source pixel above which an enlarged image reads as blurry.
 UPSCALE_SOFT = 1.5
 
+# Pillow info keys that describe how the pixels are stored. Every other key (EXIF, XMP, comments,
+# PNG text) can describe the author, the camera or the place.
+_TECHNICAL_INFO = {
+    "jfif", "jfif_version", "jfif_unit", "jfif_density", "dpi", "progressive", "progression",
+    "adobe", "adobe_transform", "icc_profile", "transparency", "gamma", "srgb", "chromaticity",
+    "aspect", "interlace", "loop", "background",
+}
+
 
 def _spec(target: Any, key: str) -> Any | None:
     return target.limits.get(key)
@@ -68,8 +76,7 @@ def _check(
 
 def _metadata_stripped(path: Path) -> bool:
     with Image.open(path) as image:
-        allowed = {"jfif", "jfif_version", "jfif_unit", "jfif_density"}
-        return not image.getexif() and not (set(image.info) - allowed)
+        return not image.getexif() and not (set(image.info) - _TECHNICAL_INFO)
 
 
 def check_image(result: Any, target: Any) -> list[Check]:
