@@ -139,7 +139,7 @@ def _ass_time(centiseconds: int) -> str:
 def _escape_ass(text: str) -> str:
     # A word joiner after each backslash keeps user text from forming \N, \h or an override tag;
     # libass draws nothing for it.
-    return text.replace("\\", "\\⁠").replace("{", r"\{").replace("}", r"\}")
+    return text.replace("\\", "\\\u2060").replace("{", r"\{").replace("}", r"\}")
 
 
 def ass_document(captions: Captions, target: Any, trim: tuple[float, float]) -> tuple[str, int]:
