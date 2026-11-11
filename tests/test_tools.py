@@ -763,3 +763,30 @@ def test_a_board_failure_still_returns_the_finished_files(out_dir, tmp_path, stu
     monkeypatch.setattr(importlib.import_module("postkitty.engine.board.board"), "write_board", broken)
     made = call(tools.make, job=job)
     assert made["targets"][0]["status"] == "ready" and "font missing" in made["board_note"]
+
+
+def test_two_calls_on_one_job_keep_each_others_changes(out_dir, text_job, monkeypatch):
+    import threading
+
+    from postkitty.engine import job as jobs
+
+    both_loaded = threading.Barrier(2, timeout=0.5)
+    real = jobs.load_manifest
+
+    def load_then_wait_for_the_other_call(job):
+        manifest = real(job)
+        try:
+            both_loaded.wait()
+        except threading.BrokenBarrierError:
+            pass
+        return manifest
+
+    monkeypatch.setattr(jobs, "load_manifest", load_then_wait_for_the_other_call)
+    threads = [threading.Thread(target=call, args=(tools.write,), kwargs={"job": text_job, "drafts": {name: "hello"}})
+               for name in ("x", "linkedin")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    manifest = json.loads((out_dir / text_job / "manifest.json").read_text())
+    assert set(manifest["copy"]) == {"x", "linkedin"}

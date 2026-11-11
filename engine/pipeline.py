@@ -16,8 +16,10 @@ import importlib
 import json
 import os
 import shutil
+import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -36,6 +38,8 @@ _ENGINES = {
     "video": ("detect.faces", "video.scan", "video.render", "video.checks"),
 }
 _SETTINGS: dict[str, Any] = {}
+_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
 
 
 class Unavailable(Exception):
@@ -144,6 +148,15 @@ def _open_job(args: dict) -> jobs.Job:
         return jobs.open_job(_out_dir(), str(args["job"]))
     except FileNotFoundError:
         raise ScanNeeded(f"job {str(args['job'])!r} does not exist in {_out_dir()}") from None
+
+
+@contextmanager
+def _locked(job: jobs.Job) -> Iterator[None]:
+    """One call at a time per job: every step reads, changes and saves the same manifest."""
+    with _LOCKS_GUARD:
+        lock = _LOCKS.setdefault(str(job.root), threading.Lock())
+    with lock:
+        yield
 
 
 def _infos(manifest: dict) -> list[probe.InputInfo]:
@@ -428,51 +441,52 @@ def scan(args: dict) -> dict:
     for index, path in enumerate(paths, start=1):
         infos.append(probe.probe(_input_path(path), f"in{index}"))  # before create_job: a bad path leaves no folder
     job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
-    manifest = jobs.load_manifest(job)
-    if [e.get("sha256") for e in manifest.get("inputs", [])] != [i.sha256 for i in infos]:
-        _drop_targets(job, manifest)
-    media, entries = _Media(job), []
-    peek = None
-    for info in infos:
-        entry = {k: getattr(info, k) for k in ("id", "kind", "sha256", "width", "height", "duration", "fps",
-                                               "has_audio", "rotation", "has_alpha")}
-        entry["path"] = str(info.path)
-        try:
-            if info.kind == "image" and peek is None:
-                peek = _image_peek(job, info)
-            eng, found = media.scan(info)
-            if info.kind == "video":
-                entry.update(people=len(found.tracks), shots=len(found.scenes))
-                if peek is None:
-                    peek = str(_engine("video").scan.make_peek(info, found, job.work / "peek.jpg"))
-            else:
-                # The same faces that photo.render lets focus person:N select: strong detections only.
-                faces = found["frames"][0]["faces"] if found.get("frames") else []
-                entry["people"] = sum(float(face.get("score", 0.0)) >= eng.faces.SUBJECT_MIN_SCORE for face in faces)
-        except Exception as exc:
-            notes.append(f"{info.id}: {exc}")
-        entries.append(entry)
-    manifest["inputs"] = entries
-    manifest["text"] = {"source": "scan", "chars": len(text)} if text else {}
-    kinds = {i.kind for i in infos}
-    targets = platforms.targets_for(kinds, wanted) if kinds else []
-    if kinds:
-        notes.extend(_kind_mismatch_notes(wanted, kinds))
-    plans = []
-    for target in targets:
-        info = advise.source_for(infos, target)
-        if info is None:
-            continue
-        try:
-            plan = _plan_summary(info, media.plan(info, target, None), target)
-        except Exception:
-            plan = _plan_summary(info, None, target)
-        plans.append({"id": target.id, "input": info.id, "size": f"{target.width}x{target.height}", **plan})
-    jobs.write_json(job.work / "scan.json", {"targets": plans, "inputs": entries, "peek": peek, "notes": notes})
-    jobs.save_manifest(job, manifest)
-    return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,
-            "fit": advise.fit_facts(infos, text or None, wanted or None, plans),
-            "text": copyfit.text_stats(text) if text else None, "peek": peek, "notes": notes}
+    with _locked(job):
+        manifest = jobs.load_manifest(job)
+        if [e.get("sha256") for e in manifest.get("inputs", [])] != [i.sha256 for i in infos]:
+            _drop_targets(job, manifest)
+        media, entries = _Media(job), []
+        peek = None
+        for info in infos:
+            entry = {k: getattr(info, k) for k in ("id", "kind", "sha256", "width", "height", "duration", "fps",
+                                                   "has_audio", "rotation", "has_alpha")}
+            entry["path"] = str(info.path)
+            try:
+                if info.kind == "image" and peek is None:
+                    peek = _image_peek(job, info)
+                eng, found = media.scan(info)
+                if info.kind == "video":
+                    entry.update(people=len(found.tracks), shots=len(found.scenes))
+                    if peek is None:
+                        peek = str(_engine("video").scan.make_peek(info, found, job.work / "peek.jpg"))
+                else:
+                    # The same faces that photo.render lets focus person:N select: strong detections only.
+                    faces = found["frames"][0]["faces"] if found.get("frames") else []
+                    entry["people"] = sum(float(face.get("score", 0.0)) >= eng.faces.SUBJECT_MIN_SCORE for face in faces)
+            except Exception as exc:
+                notes.append(f"{info.id}: {exc}")
+            entries.append(entry)
+        manifest["inputs"] = entries
+        manifest["text"] = {"source": "scan", "chars": len(text)} if text else {}
+        kinds = {i.kind for i in infos}
+        targets = platforms.targets_for(kinds, wanted) if kinds else []
+        if kinds:
+            notes.extend(_kind_mismatch_notes(wanted, kinds))
+        plans = []
+        for target in targets:
+            info = advise.source_for(infos, target)
+            if info is None:
+                continue
+            try:
+                plan = _plan_summary(info, media.plan(info, target, None), target)
+            except Exception:
+                plan = _plan_summary(info, None, target)
+            plans.append({"id": target.id, "input": info.id, "size": f"{target.width}x{target.height}", **plan})
+        jobs.write_json(job.work / "scan.json", {"targets": plans, "inputs": entries, "peek": peek, "notes": notes})
+        jobs.save_manifest(job, manifest)
+        return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,
+                "fit": advise.fit_facts(infos, text or None, wanted or None, plans),
+                "text": copyfit.text_stats(text) if text else None, "peek": peek, "notes": notes}
 
 
 def _kind_mismatch_notes(wanted: list[str], kinds: set[str]) -> list[str]:
@@ -512,6 +526,11 @@ def _image_peek(job: jobs.Job, info: probe.InputInfo) -> str:
 def write(args: dict) -> dict:
     """Count each draft with its platform's rule, split threads and write the text files into ``ready/``."""
     job = _open_job(args)
+    with _locked(job):
+        return _write(job, args)
+
+
+def _write(job: jobs.Job, args: dict) -> dict:
     manifest = jobs.load_manifest(job)
     split = _bool_arg(args, "split_threads", True)
     advice = _dict_arg(args, "advice")
@@ -700,6 +719,11 @@ def _overrides(raw: dict, planned: list[str]) -> dict:
 def make(args: dict) -> dict:
     """Render the planned targets, check and repair each file, and build the review board."""
     job = _open_job(args)
+    with _locked(job):
+        return _make(job, args)
+
+
+def _make(job: jobs.Job, args: dict) -> dict:
     targets, overrides = _list_arg(args, "targets"), _dict_arg(args, "overrides")
     scan_doc = jobs.read_json(job.work / "scan.json") if (job.work / "scan.json").is_file() else {}
     planned = [t["id"] for t in scan_doc.get("targets", [])]
@@ -723,6 +747,11 @@ def make(args: dict) -> dict:
 def redo(args: dict) -> dict:
     """Render one target again with another layout, focus, trim or cover frame."""
     job = _open_job(args)
+    with _locked(job):
+        return _redo(job, args)
+
+
+def _redo(job: jobs.Job, args: dict) -> dict:
     if not args.get("target"):
         raise ValueError("argument 'target' is required; give the target id, for example tiktok")
     (target,) = _platform_names([args["target"]])
