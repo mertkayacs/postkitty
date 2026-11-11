@@ -1,5 +1,5 @@
 name: postkitty
-version: "0.1.0"
+version: "1.0.0"
 manifest_version: 2
 api_version: 1
 description: One post in, every platform out. Fixes and rewrites your draft for each platform, crops photos and reframes landscape video with every face in frame, and checks every file for Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook.
@@ -10,7 +10,7 @@ requires_hermes: ">=0.22.7"
 tags: [social-media, video, images, copywriting, content-creation]
 provides_tools:
   - postkitty_scan
-  - postkitty_copy
+  - postkitty_write
   - postkitty_make
   - postkitty_redo
   - postkitty_check

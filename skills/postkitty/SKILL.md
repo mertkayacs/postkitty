@@ -1,7 +1,7 @@
 ---
 name: postkitty
 description: Fix a draft and make checked files for every platform.
-version: 0.1.0
+version: 1.0.0
 author: Mert Kaya
 license: MIT
 metadata:
@@ -37,7 +37,7 @@ Work through the five tools in order. Every tool returns JSON; an `error` key me
 
 1. `postkitty_scan` with `inputs` (absolute paths), `text` (the draft), optional `platforms`.
 2. Understand the post, then write advice and copy.
-3. `postkitty_copy` with `job`, `advice`, `drafts`, `alt_text`. Repeat until every platform is `ok`.
+3. `postkitty_write` with `job`, `advice`, `drafts`, `alt_text`. Repeat until every platform is `ok`.
 4. `postkitty_make` with `job` (add `targets` or `overrides` only when needed).
 5. `postkitty_redo` for each change the user asks for. Use `postkitty_check` only for files the user brings from elsewhere.
 
@@ -46,7 +46,7 @@ Work through the five tools in order. Every tool returns JSON; an `error` key me
 | Tool | Use it to | Key arguments |
 |---|---|---|
 | `postkitty_scan` | open a job, probe files, plan framing, get fit facts | `inputs`, `text`, `platforms` |
-| `postkitty_copy` | count, split and store drafts, advice and alt text | `job`, `drafts`, `advice`, `alt_text` |
+| `postkitty_write` | count, split and store drafts, advice and alt text | `job`, `drafts`, `advice`, `alt_text` |
 | `postkitty_make` | render, check, repair, build the board | `job`, `targets`, `overrides` |
 | `postkitty_redo` | change one target | `job`, `target`, `layout`, `focus`, `trim`, `cover_at` |
 | `postkitty_check` | check a file that postkitty did not make | `path` + `target` |
@@ -99,7 +99,7 @@ Alt text goes in `alt_text`, keyed by target id (for example `instagram_feed`) o
 visible in the image or video: who or what, where, what happens, any text on screen. Do not guess identities,
 emotions or context that is not in the frame. Keep it under about 200 characters.
 
-Call `postkitty_copy`. For every platform with `ok: false`, rewrite the draft using the reported `overflow`,
+Call `postkitty_write`. For every platform with `ok: false`, rewrite the draft using the reported `overflow`,
 `unit` and `limit`, then call again. Never truncate in the middle of a sentence. X, Threads and Bluesky text that is
 over the limit is split into a numbered thread when `split_threads` is true (the default); accept the split only
 when the user wants a thread, otherwise shorten the text. Hashtag and mention caps are hard limits.
@@ -137,7 +137,7 @@ left to right, in the first frame where they appear. After each redo, read the n
 `media_line`. When a redo fails, the earlier passing file stays in `ready/` and the row names it in `kept`; say so.
 
 For the copy, offer a shorter or longer version, another tone or hook, other hashtags, or a thread instead of one
-post. For a copy change, rewrite only that platform's draft and call `postkitty_copy` again with the same `job`. The
+post. For a copy change, rewrite only that platform's draft and call `postkitty_write` again with the same `job`. The
 other drafts stay as they are.
 
 ## Pitfalls
@@ -154,6 +154,6 @@ other drafts stay as they are.
 
 ## Verification
 
-- Every platform in `postkitty_copy` shows `ok: true` (or a recommendation-only limit with a note).
+- Every platform in `postkitty_write` shows `ok: true` (or a recommendation-only limit with a note).
 - Every target you call finished shows `ready` or `repaired` in the `postkitty_make` or `postkitty_redo` table.
 - The reply contains the exact `media_line` string from the tool result.
