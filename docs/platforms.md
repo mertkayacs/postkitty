@@ -56,7 +56,7 @@ when the source has transparency and the platform takes PNG.
 
 | Applies to | Limit | Value | Kind | Checked | Source |
 |---|---|---|---|---|---|
-| Text | Length | 100 characters | advised | 2026-11-11 | [support.google.com](https://support.google.com/youtube/answer/57407) |
+| Text | Length | 100 characters | required | 2026-11-11 | [support.google.com](https://support.google.com/youtube/answer/57407) |
 | `youtube_shorts`, video, `ready/youtube/shorts.mp4` | Output size | 1080×1920 | required | | |
 |  | Length, at most | 180 s | required | 2026-11-11 | [support.google.com](https://support.google.com/youtube/answer/15424877) |
 |  | Video bitrate, at most | 8 Mbps (1080p SDR at 24 to 30 fps; YouTube recommends 12 Mbps at 48 to 60 fps) | advised | 2026-11-11 | [support.google.com](https://support.google.com/youtube/answer/1722171) |
@@ -95,7 +95,7 @@ when the source has transparency and the platform takes PNG.
 
 | Applies to | Limit | Value | Kind | Checked | Source |
 |---|---|---|---|---|---|
-| Text | Length | 500 characters (Threads counts each emoji as its number of UTF-8 bytes, so a post with emoji reaches 500 sooner) | required | 2026-11-11 | [developers.facebook.com](https://developers.facebook.com/docs/threads/overview) |
+| Text | Length | 500 characters, with every emoji counted as its UTF-8 bytes | required | 2026-11-11 | [developers.facebook.com](https://developers.facebook.com/docs/threads/overview) |
 | `threads_video`, video, `ready/threads/video.mp4` | Output size | 1080×1920 | required | | |
 |  | Container | mp4, mov | required | 2026-11-11 | [developers.facebook.com](https://developers.facebook.com/docs/threads/overview) |
 |  | Video codec | h264, hevc | required | 2026-11-11 | [developers.facebook.com](https://developers.facebook.com/docs/threads/overview) |

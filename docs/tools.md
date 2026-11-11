@@ -18,7 +18,7 @@ The first call for every post, including a post that is only text. It opens a jo
 
 | Argument | Type | Default | Meaning |
 |---|---|---|---|
-| `inputs` | list of strings | none | Absolute paths of photos or videos. |
+| `inputs` | list of strings | none | The absolute path of one photo, of one video, or of one of each. With several photos or several videos, every target is made from the first of its kind and a note says so. |
 | `text` | string | none | The draft post. |
 | `platforms` | list of strings | every target that fits the inputs, or the `default_platforms` setting | Platform names (`instagram`, `tiktok`, `youtube`, `x`, `linkedin`, `threads`, `bluesky`, `facebook`) or target ids such as `instagram_reel`. |
 | `job` | string | a new job | The id of a job to reuse. |
@@ -53,7 +53,7 @@ Only the drafts in the call are replaced. The others stay as they are.
 |---|---|
 | `all_ok` | `true` when every draft passes its hard limits. |
 | `platforms` | Per platform: `ok`, `unit`, `limit`, `count`, `overflow`, `split`, the `parts` with their counts, `hashtags`, `mentions`, `notes` and the `files` written. |
-| `platforms.<name>.enforcement` | `hard` when the platform rejects longer text, `recommendation` when the limit is advice. |
+| `platforms.<name>.enforcement` | `hard` when the platform rejects longer text, `recommendation` when the limit is advice. Facebook's is the one recommendation. |
 | `platforms.<name>.fold` | An estimate of the part a feed shows before "more". X has no fold. |
 | `advice` | The path of `advice.md`. |
 | `alt_text_unmatched` | Alt text keys that matched no target. |
@@ -62,10 +62,13 @@ Counting units:
 
 | Unit | Used by | What counts as one |
 |---|---|---|
-| `codepoints` | Instagram, LinkedIn, Threads, Facebook, YouTube titles | One Unicode character. |
-| `x_weighted` | X | The twitter-text rule: Latin, Greek, Cyrillic and Arabic letters count 1, Chinese, Japanese and Korean characters count 2, an emoji counts 2 and a link counts 23. |
+| `codepoints` | Instagram, LinkedIn, Facebook, YouTube titles | One Unicode character. |
+| `x_weighted` | X | A port of twitter-text: Latin, Greek, Cyrillic and Arabic letters count 1, Chinese, Japanese and Korean characters count 2, an emoji counts 2 and a link counts 23. A file name such as `README.md` counts as a link, because `.md` is a country domain. |
+| `threads` | Threads | One per character, and every emoji as its UTF-8 bytes. |
 | `graphemes` | Bluesky | One character as a reader sees it, so an emoji built from several code points counts 1. |
 | `utf16` | TikTok | One UTF-16 code unit, so an emoji counts 2 or more. |
+
+Bluesky also caps every post at 3,000 UTF-8 bytes, and in a thread the cap applies to each post.
 
 Files written: `ready/<platform>/post.txt` for a single post, `thread.txt` for a thread, `alt.txt` for alt text, and `advice.md` in the job folder.
 
@@ -108,7 +111,7 @@ A job with text only has nothing to render. make then returns an empty `targets`
 | `failed` | The file still fails after the repairs. `problems` lists the failing checks. If an earlier version passed, it stays in `ready/` and `kept` names it. | `work/failed/` |
 | `skipped` | The engine for this kind of media could not load. `reason` says why. | nowhere |
 
-Only `ready` and `repaired` files are safe to upload. An `advisory` is a recommendation from the platform that the file misses, such as a safe area. It does not block the file.
+Only `ready` and `repaired` files are safe to upload. An `advisory` does not block the file. It reports a recommendation of the platform that the file misses, such as a safe area or a recommended length, or people left outside a photo by a focus position you chose.
 
 ## postkitty_redo
 

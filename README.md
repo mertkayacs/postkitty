@@ -30,7 +30,7 @@
   <a href="https://github.com/NousResearch/hermes-agent"><img alt="Hermes Agent" src="https://img.shields.io/badge/Hermes%20Agent-1E2A44?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIj48cGF0aCBkPSJNMTIgOFY0SDgiLz48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTIiIHg9IjQiIHk9IjgiIHJ4PSIyIi8%2BPHBhdGggZD0iTTIgMTRoMiIvPjxwYXRoIGQ9Ik0yMCAxNGgyIi8%2BPHBhdGggZD0iTTE1IDEzdjIiLz48cGF0aCBkPSJNOSAxM3YyIi8%2BPC9nPjwvc3ZnPg%3D%3D&logoColor=white"></a>
 </p>
 
-postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent) that turns one post (a draft, photos, a landscape video, or only text) into a folder of upload-ready files for Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook, each one checked against that platform's published limits and repaired when it fails.
+postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent) that turns one post (a draft, a photo, a landscape video, or only text) into a folder of upload-ready files for Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook, each one checked against that platform's published limits and repaired when it fails.
 
 One of the best free and open source plugins for Hermes Agent on automatic multi social media content editing.
 
@@ -42,7 +42,7 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 
 - <img src="docs/assets/readme/icons/scan-face.svg" width="18" height="18" alt=""> **Finds the faces in a photo and tracks them through a video.** Crops and vertical clips are built around those people, so they stay in frame.
 - <img src="docs/assets/readme/icons/video.svg" width="18" height="18" alt=""> **Renders with ffmpeg.** You get upload files at each platform's size, trimmed to its length, and every video comes with a cover frame.
-- <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> **Counts text the way each platform does:** weighted characters on X, graphemes on Bluesky, UTF-16 units on TikTok.
+- <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> **Counts text the way each platform does.** X is counted by the rules of its own twitter-text library, where a link is 23 characters and an emoji 2. Threads counts every emoji as its UTF-8 bytes, Bluesky counts graphemes and TikTok counts UTF-16 units.
 - <img src="docs/assets/readme/icons/list-checks.svg" width="18" height="18" alt=""> **Checks every file against the platform's published limits and repairs what fails.** Only passing files reach `ready/`.
 - <img src="docs/assets/readme/icons/layout-grid.svg" width="18" height="18" alt=""> **Builds a review board,** one page that shows every file with its text, alt text and checks.
 - <img src="docs/assets/readme/icons/square-terminal.svg" width="18" height="18" alt=""> **Answers `/postkitty` without the model:** every size and limit, plus a check of your setup.
@@ -116,7 +116,7 @@ postkitty never posts, uploads or schedules anything. You upload the files in `r
 ## How to ask
 
 - Name the platforms: "for Instagram and TikTok" tells postkitty which files to make.
-- Give the path of each photo or video and paste your draft.
+- Give the path of the photo or the video and paste your draft. One job takes one photo, one video, or one of each.
 - Tell it who has to stay in frame, for example "keep everyone in the picture" or "focus on the person on the left".
 - With two people on camera, name the layout: a split screen, a cut to whoever is talking, or the whole wide shot.
 - A trim and a cover frame need times: "use 0:12 to 0:48 and take the cover at 0:20".
@@ -129,9 +129,9 @@ postkitty never posts, uploads or schedules anything. You upload the files in `r
 - **Instagram.** Reel and Story 1080×1920, feed photo 1080×1350. Text up to 2,200 characters and 5 hashtags.
 - **TikTok.** Video 1080×1920. Text up to 2,200 UTF-16 units.
 - **YouTube Shorts.** Short 1080×1920. Title up to 100 characters.
-- **X.** Video 1920×1080, image 1600×900. Text up to 280 weighted characters.
+- **X.** Video 1920×1080, image 1600×900. Text up to 280 weighted characters, where a link counts 23.
 - **LinkedIn.** Video 1080×1350, image 1080×1080. Text up to 3,000 characters.
-- **Threads.** Video 1080×1920, image 1080×1350. Text up to 500 characters.
+- **Threads.** Video 1080×1920, image 1080×1350. Text up to 500 characters, with every emoji counted as its UTF-8 bytes.
 - **Bluesky.** Video 1080×1920, image 1080×1350. Text up to 300 graphemes.
 - **Facebook.** Reel 1080×1920, feed photo 1080×1350. Text up to 63,206 characters.
 
@@ -153,7 +153,7 @@ The same engine answers over HTTP at `https://postkitty.mertkayacs.com/api`. [do
 - [Architecture](docs/architecture.md): how the code is organised and how a job runs
 - [Troubleshooting](docs/troubleshooting.md): what each failure message means and what to do
 
-## FAQ
+## Good to know
 
 <details>
 <summary><b>What it touches on your machine</b></summary>
@@ -197,7 +197,7 @@ postkitty/20261111-0930-talk/
 
 Hermes calls five tools, in this order. [docs/tools.md](docs/tools.md) has their arguments and results.
 
-1. `postkitty_scan` reads your photos, videos and draft, and plans a framing for each platform. It renders nothing.
+1. `postkitty_scan` reads your photo or video and your draft, and plans a framing for each platform. It renders nothing.
 2. `postkitty_write` counts each platform's text with its real rule and writes the text files.
 3. `postkitty_make` renders every file, checks it, repairs failures and builds the review board.
 4. `postkitty_redo` makes one photo or video output again with another layout, focus, trim, cover frame or captions.
@@ -311,6 +311,8 @@ Your job folders stay where they are when you remove the plugin.
 
 postkitty is built on [OpenCV](https://opencv.org) and the [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) face detector, [FFmpeg](https://ffmpeg.org), [Pillow](https://python-pillow.org) and [NumPy](https://numpy.org), with the counting rules of [twitter-text](https://github.com/twitter/twitter-text) and the [AT Protocol lexicons](https://github.com/bluesky-social/atproto). Seam carving can use [caire](https://github.com/esimov/caire) by Endre Simo.
 
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists the material this repository takes from other projects, with the licence of each.
+
 </details>
 
 ## Development
@@ -336,5 +338,7 @@ If postkitty is useful to you, a star helps other people find it.
 ## License
 
 [MIT](LICENSE). postkitty is built by [Mert Kaya](https://mertkayacs.com/?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=license-author) ([@mertkayaai](https://x.com/mertkayaai) on X, [@mertkayacs](https://github.com/mertkayacs) on GitHub) at Eschatia Labs, an independent, non-profit open-source AI research lab. Photos behind the screenshots are credited in [docs/assets/readme/CREDITS.md](docs/assets/readme/CREDITS.md).
+
+Material from other projects is listed with its licences in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 [![views](https://hits.sh/github.com/mertkayacs/postkitty.svg?view=today-total&style=flat-square&label=views&color=B9472E&labelColor=1E2A44)](https://postkitty.mertkayacs.com/?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=views-badge)

@@ -15,10 +15,17 @@ All notable changes to postkitty are recorded here. The format follows [Keep a C
 - `/postkitty doctor`, a setup check for Python, ffmpeg and ffprobe, OpenCV, Pillow, the face model and the output folder, with one fix line for each problem.
 - `engine.pipeline`, a public Python API with `configure()` and `scan`, `write`, `make`, `redo` and `check` as plain functions that take a dict and return a dict.
 - Documentation under `docs/`: how to ask, the tool reference, layouts, platform limits with their sources, the HTTP API, the architecture and troubleshooting.
-- `CONTRIBUTING.md`, `SECURITY.md` and this changelog.
+- `CONTRIBUTING.md`, `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and this changelog.
 
 ### Fixed
 
+- **Text.** X is counted by a port of twitter-text, so links, file names that read as links, and emoji count exactly as X counts them. Threads counts every emoji as its UTF-8 bytes. Bluesky's 3,000-byte cap applies to each post of a thread, and the 100-character YouTube title limit is enforced. The preview of what a feed shows before "more" is cut on whole characters. A draft that cannot become a thread gets a note that says what to do.
+- **Photos.** A focus position (`left`, `center`, `right` or `x:`) is kept as asked, and the result says who is outside the frame. `person:N` frames that one person. Split panels stay inside the photo, CMYK photos are converted through their colour profile, and outputs carry no comment or colour profile from the source. A photo with no face is framed on OpenCV builds without the saliency module too.
+- **Video.** A clip is cut only for a hard length limit, and a trim that runs past the end stops at the last frame. HDR sources are tone-mapped to SDR, surround sound is mixed down to stereo, and anamorphic clips are measured at their display size. ffmpeg runs without the `nice` binary, a job folder with a quote in its path renders, and a failed ffmpeg run or repair is reported in plain words.
+- **Inputs.** A phone JPEG that holds a second picture is read as a still photo. An animated WebP or PNG is refused as an animated image, as an animated GIF is.
+- **Jobs.** Two scans can no longer share a job folder. Job and platform folders stay inside the output folder, a damaged manifest is named in the error with the way out, and finished renders are pruned from `work/`.
+- **Face model.** An offline machine gets an answer at once, with the address and the folder for a manual download. A cached model that fails its checksum is replaced by a fresh download.
+- **Review board.** A skipped target says why, long unbroken text wraps inside its card, and the contact sheet keeps its badges inside their tiles.
 - **Platform data.** Every limit was checked again at the platform's own page on 2026-11-11. The Instagram Reel file cap is 300 MB (it was 1 GB). Instagram feed photos, Threads videos and Threads photos have a file size cap now, and Threads video is checked for container, codec and frame rate. `data/platforms.yaml` is validated when it loads, and a limit without a source is rejected.
 
 ## [0.1.0] - 2026-11-08

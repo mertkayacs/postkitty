@@ -117,7 +117,7 @@ When a redo fails, the earlier file that passed stays in `ready/`, and the resul
 |---|---|---|
 | `input file not found` | The path does not point to a file. | Give the full path, starting from `/` or the drive. |
 | `unsupported input type` | The file is not a photo or a video postkitty reads. | Use JPEG, PNG, WebP or GIF for photos and MP4, MOV or WebM for video. |
-| `is an animated GIF` | An animated GIF is neither a photo nor a video here. | Export one frame as JPEG or PNG, or give a video. |
+| `is an animated image` | An animated GIF, WebP or PNG is neither a photo nor a video here. | Export the frame you want as JPEG or PNG, or give a video. |
 | `HEIC and AVIF photos need the pillow-heif package` | Pillow cannot open the photo. | Export the photo as JPEG. |
 | `has no video stream` | The file holds audio only. | Give a video file. |
 | `unknown platform or target` | A name was misspelled. | The message lists the valid names. |

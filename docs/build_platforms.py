@@ -7,7 +7,8 @@ from ruamel.yaml import YAML
 
 ROOT = Path(__file__).resolve().parent.parent
 UNITS = {"codepoints": "characters", "x_weighted": "weighted characters", "graphemes": "graphemes",
-         "utf16": "UTF-16 units", "utf8_bytes": "UTF-8 bytes"}
+         "utf16": "UTF-16 units", "utf8_bytes": "UTF-8 bytes",
+         "threads": "characters, with every emoji counted as its UTF-8 bytes"}
 LABELS = {"limit": "Length", "hashtags_max": "Hashtags, at most", "mentions_max": "Mentions, at most",
           "bytes_max": "File size, at most", "bytes_min": "File size, at least", "containers": "Container",
           "video_codecs": "Video codec", "formats": "Format", "audio_sample_rate": "Audio sample rate",

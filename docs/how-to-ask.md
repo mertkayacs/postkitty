@@ -12,6 +12,7 @@ Each section below puts a vague request next to a clear one and says what postki
 
 - [Name the platforms](#name-the-platforms)
 - [Give the files](#give-the-files)
+- [Several photos](#several-photos)
 - [Say who stays in frame](#say-who-stays-in-frame)
 - [Pick a layout](#pick-a-layout)
 - [Set the trim and the cover frame](#set-the-trim-and-the-cover-frame)
@@ -39,11 +40,21 @@ If you always post to the same places, set `default_platforms` once ([settings](
 |---|---|
 | "Use the video I recorded yesterday." | "The video is /home/me/talk.mp4." |
 
-postkitty reads files by their full path. A photo gives you image targets and a video gives you video targets, so a request for TikTok needs a video and a request for a feed photo needs a photo. You can give both in one request.
+postkitty reads files by their full path. One job is made from one photo, one video, or one of each. A photo gives you image targets and a video gives you video targets, so a request for TikTok needs a video and a request for a feed photo needs a photo.
 
-It reads JPEG, PNG, WebP, BMP, TIFF and still GIF images, and MP4, MOV, M4V, WebM, MKV, AVI and MTS video. HEIC and AVIF photos need the `pillow-heif` package. An animated GIF is refused with a hint to export one frame or give a video.
+It reads JPEG, PNG, WebP, BMP, TIFF and still GIF images, and MP4, MOV, M4V, WebM, MKV, AVI and MTS video. HEIC and AVIF photos need the `pillow-heif` package. A phone JPEG that stores a second picture, such as a depth map, is read as one photo. An animated GIF, WebP or PNG is refused as an animated image, with a hint to export one frame or give a video.
 
 Text alone works: paste the draft and name the platforms.
+
+## Several photos
+
+| Vague | Clear |
+|---|---|
+| "Make these ready for Instagram." | "Make each of these three photos ready for Instagram: /home/me/a.jpg, /home/me/b.jpg, /home/me/c.jpg" |
+
+Hermes runs postkitty once for each photo, so you get one job folder per photo, each with its own files and review board. postkitty does not assemble a carousel: you pick the photos in the app when you post.
+
+When one job gets several photos, every target is made from the first one, and a note in the result says so.
 
 ## Say who stays in frame
 
@@ -60,6 +71,10 @@ postkitty frames each file around the faces it finds, and a check fails the file
 | "keep the left side", "the middle", "the right side" | `left`, `center`, `right` | Anchors the crop to that side of the frame. |
 | "a bit left of the middle" | `x:0.4` | Anchors the crop at a point from 0.0 (left edge) to 1.0 (right edge). |
 | nothing | `auto` | Frames the people it found. |
+
+With `auto`, nobody is cut. With a person in focus, that person stays whole. A file that would cut them fails its check and is made again with the whole frame.
+
+A side or a point is your call. On a photo postkitty makes the crop exactly as you asked, marks the file ready, and tells you who is left outside the frame.
 
 If you ask for a person who is not there, postkitty answers with the number of people it found.
 
@@ -90,7 +105,7 @@ When a video cannot support the layout you asked for, postkitty uses a crop and 
 
 Give times as minutes and seconds or as seconds. A trim that runs past the end of the clip stops at the end. The cover frame has to sit inside the trim.
 
-When you give no times, postkitty keeps the whole clip if it fits the platform's maximum length. A longer clip is cut to that maximum, and postkitty picks the window with the most faces on screen and the most sound. The cover is the sharpest frame that shows a face and sits away from a scene cut.
+When you give no times, postkitty keeps the whole clip if it fits the platform's maximum length. Where that maximum is a hard limit, a longer clip is cut to it, and postkitty picks the window with the most faces on screen and the most sound. Where the platform only recommends a length, the clip keeps its length and the result tells you. The cover is the sharpest frame that shows a face and sits away from a scene cut.
 
 Trim and cover apply to video. On a photo target postkitty refuses them with a message.
 
@@ -102,7 +117,9 @@ Trim and cover apply to video. On a photo target postkitty refuses them with a m
 
 Hermes writes one version per platform in your voice and your language, fixes spelling and grammar, and keeps your facts. It adds no names, numbers or claims that are not in your material. postkitty then counts every version with that platform's rule and reports the overflow when one is too long, so Hermes can shorten it.
 
-Say what you want changed in words a person would use: shorter, longer, more formal, another first line, other hashtags, no hashtags. For YouTube the text is the Shorts title.
+Say what you want changed in words a person would use: shorter, longer, more formal, another first line, other hashtags, no hashtags. For YouTube the text is the Shorts title, and its 100 characters are a hard limit.
+
+Two counting rules surprise people. On X a link counts 23 characters whatever its length, and a file name such as `README.md` or `tools.py` counts as a link, because `.md` and `.py` are country domains. Threads counts every emoji as its UTF-8 bytes, so a post with many emoji reaches 500 sooner.
 
 ## Ask for a thread or a single post
 
@@ -111,7 +128,7 @@ Say what you want changed in words a person would use: shorter, longer, more for
 | "This is too long for X." | "This is too long for one X post. Turn it into a thread." |
 | | "Keep it to one post on X, shorten it." |
 
-X, Threads and Bluesky text over the limit can be split into a numbered thread. postkitty splits at sentence ends, keeps every link whole, and numbers the posts (`1/3`, `2/3`, `3/3`). A thread is saved as `thread.txt`, a single post as `post.txt`.
+X, Threads and Bluesky text over the limit can be split into a numbered thread. postkitty splits at sentence ends, keeps every link whole, and numbers the posts (`1/3`, `2/3`, `3/3`). A thread is saved as `thread.txt`, a single post as `post.txt`. When a draft is too long even for a thread, the result says what to do.
 
 Say which one you want. When you say nothing, Hermes shortens the text until it fits one post. On the other platforms a long text is always shortened.
 

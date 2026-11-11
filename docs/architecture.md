@@ -71,10 +71,10 @@ flowchart TD
     K --> E
 ```
 
-1. **scan** reads each file with ffprobe or Pillow and hashes it. It runs the face detector on a photo, or on frames sampled from a video, where it also finds the shots, the audio level over time and one track per person. From that it plans a layout for every target, and for video a trim and a cover frame. The plan is saved, and nothing is rendered.
+1. **scan** reads each file with ffprobe or Pillow and hashes it. A job is made from one photo, one video, or one of each. It runs the face detector on a photo, or on frames sampled from a video, where it also finds the shots, the audio level over time and one track per person. From that it plans a layout for every target, and for video a trim and a cover frame. The plan is saved, and nothing is rendered.
 2. **Hermes** looks at the preview image and the facts scan returned, then writes the advice, a draft per platform and the alt text. This is the only step done by the model.
 3. **write** counts each draft in its platform's unit, checks the hashtag, mention and byte caps, splits a thread where that is allowed, and saves the text files.
-4. **make** renders each target: Pillow for photos, ffmpeg for video (H.264 and AAC in an MP4, audio set to the loudness target). Every file then goes through its checks. A failing hard check starts a repair, and the file is checked again. A passing file is copied to `ready/`, and a video gets its cover frame. Then the board is built.
+4. **make** renders each target: Pillow for photos, ffmpeg for video (H.264 and AAC in an MP4, audio set to the loudness target, HDR tone-mapped to SDR, surround sound mixed down to stereo). Every file then goes through its checks. A failing hard check starts a repair, and the file is checked again. A passing file is copied to `ready/`, and a video gets its cover frame. Then the board is built.
 5. **redo** renders one target again with the keys that changed. The scan and the detections are reused.
 
 Detections are stored by the SHA-256 of the file, so an unchanged file is detected once, across jobs too. A file that changed after the scan is refused with a message to scan again.
@@ -121,7 +121,7 @@ A check compares one measured value with one limit and returns a record: `id`, `
 | Failing check | Repair |
 |---|---|
 | Photo over the size cap | Save the JPEG again at a lower quality |
-| A person cut by the frame, photo or video | Render again with the `pad` layout |
+| A person cut by the frame, with the focus on `auto` or on a person | Render again with the `pad` layout |
 | Video over the size cap | Encode again at a bitrate that fits the cap |
 | Video or audio bitrate over the cap | Encode again under the cap |
 | Video too long | Render again with a shorter trim |
@@ -142,7 +142,7 @@ duration_max: {value: 180, enforcement: hard, source_scope: official, checked_on
 To add a platform:
 
 1. Add its block to `data/platforms.yaml`. Give every limit a `source_url` you opened, a `source_scope` (`api`, `official`, `ad` or `secondary`) and today's date as `checked_on`.
-2. Choose the text unit: `codepoints`, `x_weighted`, `graphemes` or `utf16`. A new unit needs a branch in `count_text` in `engine/text/fit.py`. If the platform has threads, add it to `THREAD_PLATFORMS` there.
+2. Choose the text unit: `codepoints`, `x_weighted`, `threads`, `graphemes` or `utf16`. A new unit needs a branch in `count_text` in `engine/text/fit.py`. If the platform has threads, add it to `THREAD_PLATFORMS` there.
 3. Use limit names the checkers already read (`duration_max`, `bytes_max`, `fps_min`, `formats` and the others on the [platforms page](platforms.md)). A new kind of limit needs a check in `engine/photo/checks.py` or `engine/video/checks.py`, and a repair if one is possible.
 4. Add a short name to `ALIASES` in `engine/pipeline.py` if people use one.
 5. Run `python docs/build_platforms.py` and the tests, then add a row to the platforms table in the README.
