@@ -849,3 +849,13 @@ def test_a_setup_problem_points_to_the_doctor_and_says_text_still_works(out_dir,
     monkeypatch.setattr(pipeline, "make", no_model)
     out = call(tools.make, job="any")
     assert out["error"] == "The face model could not be downloaded." and "/postkitty doctor" in out["hint"]
+
+
+def test_alt_text_by_a_file_name_two_inputs_share_asks_for_an_id(out_dir, tmp_path, stub_image_engine):
+    for folder, color in (("a", "orange"), ("b", "blue")):
+        (tmp_path / folder).mkdir()
+        Image.new("RGB", (1600, 1200), color).save(tmp_path / folder / "IMG.jpg")
+    job = call(tools.scan, inputs=[str(tmp_path / "a/IMG.jpg"), str(tmp_path / "b/IMG.jpg")], platforms=["x"])["job"]
+    assert "several inputs (in1, in2)" in call(tools.write, job=job, alt_text={"IMG.jpg": "A team."})["error"]
+    assert call(tools.write, job=job, alt_text={"in1": "A team."})["alt_text_unmatched"] is None
+    assert "x_image:\nA team." in (out_dir / job / "ready/x/alt.txt").read_text()

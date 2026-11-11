@@ -668,8 +668,8 @@ def _write_alt(job: jobs.Job, manifest: dict, alt: dict) -> list[str]:
 
 
 def _alt_matches(job: jobs.Job, manifest: dict, key: str) -> list[tuple[str, str]]:
-    """Resolve an alt text key to ``(platform, target_id)`` pairs: a target id, an input file name (every
-    target made from it), or a ready file by path or name. A bare name found for several targets is an error."""
+    """Resolve an alt text key to ``(platform, target_id)`` pairs: a target id, an input id or file name
+    (every target made from it), or a ready file by path or name. A name that fits several is an error."""
     try:
         return [(platforms.platform_for_target(key), platforms.get_target(key).id)]
     except KeyError:
@@ -677,9 +677,11 @@ def _alt_matches(job: jobs.Job, manifest: dict, key: str) -> list[tuple[str, str
     entries = manifest.get("targets", [])
     if not entries and (job.work / "scan.json").is_file():
         entries = jobs.read_json(job.work / "scan.json").get("targets", [])
-    input_ids = {item["id"] for item in manifest.get("inputs", []) if Path(item["path"]).name == key}
+    named = [item["id"] for item in manifest.get("inputs", []) if key in (item["id"], Path(item["path"]).name)]
+    if len(named) > 1:
+        raise ValueError(f"alt text key {key!r} names several inputs ({', '.join(named)}); use an input id or a target id")
     matches = [(platforms.platform_for_target(item["id"]), item["id"])
-               for item in entries if item.get("input") in input_ids]
+               for item in entries if item.get("input") in named]
     if matches:
         return matches
     key_path = Path(key).expanduser()
