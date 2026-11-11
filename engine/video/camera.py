@@ -444,21 +444,40 @@ def _rendered_window(box: Any, width: int, height: int) -> Any:
 
 
 def _left_outside(
-    scan: VideoScan, windows: list[Any], trim: tuple[float, float], fps: float, width: int, height: int
+    scan: VideoScan,
+    windows: list[Any],
+    scenes: list[tuple[float, float]],
+    trim: tuple[float, float],
+    fps: float,
+    width: int,
+    height: int,
 ) -> tuple[int, int]:
-    """How many people the scan tracked inside the trim, and how many a one-window layout leaves
-    out of frame for most of it."""
-    samples: dict[int, list[int]] = {}
-    for track in scan.tracks:
-        for point in _points_in_scene(track, *trim):
-            index = math.floor((point.t - trim[0]) * fps + 1e-9)
-            if not 0 <= index < len(windows):
-                continue
-            shown = _inside(_rendered_window(windows[index], width, height), _face_box(point))
-            seen = samples.setdefault(track.person, [0, 0])
-            seen[0] += 1
-            seen[1] += int(not shown)
-    return len(samples), sum(1 for total, missed in samples.values() if missed * 2 > total)
+    """People in the fullest shot, and how many a one-window layout leaves out for most of the clip.
+
+    A cut ends a track, so a person cannot be followed across shots. Each shot counts the tracks
+    that are out of its window for most of their samples, and a count stands when the shots with
+    at least that many people left out cover most of the clip.
+    """
+    people = 0
+    shots: list[tuple[float, int]] = []
+    for scene in scenes:
+        present = missed = 0
+        for track in scan.tracks:
+            total = outside = 0
+            for point in _points_in_scene(track, *scene):
+                index = math.floor((point.t - trim[0]) * fps + 1e-9)
+                if 0 <= index < len(windows):
+                    total += 1
+                    outside += int(not _inside(_rendered_window(windows[index], width, height), _face_box(point)))
+            present += int(total > 0)
+            missed += int(outside * 2 > total)
+        people = max(people, present)
+        shots.append((scene[1] - scene[0], missed))
+    clip = sum(duration for duration, _ in shots)
+    for count in range(max((missed for _, missed in shots), default=0), 0, -1):
+        if sum(duration for duration, missed in shots if missed >= count) * 2 > clip:
+            return people, count
+    return people, 0
 
 
 def _on_frame(value: float, scene: tuple[float, float], start: float, fps: float) -> float:
@@ -713,7 +732,7 @@ def build_camera_path(
     if anchor_x is not None and layout in ("crop", "speaker"):
         # A focus position is the user's choice: the window stays where they put it, and the people it
         # leaves out are reported instead of failing the check. Split and pad frame people their own way.
-        people, outside = _left_outside(scan, windows, trim, fps, info.width, info.height)
+        people, outside = _left_outside(scan, windows, scenes, trim, fps, info.width, info.height)
         subjects_inside = (people - outside) / people if people else 1.0
         if outside:
             advisory = (

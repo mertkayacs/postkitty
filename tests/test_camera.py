@@ -401,3 +401,25 @@ def test_focus_position_reports_nobody_in_a_split_which_frames_people_its_own_wa
     assert path.layout == "split"
     assert (path.subjects_inside, path.advisory) == (1.0, "")
 
+
+def _shot(person: int, x: float, start: float, end: float) -> Track:
+    return _track(person, [(index / 5, x) for index in range(round(start * 5), round(end * 5))])
+
+
+def test_focus_position_counts_one_person_once_across_a_cut() -> None:
+    # A cut ends a track, so one person filmed in two shots is two tracks.
+    scan = _scan([_shot(1, 40.0, 0.0, 1.0), _shot(2, 40.0, 1.0, 2.0)], [(0.0, 1.0), (1.0, 2.0)])
+
+    path = build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), focus="right")
+
+    assert path.subjects_inside == 0.0
+    assert path.advisory == "1 person is outside the frame for most of the clip because the focus is set to right."
+
+
+def test_focus_position_ignores_a_person_left_out_for_a_short_shot_only() -> None:
+    scan = _scan([_shot(1, 1100.0, 0.0, 1.6), _shot(2, 40.0, 1.6, 2.0)], [(0.0, 1.6), (1.6, 2.0)])
+
+    path = build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), focus="right")
+
+    assert (path.subjects_inside, path.advisory) == (1.0, "")
+
