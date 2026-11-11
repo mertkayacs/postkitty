@@ -70,7 +70,7 @@ def test_still_gif_is_an_image_and_animated_gif_is_refused(tmp_path):
     animated = tmp_path / "anim.gif"
     frames = [Image.new("RGB", (40, 30), color) for color in ("red", "blue")]
     frames[0].save(animated, save_all=True, append_images=frames[1:], duration=100, loop=0)
-    with pytest.raises(probe.ProbeError, match="animated GIF"):
+    with pytest.raises(probe.ProbeError, match="anim.gif is an animated image"):
         probe.probe(animated, "in1")
 
 
@@ -166,4 +166,11 @@ def test_multi_picture_jpeg_is_a_still_photo(tmp_path):
     )
     info = probe.probe(path, "in1")
     assert (info.kind, info.width, info.height) == ("image", 400, 300)
+
+@pytest.mark.parametrize(("name", "options"), [("moving.webp", {}), ("moving.png", {"default_image": False})])
+def test_animated_webp_and_png_are_refused_as_animated_images(tmp_path, name, options):
+    frames = [Image.new("RGB", (16, 16), color) for color in ("red", "blue")]
+    frames[0].save(tmp_path / name, save_all=True, append_images=frames[1:], duration=100, loop=0, **options)
+    with pytest.raises(probe.ProbeError, match=f"{name} is an animated image; export the frame you want"):
+        probe.probe(tmp_path / name, "in1")
 

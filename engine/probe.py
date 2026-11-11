@@ -144,7 +144,7 @@ def _image_info(path: Path, input_id: str, sha: str) -> InputInfo:
         raise ProbeError(f"Could not read image {path.name}: {exc}.{hint}") from exc
     if animated:
         raise ProbeError(
-            f"{path.name} is an animated GIF; export the frame you want as JPEG or PNG, or give a video."
+            f"{path.name} is an animated image; export the frame you want as JPEG or PNG, or give a video."
         )
 
     rotation = 0
