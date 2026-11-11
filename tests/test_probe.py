@@ -157,3 +157,13 @@ def test_tool_output_is_read_as_utf8_whatever_the_locale(monkeypatch):
     assert seen == {"command": ["ffprobe", "clip.mp4"], "creationflags": 0x4000, "capture_output": True,
                     "text": True, "encoding": "utf-8", "errors": "replace"}
 
+
+def test_multi_picture_jpeg_is_a_still_photo(tmp_path):
+    # Ultra HDR and portrait shots store a gain map or depth map as a second picture in the JPEG.
+    path = tmp_path / "phone.jpg"
+    Image.new("RGB", (400, 300), "navy").save(
+        path, format="MPO", save_all=True, append_images=[Image.new("RGB", (100, 75), "white")]
+    )
+    info = probe.probe(path, "in1")
+    assert (info.kind, info.width, info.height) == ("image", 400, 300)
+

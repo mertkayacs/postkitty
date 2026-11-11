@@ -135,7 +135,8 @@ def _image_info(path: Path, input_id: str, sha: str) -> InputInfo:
                 orientation = 1
             # The header of a cut-off upload parses; only a full decode shows the file is truncated.
             image.load()
-            animated = getattr(image, "n_frames", 1) > 1
+            # A multi-picture JPEG stores a gain map or depth map beside one still photo.
+            animated = image.format != "MPO" and getattr(image, "n_frames", 1) > 1
     except Exception as exc:
         hint = ""
         if path.suffix.lower() in {".heic", ".avif"}:
