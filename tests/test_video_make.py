@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 
 from engine.photo.framing import Box
 from engine.video.render import VideoPlan, export_cover, plan_video, render_video
@@ -236,6 +237,7 @@ def test_render_uses_requested_loudness(tmp_path: Path, monkeypatch: Any) -> Non
         Path(command[-1]).write_bytes(b"video")
 
     monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_hdr_transfer", lambda path, sha256: None)
     monkeypatch.setattr(video_make, "_probe_render", lambda path: {
         "streams": [{"codec_type": "video", "width": 180, "height": 180}],
         "format": {"duration": "1.0", "size": "5"},
@@ -302,6 +304,7 @@ def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypat
         Path(command[-1]).write_bytes(b"video")
 
     monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_hdr_transfer", lambda path, sha256: None)
     monkeypatch.setattr(video_make, "_probe_render", lambda path: {
         "streams": [{"codec_type": "video", "width": 180, "height": 320}],
         "format": {"duration": "1.0", "size": "5"},
@@ -333,6 +336,7 @@ def test_near_silent_audio_is_not_normalised_and_is_flagged(tmp_path: Path, monk
         Path(command[-1]).write_bytes(b"video")
 
     monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_hdr_transfer", lambda path, sha256: None)
     monkeypatch.setattr(video_make, "_probe_render", lambda path: {
         "streams": [{"codec_type": "video", "width": 180, "height": 320}],
         "format": {"duration": "1.0", "size": "5"},
@@ -378,6 +382,7 @@ def test_render_reuse_respects_the_audio_cap_of_the_new_target(tmp_path: Path, m
         Path(command[-1]).write_bytes(b"video")
 
     monkeypatch.setattr(video_make.subprocess, "run", fake_run)
+    monkeypatch.setattr(video_make, "_hdr_transfer", lambda path, sha256: None)
     monkeypatch.setattr(video_make, "_probe_render", lambda path: {
         "streams": [{"codec_type": "video", "width": 180, "height": 320}],
         "format": {"duration": "1.0", "size": "5"},
@@ -475,3 +480,38 @@ def test_render_works_from_a_job_folder_with_quotes_and_filter_syntax_in_its_nam
     result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "it's a [job], 50%; x=1:2")
 
     assert (result.width, result.height) == (180, 180)
+
+
+def _colour(path: Path) -> list[str]:
+    return subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=pix_fmt,color_space,color_transfer,color_primaries", "-of", "default=nw=1:nk=1", str(path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+
+
+def test_hdr_phone_clip_is_rendered_as_sdr(tmp_path: Path, monkeypatch: Any) -> None:
+    # Phones record 10-bit HLG by default; a platform file is 8-bit BT.709.
+    import engine.video.render as video_make
+
+    source = tmp_path / "hlg.mp4"
+    _run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=320x180:r=10:d=0.5",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
+            "-colorspace", "bt2020nc", str(source),
+        ]
+    )
+    info = InputInfo(source, "hlg-source", 320, 180, 0.5, 10.0)
+    target = Target("wide_video", 320, 180)
+    plan = VideoPlan(target.id, "crop", (0.0, 0.5), 0.2, "", [_box(0.0, 0.0, 320.0, 180.0)] * 5)
+
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "work")
+
+    assert _colour(result.file) == ["yuv420p", "bt709", "bt709", "bt709"]
+    assert export_cover(info, plan, target, tmp_path / "cover.jpg").is_file()
+    monkeypatch.setattr(video_make, "has_filter", lambda name: name != "zscale")
+    with pytest.raises(ValueError, match="hlg.mp4 is HDR video and this ffmpeg build has no zscale filter"):
+        render_video(info, plan, target, tmp_path / "other.mp4", tmp_path / "work2")

@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,7 +15,7 @@ import cv2
 import numpy as np
 
 from .camera import build_camera_path
-from .captions import ass_document, libass_available, load_captions
+from .captions import ass_document, load_captions
 from .scan import VideoScan
 
 
@@ -28,6 +30,54 @@ class VideoPlan:
     subjects_inside: float = 1.0
     normalize_audio: bool = True
     captions: Any = None
+
+
+@cache
+def _filters() -> frozenset[str]:
+    try:
+        listing = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, check=False
+        ).stdout
+    except OSError:
+        return frozenset()
+    return frozenset(re.findall(r"^ [T.][S.][C.] (\S+)", listing, re.MULTILINE))
+
+
+def has_filter(name: str) -> bool:
+    """Whether this ffmpeg build has the filter ``name``; minimal builds leave out libass and zimg."""
+    return name in _filters()
+
+
+@cache
+def _hdr_transfer(path: Path, sha256: str) -> str | None:
+    """The transfer curve of an HDR source (PQ or HLG), else ``None``. Cached by content hash."""
+    probed = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "V:0", "-show_entries", "stream=color_transfer",
+         "-of", "default=nw=1:nk=1", str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    return probed if probed in {"smpte2084", "arib-std-b67"} else None
+
+
+def _to_sdr(info: Any) -> str:
+    """Filters that tone-map an HDR frame to 8-bit BT.709, or nothing for an SDR source.
+
+    Without this the 8-bit output keeps the BT.2020 and HLG or PQ tags and plays washed out.
+    """
+    transfer = _hdr_transfer(Path(info.path), info.sha256)
+    if transfer is None:
+        return ""
+    if not has_filter("zscale"):
+        raise ValueError(
+            f"{Path(info.path).name} is HDR video and this ffmpeg build has no zscale filter to convert it; "
+            "install an ffmpeg build with libzimg or export the clip as SDR"
+        )
+    return (
+        f",zscale=tin={transfer}:min=bt2020nc:pin=bt2020:t=linear:npl=100,format=gbrpf32le,"
+        "zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
+    )
 
 
 def _limit(target: Any, key: str, default: Any = None) -> Any:
@@ -152,7 +202,7 @@ def plan_video(
         raise ValueError("video duration must be positive")
     override = override or {}
     captions = load_captions(override["captions"]) if override.get("captions") else None
-    if captions is not None and not libass_available():
+    if captions is not None and not has_filter("ass"):
         raise ValueError(
             "this ffmpeg build has no libass, so it cannot burn captions in; "
             "install an ffmpeg build with libass or leave out the captions override"
@@ -405,6 +455,7 @@ def render_video(
         else:
             _write_commands(plan, info, fps, commands_path)
             filter_graph = _crop_filter(info, plan, target, fps, commands_path)
+        filter_graph += _to_sdr(info)
         if captions_shown:
             subtitles_path = render_dir / f"reuse-{key}.ass"
             subtitles_path.write_text(subtitles, encoding="utf-8")
@@ -506,7 +557,7 @@ def render_video(
 
 def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
     if plan.layout == "pad":
-        return _pad_filter(info, target, None) + "[v]"
+        return _pad_filter(info, target, None)
     if plan.layout == "split":
         top = _window_values(plan.windows[index][0], info.width, info.height)
         bottom = _window_values(plan.windows[index][1], info.width, info.height)
@@ -518,12 +569,12 @@ def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
             f"scale={target.width}:{panel_height}:flags=lanczos[top];"
             f"[bottomin]crop={bottom[0]}:{bottom[1]}:{bottom[2]}:{bottom[3]},"
             f"scale={target.width}:{target.height - panel_height}:flags=lanczos[bottom];"
-            "[top][bottom]vstack=inputs=2,setsar=1[v]"
+            "[top][bottom]vstack=inputs=2,setsar=1"
         )
     window = _window_values(plan.windows[index], info.width, info.height)
     return (
         f"{_source(info, None)},crop={window[0]}:{window[1]}:{window[2]}:{window[3]},"
-        f"scale={target.width}:{target.height}:flags=lanczos,setsar=1[v]"
+        f"scale={target.width}:{target.height}:flags=lanczos,setsar=1"
     )
 
 
@@ -553,7 +604,7 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         "-i",
         str(info.path),
         "-filter_complex",
-        _cover_filter(info, plan, target, index),
+        _cover_filter(info, plan, target, index) + _to_sdr(info) + "[v]",
         "-map",
         "[v]",
         "-frames:v",

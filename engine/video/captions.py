@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import html
 import re
-import subprocess
 import unicodedata
 from dataclasses import dataclass
-from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -182,15 +180,3 @@ Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     return header + "\n".join(events) + "\n", len(events)
-
-
-@cache
-def libass_available() -> bool:
-    """Whether this ffmpeg build can draw ASS subtitles; minimal builds leave libass out."""
-    try:
-        listing = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, check=False
-        ).stdout
-    except OSError:
-        return False
-    return re.search(r"^\s*\S+\s+ass\s", listing, re.MULTILINE) is not None

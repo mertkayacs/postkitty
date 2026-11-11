@@ -266,6 +266,6 @@ def test_plan_reads_the_captions_override(tmp_path: Path, monkeypatch: pytest.Mo
     assert _plan_with(tmp_path, {"captions": str(path)}).captions == Captions(path, ((0.0, 1.0, "Hi"),))
     with pytest.raises(FileNotFoundError, match="captions file not found"):
         _plan_with(tmp_path, {"captions": str(tmp_path / "gone.srt")})
-    monkeypatch.setattr(video_make, "libass_available", lambda: False)
+    monkeypatch.setattr(video_make, "has_filter", lambda name: name != "ass")
     with pytest.raises(ValueError, match="this ffmpeg build has no libass"):
         _plan_with(tmp_path, {"captions": str(path)})
