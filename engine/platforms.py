@@ -108,6 +108,8 @@ def _source(fields: Mapping[str, Any], where: str) -> None:
     for name in _SOURCE_FIELDS:
         if not fields.get(name):
             _fail(where, f"missing {name}")
+    if not str(fields["source_url"]).startswith("https://"):
+        _fail(where, f"source_url must be an https link, found {fields['source_url']!r}")
     _one_of(fields["source_scope"], _SCOPES, where, "source_scope")
     _check_date(fields["checked_on"], where)
 

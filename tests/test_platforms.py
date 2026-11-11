@@ -76,6 +76,10 @@ BROKEN = {
     "target is not a mapping": (lambda d: demo(d)["targets"].update(demo_video="1080x1920"), "demo_video"),
     "unknown enforcement": (lambda d: video(d)["duration_max"].update(enforcement="soft"), "duration_max.*enforcement"),
     "missing source": (lambda d: video(d)["duration_max"].pop("source_url"), "duration_max.*source_url"),
+    "source is not an https link": (
+        lambda d: video(d)["duration_max"].update(source_url="developers.example.test/spec"),
+        "duration_max.*source_url",
+    ),
     "check date is not a date": (
         lambda d: video(d)["duration_max"].update(checked_on="yesterday"),
         "duration_max.*checked_on",
