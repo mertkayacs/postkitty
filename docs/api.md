@@ -171,6 +171,7 @@ Every error has one shape:
 
 | Status | Codes | When |
 |---|---|---|
+| `400` | `too_many_files` | More than one photo, more than one video, or a photo together with a video. Send each file as its own job. |
 | `400` | `invalid_text` | The engine could not count the text. |
 | `403` | `origin_not_allowed` | A browser on another website made the request. |
 | `404` | `not_found`, `job_not_found`, `file_not_found` | No such path. The job never existed, was deleted or has expired, or it has no file at that path. |
@@ -178,7 +179,7 @@ Every error has one shape:
 | `409` | `job_not_ready` | A download was asked for before the job finished, or the job failed. |
 | `413` | `upload_too_large`, `file_too_large` | The request or one file is over the size limit. |
 | `415` | `unsupported_type` | The file is not a photo or video the service reads. |
-| `422` | `invalid_request`, `empty_text`, `invalid_text`, `text_too_long`, `empty_job`, `too_many_files`, `unknown_platform`, `unknown_target`, `no_matching_target`, `wrong_media_kind`, `invalid_layout`, `invalid_focus`, `unreadable_file`, `animated_image`, `image_too_large`, `video_too_large`, `video_too_long`, `captions_need_video`, `captions_not_text`, `invalid_captions`, `check_failed` | Something in the request is wrong. The `message` names it. |
+| `422` | `invalid_request`, `empty_text`, `invalid_text`, `text_too_long`, `empty_job`, `unknown_platform`, `unknown_target`, `no_matching_target`, `wrong_media_kind`, `invalid_layout`, `invalid_focus`, `unreadable_file`, `animated_image`, `image_too_large`, `video_too_large`, `video_too_long`, `captions_need_video`, `captions_not_text`, `invalid_captions`, `check_failed` | Something in the request is wrong. The `message` names it. |
 | `429` | `rate_limited` | Too many requests in the last hour. The `Retry-After` header says how long to wait. |
 | `500` | `internal_error` | A fault on the server. |
 | `501` | `captions_unavailable` | The service cannot burn captions in at the moment. |
