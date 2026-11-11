@@ -33,7 +33,8 @@ _NUMBER_LIMITS = (
     "video_bps_max", "audio_bps_max", "dimension_min", "dimension_max", "aspect_min", "aspect_max",
 )
 _TARGET_LIMITS = (*_LIST_LIMITS, *_NUMBER_LIMITS, "safe_area")
-_SAFE_AREA_EDGES = ("top", "bottom", "side")
+# The side margin comes once as `side` or per edge as `left` and `right`.
+_SAFE_AREA_EDGES = ("top", "bottom", "side", "left", "right")
 
 
 @dataclass
@@ -118,23 +119,32 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _check_safe_area(value: Any, where: str) -> None:
+    edges = _mapping(value, where, _SAFE_AREA_EDGES)
+    for name, edge in edges.items():
+        if not _is_number(edge) or not 0 <= edge < 0.5:
+            _fail(where, f"{name} must be a fraction from 0 to under 0.5, found {edge!r}")
+    for name in ("top", "bottom"):
+        if name not in edges:
+            _fail(where, f"missing {name}")
+    if "side" in edges and ("left" in edges or "right" in edges):
+        _fail(where, "side cannot be combined with left or right")
+    if "left" in edges and "right" not in edges:
+        _fail(where, "left needs right")
+    if "right" in edges and "left" not in edges:
+        _fail(where, "right needs left")
+    if "side" not in edges and "left" not in edges:
+        _fail(where, "missing side, or left and right")
+
+
 def _check_value(key: str, value: Any, where: str) -> None:
-    if key in _LIST_LIMITS:
-        ok = isinstance(value, list) and bool(value) and all(isinstance(item, str) for item in value)
-        expected = "a list of names"
-    elif key == "safe_area":
-        ok = (
-            isinstance(value, Mapping)
-            and bool(value)
-            and set(value) <= set(_SAFE_AREA_EDGES)
-            and all(_is_number(edge) and 0 <= edge < 0.5 for edge in value.values())
-        )
-        expected = "top, bottom and side fractions below 0.5"
-    else:
-        ok = _is_number(value) and value > 0
-        expected = "a positive number"
-    if not ok:
-        _fail(where, f"value must be {expected}, found {value!r}")
+    if key == "safe_area":
+        _check_safe_area(value, where)
+    elif key in _LIST_LIMITS:
+        if not (isinstance(value, list) and value and all(isinstance(item, str) for item in value)):
+            _fail(where, f"value must be a list of names, found {value!r}")
+    elif not (_is_number(value) and value > 0):
+        _fail(where, f"value must be a positive number, found {value!r}")
 
 
 def _spec(key: str, raw: Any, where: str) -> Spec:

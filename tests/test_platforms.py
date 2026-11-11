@@ -58,6 +58,10 @@ def rename(mapping: dict, old: str, new: str) -> None:
     mapping[new] = mapping.pop(old)
 
 
+def safe_area(**edges: float) -> dict:
+    return {"value": edges, **SOURCE}
+
+
 def add_twin_platform(doc: dict) -> None:
     doc["platforms"]["twin"] = {"label": "Twin", "targets": {"demo_video": dict(video(doc))}}
 
@@ -92,6 +96,34 @@ BROKEN = {
     "text limit without a unit": (lambda d: demo(d)["text"]["limit"].pop("unit"), "limit.*unit"),
     "unknown text unit": (lambda d: demo(d)["text"]["limit"].update(unit="codepoint"), "limit.*unit"),
     "target id used twice": (add_twin_platform, "demo_video"),
+    "safe area mixes side with left and right": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, bottom=0.3, side=0.06, left=0.1, right=0.25)),
+        "safe_area.*side cannot be combined",
+    ),
+    "safe area has left without right": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, bottom=0.3, left=0.1)),
+        "safe_area.*left needs right",
+    ),
+    "safe area has right without left": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, bottom=0.3, right=0.25)),
+        "safe_area.*right needs left",
+    ),
+    "safe area has no side margin": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, bottom=0.3)),
+        "safe_area.*missing side",
+    ),
+    "safe area has no bottom": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, side=0.06)),
+        "safe_area.*missing bottom",
+    ),
+    "safe area edge is misspelled": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, botom=0.3, side=0.06)),
+        "safe_area.*'botom'",
+    ),
+    "safe area edge covers half the frame": (
+        lambda d: video(d).update(safe_area=safe_area(top=0.1, bottom=0.3, left=0.1, right=0.5)),
+        "safe_area.*right",
+    ),
     "wrong schema": (lambda d: d.update(schema="postkitty.platforms/0"), "schema"),
 }
 
@@ -110,6 +142,20 @@ def test_broken_file_fails_at_load_and_names_the_place(tmp_path, name):
     breakage(doc)
     with pytest.raises(ValueError, match=place):
         load(tmp_path, doc)
+
+
+@pytest.mark.parametrize(
+    "edges",
+    [
+        {"top": 0.14, "bottom": 0.35, "side": 0.06},
+        {"top": 0.125, "bottom": 0.344, "left": 0.111, "right": 0.278},
+    ],
+    ids=["one side value", "left and right"],
+)
+def test_safe_area_takes_one_side_value_or_left_and_right(tmp_path, edges):
+    doc = document()
+    video(doc)["safe_area"] = safe_area(**edges)
+    assert load(tmp_path, doc)["demo"].targets["demo_video"].limits["safe_area"].value == edges
 
 
 def test_misspelled_key_error_suggests_the_real_key(tmp_path):
