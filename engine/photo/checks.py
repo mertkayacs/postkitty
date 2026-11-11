@@ -155,6 +155,19 @@ def check_image(result: Any, target: Any) -> list[Check]:
                 message="Subject framing data is unavailable for this file.",
             )
         )
+    elif (result.layout or {}).get("advisory"):
+        # The user set a focus position that leaves these people out: the crop is theirs to keep, so tell them.
+        checks.append(
+            Check(
+                id="frame.subjects_inside",
+                target=target.id,
+                status="advisory",
+                hard=False,
+                measured=round(subjects_inside, 2),
+                expected=1.0,
+                message=result.layout["advisory"],
+            )
+        )
     else:
         checks.append(
             _check(

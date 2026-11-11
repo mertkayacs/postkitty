@@ -84,6 +84,22 @@ def test_checker_reports_format_size_subject_and_metadata_failures(
     assert checks["image.metadata_stripped"].status == "fail"
 
 
+def test_people_left_outside_by_a_focus_position_are_an_advisory_and_the_file_passes(tmp_path: Path) -> None:
+    path = tmp_path / "image.jpg"
+    Image.new("RGB", (100, 100), "navy").save(path, quality=90)
+    said = "2 people are outside the frame because the focus is set to left."
+    result = _result(path, subjects_inside=1 / 3)
+    result.layout = {"mode": "crop", "note": "focus override crop", "advisory": said}
+
+    checks = check_image(result, Target("image", 100, 100))
+
+    framing = next(check for check in checks if check.id == "frame.subjects_inside")
+    assert framing.status == "advisory" and not framing.hard
+    assert framing.message == said
+    assert framing.measured == 0.33
+    assert checks_mod.hard_pass(checks)
+
+
 def test_checker_warns_about_a_strongly_upscaled_output(tmp_path: Path) -> None:
     path = tmp_path / "image.jpg"
     Image.new("RGB", (100, 100), "navy").save(path, quality=90)

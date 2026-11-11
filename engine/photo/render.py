@@ -156,6 +156,16 @@ def _focus(
     raise ValueError(f"unsupported focus: {value}")
 
 
+def _left_outside(crop: Box, face_boxes: list[Box], info: Any, focus: str) -> tuple[float, str]:
+    """The share of faces that are whole in ``crop`` and, when some are outside, the sentence that says so."""
+    visible = [face.clamp(info.width, info.height) for face in face_boxes]
+    outside = sum(not crop.contains(face, 1e-6) for face in visible)
+    if not outside:
+        return 1.0, ""
+    people = "1 person is" if outside == 1 else f"{outside} people are"
+    return 1 - outside / len(visible), f"{people} outside the frame because the focus is set to {focus}."
+
+
 def plan_image(
     info: Any,
     faces: dict,
@@ -198,9 +208,12 @@ def plan_image(
     if requested in {"auto", "crop"}:
         fit = fit_crop(info.width, info.height, target.aspect, selected, anchor=anchor)
         note = "focus override crop" if focus != "auto" else "crop override"
+        if anchor is not None:
+            # A position is the user's own choice, so the crop stands and the result names who it leaves out.
+            return Layout("crop", [fit.box], note, *_left_outside(fit.box, face_boxes, info, focus))
         # Focus on one person keeps only that person, so the others leaving the frame is no cut.
         if fit.cut:
-            note += f" cuts {len(fit.cut)} subject(s)"
+            return Layout("crop", [fit.box], f"{note} cuts {len(fit.cut)} subject(s)", subjects_inside=0.0)
         return Layout("crop", [fit.box], note)
     if requested == "pad":
         return Layout(
@@ -430,8 +443,8 @@ def render_image(
         height=height,
         duration=None,
         bytes=out_path.stat().st_size,
-        layout={"mode": layout.mode, "note": layout.note},
-        subjects_inside=0.0 if " cuts " in layout.note else 1.0,
+        layout={"mode": layout.mode, "note": layout.note} | ({"advisory": layout.advisory} if layout.advisory else {}),
+        subjects_inside=layout.subjects_inside,
         extra={
             "format": output_format,
             "quality": quality,

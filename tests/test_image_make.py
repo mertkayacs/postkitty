@@ -124,6 +124,38 @@ def test_focus_on_one_person_keeps_that_person_and_may_drop_the_others(tmp_path:
     assert result.subjects_inside == 1.0
 
 
+def test_focus_position_crops_as_asked_and_says_who_is_left_outside(tmp_path: Path) -> None:
+    source = tmp_path / "trio.png"
+    faces = [Box(100, 200, 80, 100), Box(1000, 200, 80, 100), Box(1400, 200, 80, 100)]
+    _scene(source, faces, size=(1600, 900))
+    info = InputInfo(source, "trio", 1600, 900)
+    target = Target("square", 400, 400)
+
+    left = plan_image(info, _faces(faces), target, {"focus": "left"})
+    result = render_image(info, left, target, tmp_path / "left.jpg")
+    right = plan_image(info, _faces(faces), target, {"focus": "x:0.75"})
+
+    assert left.mode == "crop" and left.boxes[0].x == 0
+    assert result.subjects_inside == pytest.approx(1 / 3)
+    assert result.layout["advisory"] == "2 people are outside the frame because the focus is set to left."
+    assert right.boxes[0].x2 == 1600
+    assert right.advisory == "1 person is outside the frame because the focus is set to x:0.75."
+
+
+def test_focus_position_that_keeps_everyone_carries_no_advisory(tmp_path: Path) -> None:
+    source = tmp_path / "pair.png"
+    faces = [Box(100, 200, 80, 100), Box(500, 200, 80, 100)]
+    _scene(source, faces, size=(1600, 900))
+    info = InputInfo(source, "pair", 1600, 900)
+    target = Target("square", 400, 400)
+
+    layout = plan_image(info, _faces(faces), target, {"focus": "left"})
+    result = render_image(info, layout, target, tmp_path / "left.jpg")
+
+    assert result.subjects_inside == 1.0
+    assert "advisory" not in result.layout
+
+
 def test_crop_override_that_cuts_a_kept_person_is_reported(tmp_path: Path) -> None:
     source = tmp_path / "pair.png"
     faces = [Box(100, 200, 80, 100), Box(1400, 200, 80, 100)]

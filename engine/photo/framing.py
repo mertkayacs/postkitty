@@ -88,6 +88,10 @@ class Layout:
     mode: Literal["crop", "split", "seam", "pad"]
     boxes: list[Box]
     note: str
+    # Share of the people who are whole in the frame. When the user's own focus position lowers it,
+    # advisory holds the sentence that tells them so, and the crop stays as asked.
+    subjects_inside: float = 1.0
+    advisory: str = ""
 
 
 def subject_box(face: Box, width: int, height: int) -> Box:
