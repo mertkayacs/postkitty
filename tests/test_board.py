@@ -383,3 +383,10 @@ def test_the_logo_carries_no_mascot_wording_and_no_repeated_ids(tmp_path):
     assert "mascot" not in html.lower() and 'aria-label="postkitty"' in html
     ids = re.findall(r"""\sid=["']([^"']+)""", html)
     assert len(ids) == len(set(ids))
+
+
+def test_long_unbroken_advice_text_wraps_inside_its_card():
+    css = (Path(__file__).resolve().parent.parent / "engine" / "board" / "templates" / "board.css").read_text(encoding="utf-8")
+    advice = css[css.index(".advice {"):css.index("}", css.index(".advice {"))]
+    assert "overflow-wrap: anywhere" in advice
+    assert ".advice > div { min-width: 0;" in css
