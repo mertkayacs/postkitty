@@ -358,14 +358,21 @@ def _crop_filter(
 
 
 def _pad_filter(info: Any, target: Any, fps: float | None) -> str:
+    # The fit and fill sizes are worked out here: every scale needs an even size, and the scale
+    # options that would round for us are missing from older ffmpeg builds.
+    fit = min(target.width / info.width, target.height / info.height)
+    fill = max(target.width / info.width, target.height / info.height)
+    front = (min(target.width, _even(info.width * fit)), min(target.height, _even(info.height * fit)))
+    back = tuple(
+        max(wanted, math.ceil(round(size * fill, 3) / 2) * 2)
+        for wanted, size in ((target.width, info.width), (target.height, info.height))
+    )
     return (
         f"{_source(info, fps)},split=2[background][foreground];"
-        f"[background]scale={target.width}:{target.height}:"
-        "force_original_aspect_ratio=increase:force_divisible_by=2:flags=lanczos,"
+        f"[background]scale={back[0]}:{back[1]}:flags=lanczos,"
         f"crop={target.width}:{target.height},boxblur=20:10,"
         "eq=brightness=-0.25[fill];"
-        f"[foreground]scale={target.width}:{target.height}:"
-        "force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[front];"
+        f"[foreground]scale={front[0]}:{front[1]}:flags=lanczos[front];"
         "[fill][front]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1"
     )
 
