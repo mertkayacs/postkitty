@@ -258,6 +258,24 @@ def _fallback_graphemes(text: str) -> int:
     return count
 
 
+@functools.cache
+def _threads_patterns():
+    import regex
+
+    emoji = r"[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\uFE0F\u20E3]"
+    return regex.compile(r"\X"), regex.compile(emoji)
+
+
+def _threads_length(text: str) -> int:
+    """Threads length: a character counts one, and a character that holds an emoji counts its UTF-8 bytes.
+
+    Meta states the byte rule and leaves open what it treats as an emoji, so every cluster with a pictograph,
+    a flag letter, a skin tone, a keycap or the emoji selector counts in bytes. That can count high, never low.
+    """
+    clusters, emoji = _threads_patterns()
+    return sum(len(c.encode("utf-8")) if emoji.search(c) else len(c) for c in clusters.findall(text))
+
+
 def _utf16_units(text: str) -> int:
     return sum(2 if ord(char) > 0xFFFF else 1 for char in text)
 
@@ -270,6 +288,8 @@ def count_text(text: str, unit: str) -> int:
         return _grapheme_count(text)
     if unit == "utf16":
         return _utf16_units(text)
+    if unit == "threads":
+        return _threads_length(text)
     if unit == "codepoints":
         return len(text)
     if unit == "utf8_bytes":

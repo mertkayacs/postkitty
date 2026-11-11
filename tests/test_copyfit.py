@@ -129,6 +129,34 @@ class TestOtherUnits:
         assert stats["x_weighted"] == len("Hi #tag @who ") + 23
 
 
+class TestThreadsUnit:
+    # Threads API, text parameter: "For the post character limit, emojis are counted as the number of UTF-8 bytes."
+    @pytest.mark.parametrize("text", [
+        "hello world", "Çağrı için teşekkürler, İstanbul ışığı", "Grüße aus Köln, die Straße ist groß",
+        "e\u0301", "日本語", "1 # *",
+    ])
+    def test_text_without_emoji_counts_one_per_character(self, text):
+        assert c.count_text(text, "threads") == len(text)
+
+    @pytest.mark.parametrize("text, expected", [
+        ("😀", 4),
+        ("👨‍👩‍👧‍👦", 25),   # family: four emoji of 4 bytes and three joiners of 3
+        ("🇹🇷", 8),        # flag: two regional indicators
+        ("👍🏽", 8),        # thumbs up and a skin tone
+        ("1️⃣", 7),       # keycap: the digit, U+FE0F and U+20E3
+        ("❤️", 6),        # heart and U+FE0F, 3 bytes each
+        ("ok 👍", 7),
+    ])
+    def test_an_emoji_counts_its_utf8_bytes(self, text, expected):
+        assert c.count_text(text, "threads") == expected
+
+    def test_threads_limit_uses_the_unit(self):
+        assert c.rules_for("threads").unit == "threads"
+        assert c.fit("threads", "a" * 496 + "😀", split_threads=False).ok
+        over = c.fit("threads", "a" * 497 + "😀", split_threads=False)
+        assert not over.ok and over.counts == [501] and over.overflow == 1
+
+
 class TestRules:
     def test_rules_come_from_the_platform_file(self):
         assert (c.rules_for("x").unit, c.rules_for("x").limit) == ("x_weighted", 280)

@@ -20,7 +20,7 @@ _KINDS = ("image", "video", "image_or_video")
 _ENFORCEMENTS = ("hard", "recommendation")
 _SCOPES = ("api", "official", "ad", "secondary")
 # The counting rules count_text in engine/text/fit.py implements.
-_UNITS = ("codepoints", "utf16", "utf8_bytes", "graphemes", "x_weighted")
+_UNITS = ("codepoints", "utf16", "utf8_bytes", "graphemes", "x_weighted", "threads")
 
 _SOURCE_FIELDS = ("source_url", "source_scope", "checked_on")
 _SPEC_FIELDS = ("value", "unit", "enforcement", *_SOURCE_FIELDS, "note")
