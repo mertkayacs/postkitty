@@ -61,10 +61,12 @@ def test_write_advice(tmp_path):
     assert "## Topic" in text and "Cats" in text and "1. instagram - photo-led" in text and "- Post at noon" in text
 
 
-def test_default_out_dir_uses_config(tmp_path):
+def test_default_out_dir_uses_config(tmp_path, monkeypatch):
     assert jobs.default_out_dir(str(tmp_path / "abs")) == tmp_path / "abs"
-    assert jobs.default_out_dir("rel").name == "rel"
-    assert jobs.default_out_dir("").name == "postkitty"
+    assert jobs.default_out_dir("rel", base=tmp_path / "session") == tmp_path / "session" / "rel"
+    assert jobs.default_out_dir("", base=tmp_path / "session") == tmp_path / "session" / "postkitty"
+    monkeypatch.chdir(tmp_path)
+    assert jobs.default_out_dir("rel") == tmp_path / "rel" and jobs.default_out_dir("") == tmp_path / "postkitty"
 
 
 @pytest.mark.parametrize("job_id", ["../outside", "/etc/passwd", "..", "a/../../b", "C:\\Windows\\x", "~/x"])

@@ -54,20 +54,15 @@ def slugify(seed: str, limit: int = 32) -> str:
     return slug or "post"
 
 
-def agent_cwd() -> Path:
-    try:
-        from agent.runtime_cwd import resolve_agent_cwd
+def default_out_dir(configured: str = "", base: str | Path | None = None) -> Path:
+    """The folder job folders are written to.
 
-        return Path(resolve_agent_cwd())
-    except Exception:
-        return Path.cwd()
-
-
-def default_out_dir(configured: str = "") -> Path:
-    if configured:
-        path = Path(configured).expanduser()
-        return path if path.is_absolute() else agent_cwd() / path
-    return agent_cwd() / "postkitty"
+    ``configured`` is the user's setting; empty means a ``postkitty`` folder. A relative path is taken
+    from ``base``, the working directory of the session (the host passes it; the default is the
+    process working directory).
+    """
+    start = Path(base).expanduser() if base else Path.cwd()
+    return start / (Path(configured).expanduser() if configured else "postkitty")
 
 
 def job_path(out_dir: Path, job_id: str) -> Path:
