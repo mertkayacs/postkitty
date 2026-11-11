@@ -543,6 +543,8 @@ def write(args: dict) -> dict:
 def _write(job: jobs.Job, args: dict) -> dict:
     manifest = jobs.load_manifest(job)
     split = _bool_arg(args, "split_threads", True)
+    if not (_dict_arg(args, "drafts") or _dict_arg(args, "advice") or _dict_arg(args, "alt_text")):
+        raise ValueError("give at least one of drafts, advice or alt_text")
     advice = _dict_arg(args, "advice")
     if advice:
         manifest["advice"] = advice
