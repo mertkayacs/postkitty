@@ -155,7 +155,8 @@ jobs:
           "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" novideo "$MEDIA_DIR/$CLIP" 2>&1 | tee "$LOG_DIR/phase-novideo.log"
 
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg && ffmpeg -version | head -1
+        timeout-minutes: 10
+        run: sudo --preserve-env=RUNNER_TEMP,GITHUB_PATH bash "$GITHUB_WORKSPACE/.github/scripts/install_ffmpeg.sh"
 
       - name: /postkitty doctor finds a complete setup
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
