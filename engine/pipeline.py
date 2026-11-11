@@ -319,7 +319,11 @@ def _plan_note(info: probe.InputInfo, plan: Any) -> str:
         and window.h >= info.height - 1.0
         for window in windows
     ):
-        return "Same shape as the source; the full frame is kept."
+        note = "Same shape as the source; the full frame is kept."
+        if getattr(plan, "cut_to_duration_max", False):
+            start, end = plan.trim
+            note += f" The video is cut to the {end - start:g} s {plan.target} allows, from {start:g} s to {end:g} s."
+        return note
     return getattr(plan, "note", "")
 
 
@@ -445,6 +449,8 @@ def _table(entries: list[dict]) -> list[dict]:
     for e in entries:
         bad = [c["message"] for c in e.get("checks", []) if c["status"] == "fail" and c["hard"]]
         advisory = [c["message"] for c in e.get("checks", []) if c["status"] == "advisory"]
+        if (e.get("layout") or {}).get("advisory"):  # who a crop the user asked for leaves outside
+            advisory.append(e["layout"]["advisory"])
         rows.append({k: v for k, v in {
             "target": e["id"], "status": e["status"], "file": e.get("file"), "cover": e.get("cover"),
             "size": f"{e['width']}x{e['height']}" if e.get("width") else None, "layout": e.get("layout"),
@@ -785,10 +791,10 @@ def _captions(value: Any) -> str:
     if value.strip().lower() == "none":
         return "none"
     path = _resolve(value)
-    if path.suffix.lower() not in {".srt", ".vtt"}:
-        raise ValueError(f"captions must be an .srt or .vtt file, got {path.name!r}")
-    if not path.is_file():
-        raise FileNotFoundError(f"captions file not found: {path}")
+    # Read it now, so a missing, empty or badly timed file is an argument error and nothing is rendered.
+    importlib.import_module(".video.captions", __package__).load_captions(path)
+    if not _engine("video").render.has_filter("ass"):
+        raise Unavailable("This ffmpeg build has no libass, so it cannot burn captions into a video.")
     return str(path)
 
 

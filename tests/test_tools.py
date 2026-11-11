@@ -914,6 +914,24 @@ def test_captions_take_an_existing_srt_or_vtt_file_and_only_on_video(out_dir, tm
     assert "not found" in call(tools.redo, job=job, target="x_image", captions=str(tmp_path / "gone.srt"))["error"]
     assert "apply to video only" in call(tools.redo, job=job, target="x_image", captions=str(subtitles))["error"]
     assert pipeline._merged({"captions": str(subtitles), "layout": "pad"}, {"captions": "none"}) == {"layout": "pad"}
+    empty = tmp_path / "empty.vtt"
+    empty.write_text("WEBVTT\n")
+    assert "has no captions" in call(tools.redo, job=job, target="x_image", captions=str(empty))["error"]
+
+
+def test_a_full_frame_note_still_says_when_the_video_is_cut_to_the_cap():
+    info = pipeline.probe.InputInfo("in1", Path("video.mp4"), "video", "0" * 64, 1920, 1080, 90.0, 30.0, True, 0, False)
+    window = SimpleNamespace(x=0.0, y=0.0, w=1920.0, h=1080.0)
+    plan = SimpleNamespace(layout="crop", note="camera note", windows=[window], trim=(0.0, 60.0), target="x_video",
+                           cut_to_duration_max=True)
+    note = pipeline._plan_note(info, plan)
+    assert note.startswith("Same shape as the source") and "cut to the 60 s x_video allows, from 0 s to 60 s" in note
+
+
+def test_a_layout_advisory_is_listed_with_the_other_advice():
+    entry = {"id": "x_image", "status": "ready", "checks": [], "repairs": [],
+             "layout": {"mode": "crop", "note": "focus override", "advisory": "Person 2 is outside the crop."}}
+    assert pipeline._table([entry])[0]["advisory"] == ["Person 2 is outside the crop."]
 
 
 def test_captions_are_burned_into_a_video_target_and_reported(out_dir, tmp_path, speaker_media) -> None:
