@@ -27,6 +27,7 @@ from typing import Any
 
 from . import advise, platforms, probe
 from . import job as jobs
+from .detect import models
 from .text import fit as copyfit
 from .verify import checks, repair
 
@@ -38,6 +39,7 @@ _ENGINES = {
     "image": ("detect.faces", "photo.render", "photo.checks"),
     "video": ("detect.faces", "video.scan", "video.render", "video.checks"),
 }
+_SETUP = "The setup check shows how to fix it."
 _SETTINGS: dict[str, Any] = {}
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
@@ -57,14 +59,17 @@ def configure(*, output_dir: str | os.PathLike[str] | None = None, default_platf
     """Set where job folders go, the platforms a scan uses when it names none, and the video loudness target.
 
     ``base_dir`` is where relative input paths and a relative or empty ``output_dir`` start; unset, it is
-    the process working directory. ``data_dir`` holds the detection cache that outlives a job. A setting
-    left as ``None`` keeps its value. An empty ``output_dir`` falls back to the ``POSTKITTY_OUTPUT_DIR``
-    environment variable, then to ``postkitty`` under ``base_dir``.
+    the process working directory. ``data_dir`` holds the face model and the detection cache, which
+    outlive a job; unset, it is ``~/.cache/postkitty``. A setting left as ``None`` keeps its value. An empty
+    ``output_dir`` falls back to the ``POSTKITTY_OUTPUT_DIR`` environment variable, then to ``postkitty``
+    under ``base_dir``.
     """
     for key, value in (("output_dir", output_dir), ("default_platforms", default_platforms),
-                       ("loudness_lufs", loudness_lufs), ("base_dir", base_dir), ("data_dir", data_dir)):
+                       ("loudness_lufs", loudness_lufs), ("base_dir", base_dir)):
         if value is not None:
             _SETTINGS[key] = value
+    if data_dir is not None:
+        models.set_data_dir(data_dir)
 
 
 def _setting(key: str, default: Any) -> Any:
@@ -84,8 +89,10 @@ def _resolve(raw: Any) -> Path:
     return path if path.is_absolute() else Path(_setting("base_dir", "") or Path.cwd()) / path
 
 
-def _out_dir() -> Path:
-    return _resolve(_setting("output_dir", "") or os.environ.get("POSTKITTY_OUTPUT_DIR", "") or "postkitty")
+def jobs_dir() -> Path:
+    """The folder job folders are written to."""
+    return jobs.default_out_dir(str(_setting("output_dir", "") or os.environ.get("POSTKITTY_OUTPUT_DIR", "")),
+                                base=_setting("base_dir", "") or None)
 
 
 def _engine(kind: str) -> SimpleNamespace:
@@ -167,9 +174,9 @@ def _open_job(args: dict) -> jobs.Job:
     if not args.get("job"):
         raise ScanNeeded("'job' is required: the job id a scan returned")
     try:
-        return jobs.open_job(_out_dir(), str(args["job"]))
+        return jobs.open_job(jobs_dir(), str(args["job"]))
     except FileNotFoundError:
-        raise ScanNeeded(f"job {str(args['job'])!r} does not exist in {_out_dir()}") from None
+        raise ScanNeeded(f"job {str(args['job'])!r} does not exist in {jobs_dir()}") from None
 
 
 @contextmanager
@@ -199,10 +206,17 @@ class _LazyDetector:
     def __init__(self, factory: Any):
         self._factory = factory
         self._real: Any = None
+        self._failed: Exception | None = None
 
     def _get(self) -> Any:
+        if self._failed:  # a model that cannot be fetched is not asked for again for every input
+            raise self._failed
         if self._real is None:
-            self._real = self._factory()
+            try:
+                self._real = self._factory()
+            except Exception as exc:
+                self._failed = exc
+                raise
         return self._real
 
     @property
@@ -218,9 +232,7 @@ def _shared_faces_dir() -> Path:
     override = os.environ.get("POSTKITTY_FACES_CACHE")
     if override:
         return Path(override)
-    if _setting("data_dir", ""):
-        return Path(_setting("data_dir", "")) / "faces"
-    return importlib.import_module(".detect.models", __package__).model_cache_dir().parent / "faces"
+    return models.model_cache_dir().parent / "faces"
 
 
 
@@ -338,8 +350,8 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
                              "input": info.id, "override": override}
     try:
         result, plan, rerender = _render(media, info, target, override, masters)
-    except Unavailable as exc:
-        return {**entry, "status": "skipped", "checks": [], "repairs": [], "reason": str(exc)}
+    except (Unavailable, models.ModelUnavailable) as exc:
+        return {**entry, "status": "skipped", "checks": [], "repairs": [], "reason": f"{exc} {_SETUP}"}
     result, found, repairs = repair.check_and_repair(
         result, target, {"overrides": dict(override), "render": rerender, "job": job, "info": info})
     ok = checks.hard_pass(found)
@@ -450,6 +462,7 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
     merged = {**old, **{e["id"]: e for e in built}}
     manifest["targets"] = [merged[t["id"]] for t in scan["targets"] if t["id"] in merged]
     jobs.save_manifest(job, manifest)
+    jobs.prune_work(job, manifest)
     board = _write_board(job, manifest)
     return {"job": job.id, "job_dir": str(job.root), "targets": _table(built), **board}
 
@@ -472,7 +485,7 @@ def scan(args: dict) -> dict:
             notes.append(f"{info.path.name} is the same file as {same.id}; it is used once")
         else:
             infos.append(info)
-    job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
+    job = jobs.create_job(jobs_dir(), paths, text, args.get("job"))
     with _locked(job):
         manifest = jobs.load_manifest(job)
         if [e.get("sha256") for e in manifest.get("inputs", [])] != [i.sha256 for i in infos]:
@@ -495,6 +508,8 @@ def scan(args: dict) -> dict:
                     # The same faces that photo.render lets focus person:N select: strong detections only.
                     faces = found["frames"][0]["faces"] if found.get("frames") else []
                     entry["people"] = sum(float(face.get("score", 0.0)) >= eng.faces.SUBJECT_MIN_SCORE for face in faces)
+            except (Unavailable, models.ModelUnavailable) as exc:
+                notes.append(f"{info.id}: {exc} {_SETUP}")
             except Exception as exc:
                 notes.append(f"{info.id}: {exc}")
             entries.append(entry)

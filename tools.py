@@ -14,6 +14,7 @@ from functools import wraps
 from typing import Any
 
 from .engine import pipeline, probe
+from .engine.detect import models
 
 _CTX: Any = None
 
@@ -90,8 +91,8 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
                 raise ValueError("tool arguments must be an object")
             apply_settings()
             return _json(fn(args))
-        except pipeline.Unavailable as exc:
-            return _json({"error": str(exc), "hint": "Text copy still works; this media kind is not available."})
+        except (pipeline.Unavailable, models.ModelUnavailable) as exc:
+            return _json({"error": str(exc), "hint": "Text still works. Run /postkitty doctor to see what is missing."})
         except pipeline.ScanNeeded as exc:
             return _json({"error": str(exc), "hint": "Run postkitty_scan again and continue with the job id it returns."})
         except (FileNotFoundError, KeyError, ValueError, probe.ProbeError) as exc:

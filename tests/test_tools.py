@@ -830,3 +830,22 @@ def test_make_and_redo_return_the_lines_hermes_shows(out_dir, tmp_path, stub_ima
     for out in (call(tools.make, job=job), call(tools.redo, job=job, target="x_image", layout="pad")):
         assert out["media_line"] == f"MEDIA:{out['contact']}" and Path(out["contact"]).is_file()
         assert out["preview_directive"] == f'::preview{{file="{out["board_inline"]}"}}'
+
+
+def test_make_and_redo_leave_no_renders_behind(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    call(tools.make, job=job)
+    call(tools.redo, job=job, target="x_image", layout="pad")
+    assert list((out_dir / job / "work" / "render").iterdir()) == []
+    assert (out_dir / job / "ready/x/image.jpg").is_file()
+
+
+def test_a_setup_problem_points_to_the_doctor_and_says_text_still_works(out_dir, monkeypatch):
+    def no_model(args):
+        raise pipeline.models.ModelUnavailable("The face model could not be downloaded.")
+
+    monkeypatch.setattr(pipeline, "make", no_model)
+    out = call(tools.make, job="any")
+    assert out["error"] == "The face model could not be downloaded." and "/postkitty doctor" in out["hint"]
