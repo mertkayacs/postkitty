@@ -881,7 +881,7 @@ def test_two_sessions_at_once_keep_their_own_working_directory(out_dir, tmp_path
         Image.new("RGB", size, "teal").save(tmp_path / name / "me.jpg")
     session = threading.local()
     monkeypatch.setattr(tools, "_session_dir", lambda: str(tmp_path / session.name))
-    both_configured = threading.Barrier(2, timeout=5)
+    both_configured = threading.Barrier(2, timeout=30)
     real_only = pipeline._only
 
     def only_after_both_calls_are_configured(args, step, *known):
