@@ -14,6 +14,7 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import json
+import math
 import os
 import shutil
 import threading
@@ -669,8 +670,17 @@ def _target_for_ready_file(platform: str, name: str) -> str | None:
 
 # ------------------------------------------------------------------ make, redo, check
 
-def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+def _number(value: Any) -> float | None:
+    """A finite number, also when the model sent it as a string such as "3.5"; anything else is ``None``."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    if not math.isfinite(number):
+        return None
+    return number if isinstance(value, str) else value
 
 
 def _check_focus(value: Any) -> None:
@@ -700,12 +710,16 @@ def _override(args: dict) -> dict:
         raise ValueError(f"layout must be one of {layouts}, got {out['layout']!r}")
     if "focus" in out:
         _check_focus(out["focus"])
-    trim = out.get("trim")
-    if trim is not None and not (isinstance(trim, list) and len(trim) == 2 and all(_is_number(v) for v in trim)
-                                 and 0 <= trim[0] < trim[1]):
-        raise ValueError(f"trim must be [start, end] in seconds with 0 <= start < end, got {trim!r}")
-    if "cover_at" in out and not (_is_number(out["cover_at"]) and out["cover_at"] >= 0):
-        raise ValueError(f"cover_at must be a time in seconds, got {out['cover_at']!r}")
+    if "trim" in out:
+        trim = [_number(v) for v in out["trim"]] if isinstance(out["trim"], list) else []
+        if len(trim) != 2 or None in trim or not 0 <= trim[0] < trim[1]:
+            raise ValueError(f"trim must be [start, end] in seconds with 0 <= start < end, got {out['trim']!r}")
+        out["trim"] = trim
+    if "cover_at" in out:
+        cover_at = _number(out["cover_at"])
+        if cover_at is None or cover_at < 0:
+            raise ValueError(f"cover_at must be a time in seconds, got {out['cover_at']!r}")
+        out["cover_at"] = cover_at
     return out
 
 

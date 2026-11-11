@@ -797,3 +797,11 @@ def test_a_misspelled_argument_is_an_error_that_lists_the_real_ones(out_dir, tex
     assert "unknown argument 'platform'" in out["error"] and "inputs, text, platforms, job" in out["error"]
     assert "unknown argument 'draft'" in call(tools.write, job=text_job, draft={"x": "hi"})["error"]
     assert "unknown argument 'file'" in call(tools.check, file="a.jpg", target="x")["error"]
+
+
+def test_numbers_sent_as_strings_are_read_as_numbers(out_dir, text_job):
+    from postkitty.engine.pipeline import _override
+
+    assert _override({"trim": ["1", "5.5"], "cover_at": "3"}) == {"trim": [1.0, 5.5], "cover_at": 3.0}
+    assert "trim must be" in call(tools.redo, job=text_job, target="x_image", trim=["0", "inf"])["error"]
+    assert "cover_at must be" in call(tools.redo, job=text_job, target="x_image", cover_at="soon")["error"]
