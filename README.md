@@ -347,7 +347,7 @@ python -m pytest -q
 ruff check .
 ```
 
-The tests use synthetic clips and a stand-in face detector, so they download nothing.
+The tests use synthetic clips and a stand-in face detector, so they download nothing. GitHub Actions runs them on Linux, macOS and Windows, and installs the plugin into a brand-new Hermes on every change.
 
 - `plugin.yaml`, `__init__.py`: the manifest and `register(ctx)`
 - `schemas.py`, `tools.py`: what Hermes sees, and the handlers behind it
