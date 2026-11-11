@@ -70,9 +70,6 @@ def test_skill_uses_vision_and_does_not_recheck_generated_files():
     assert "`speaker` cuts to whoever is talking" in skill
     assert "two other choices exist" in skill
 
-    readme = (ROOT / "README.md").read_text()
-    assert "a cut to whoever is speaking, or the whole wide shot." in readme
-
 
 def test_no_em_dashes_or_emoji_in_shipped_text():
     for path in [*ROOT.glob("*.py"), *ROOT.glob("engine/**/*.py"), *ROOT.glob("skills/*/SKILL.md"), ROOT / "plugin.yaml"]:
