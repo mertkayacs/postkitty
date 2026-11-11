@@ -527,25 +527,38 @@ def test_render_reports_how_much_the_source_window_is_upscaled(tmp_path: Path) -
     assert same.extra["upscale"] == 1.0
 
 
-def test_exif_orientation_is_applied_before_crop(tmp_path: Path) -> None:
-    source = tmp_path / "rotated.jpg"
-    image = Image.new("RGB", (100, 50), "blue")
-    ImageDraw.Draw(image).rectangle((0, 0, 49, 49), fill="red")
+# The transform that turns an upright picture into the pixels a camera stores under each EXIF orientation.
+_STORED_AS = {
+    1: None,
+    2: Image.Transpose.FLIP_LEFT_RIGHT,
+    3: Image.Transpose.ROTATE_180,
+    4: Image.Transpose.FLIP_TOP_BOTTOM,
+    5: Image.Transpose.TRANSPOSE,
+    6: Image.Transpose.ROTATE_90,
+    7: Image.Transpose.TRANSVERSE,
+    8: Image.Transpose.ROTATE_270,
+}
+
+
+@pytest.mark.parametrize("orientation", sorted(_STORED_AS))
+def test_every_exif_orientation_renders_upright(orientation: int, tmp_path: Path) -> None:
+    upright = Image.new("RGB", (120, 80), "blue")
+    ImageDraw.Draw(upright).rectangle((0, 0, 39, 29), fill="red")
+    stored = upright if _STORED_AS[orientation] is None else upright.transpose(_STORED_AS[orientation])
     exif = Image.Exif()
-    exif[274] = 6
-    image.save(source, quality=100, exif=exif)
-    info = InputInfo(source, "rotated", 50, 100)
+    exif[274] = orientation
+    source = tmp_path / "phone.png"
+    stored.save(source, exif=exif)
+    info = InputInfo(source, "phone", 120, 80)
 
     result = render_image(
-        info,
-        Layout("crop", [Box(0, 0, 50, 100)], "oriented"),
-        Target("story", 50, 100),
-        tmp_path / "oriented.jpg",
+        info, Layout("crop", [Box(0, 0, 120, 80)], "full"), Target("x_image", 120, 80), tmp_path / "out.jpg"
     )
 
     with Image.open(result.file) as rendered:
-        array = np.asarray(rendered)
-        assert array[:40, :, 0].mean() > array[-40:, :, 0].mean() + 100
+        pixels = np.asarray(rendered).astype(int)
+    assert pixels[10, 10, 0] > 200 and pixels[10, 10, 2] < 80
+    assert pixels[70, 110, 2] > 200 and pixels[70, 110, 0] < 80
 
 
 def test_upscale_is_one_when_no_window_has_an_area() -> None:
