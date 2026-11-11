@@ -421,3 +421,17 @@ def test_contact_sheet_shows_the_same_status_as_the_board(tmp_path):
               "checks": [{"id": "image.upscale", "status": "advisory", "hard": False, "message": "Enlarged."}]}
     assert _sheet_rows(tmp_path / "a", target, ADVISORY_OLIVE).size
     assert not _sheet_rows(tmp_path / "b", target, READY_GREEN).size
+
+
+def test_adjust_requests_are_plain_sentences_that_name_no_tool(tmp_path):
+    job_dir = tmp_path / "job"
+    manifest = _manifest(job_dir)
+    manifest["inputs"][0]["people"] = 2
+    paths = write_board(job_dir, manifest)
+    for key in ("board", "board_inline"):
+        html = Path(paths[key]).read_text(encoding="utf-8")
+        assert "postkitty_" not in html and "Paste it to Hermes" not in html
+    html = Path(paths["board"]).read_text(encoding="utf-8")
+    assert 'data-hermes-send="In job demo-job, change instagram_reel: focus on person 2 (focus person:2)."' in html
+    assert "In job demo-job, change instagram_reel: keep the whole frame (layout pad)." in html
+    assert "cut it to another part, now 0 s to 41 s (trim 0.0, 41.0)." in html

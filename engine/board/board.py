@@ -534,32 +534,34 @@ def checks_html(checks: list[dict]) -> str:
     )
 
 
-def redo_prompt(ctx: Ctx, target: dict, what: str) -> str:
-    return f"Use postkitty_redo on job {ctx.job_id} target {target.get('id', '')} with {what}"
+def adjust_request(ctx: Ctx, target: dict, request: str, setting: str) -> str:
+    """The sentence a reader sends to change one file: plain words, then the exact setting in brackets."""
+    return f"In job {ctx.job_id}, change {target.get('id', '')}: {request} ({setting})."
 
 
 def adjust_html(target: dict, ctx: Ctx) -> str:
     width, height = target_dims(target)
     mode = (target.get("layout") or {}).get("mode")
     people = int((ctx.inputs.get(str(target.get("input"))) or {}).get("people") or 0)
-    options: list[tuple[str, str]] = []
+    options: list[tuple[str, str, str]] = []
     if people > 1:
         for n in range(1, min(people, 8) + 1):
-            options.append((f"Focus person {n}", f"focus person:{n}"))
+            options.append((f"Focus person {n}", f"focus on person {n}", f"focus person:{n}"))
     if people == 2 and height > width and mode != "split":
-        options.append(("Split screen", "layout split"))
+        options.append(("Split screen", "stack the two people in a split screen", "layout split"))
     if mode != "pad":
-        options.append(("Fit whole frame", "layout pad"))
+        options.append(("Fit whole frame", "keep the whole frame", "layout pad"))
     trim = target.get("trim")
     if target.get("kind") == "video" and isinstance(trim, (list, tuple)) and len(trim) == 2:
-        options.append(("Trim", f"trim {float(trim[0])}, {float(trim[1])}"))
+        start, end = float(trim[0]), float(trim[1])
+        options.append(("Trim", f"cut it to another part, now {start:g} s to {end:g} s", f"trim {start}, {end}"))
     if not options:
         return ""
-    buttons = "".join(
-        f'<button type="button" class="btn tiny" '
-        f'data-hermes-send="{esc(redo_prompt(ctx, target, what))}">{esc(label)}</button>'
-        for label, what in options
-    )
+    buttons = ""
+    for label, request, setting in options:
+        sentence = esc(adjust_request(ctx, target, request, setting))
+        buttons += (f'<button type="button" class="btn tiny" title="{sentence}" '
+                    f'data-hermes-send="{sentence}">{esc(label)}</button>')
     return (f'<details class="adjust"><summary>Adjust</summary>'
             f'<div class="adjust-menu">{buttons}</div></details>')
 

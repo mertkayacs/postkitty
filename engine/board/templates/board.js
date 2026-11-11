@@ -46,7 +46,7 @@
         }).catch(function () { status.textContent = "Send failed."; });
       } else {
         copy(prompt, function () {
-          show("Copied. Paste it to Hermes.");
+          show("Copied. Paste it into your chat.");
           status.textContent = "Copied to clipboard.";
         });
       }
