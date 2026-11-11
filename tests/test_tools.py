@@ -901,3 +901,32 @@ def test_two_sessions_at_once_keep_their_own_working_directory(out_dir, tmp_path
     for thread in threads:
         thread.join()
     assert seen == {"a": str(tmp_path / "a" / "me.jpg"), "b": str(tmp_path / "b" / "me.jpg")}
+
+
+def test_captions_take_an_existing_srt_or_vtt_file_and_only_on_video(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    notes, subtitles = tmp_path / "talk.txt", tmp_path / "talk.srt"
+    notes.write_text("hi")
+    subtitles.write_text("1\n00:00:00,000 --> 00:00:01,000\nHi\n")
+    assert ".srt or .vtt" in call(tools.redo, job=job, target="x_image", captions=str(notes))["error"]
+    assert "not found" in call(tools.redo, job=job, target="x_image", captions=str(tmp_path / "gone.srt"))["error"]
+    assert "apply to video only" in call(tools.redo, job=job, target="x_image", captions=str(subtitles))["error"]
+    assert pipeline._merged({"captions": str(subtitles), "layout": "pad"}, {"captions": "none"}) == {"layout": "pad"}
+
+
+def test_captions_are_burned_into_a_video_target_and_reported(out_dir, tmp_path, speaker_media) -> None:
+    shared = Path(os.environ["POSTKITTY_FACES_CACHE"])
+    shared.mkdir(parents=True, exist_ok=True)
+    source = speaker_media.work / "faces" / f"{speaker_media.info.sha256}.json"
+    shutil.copyfile(source, shared / source.name)
+    subtitles = tmp_path / "talk.srt"
+    subtitles.write_text("1\n00:00:00,500 --> 00:00:02,500\nHello from postkitty\n", encoding="utf-8")
+    job = call(tools.scan, inputs=[str(speaker_media.info.path)], platforms=["linkedin_video"])["job"]
+
+    made = call(tools.make, job=job, overrides={"linkedin_video": {"captions": str(subtitles)}})
+
+    row = made["targets"][0]
+    assert row["status"] in {"ready", "repaired"}, row
+    assert row["captions"] == {"file": str(subtitles), "shown": 1}

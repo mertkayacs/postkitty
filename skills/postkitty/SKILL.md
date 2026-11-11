@@ -50,12 +50,16 @@ names `postkitty_scan`, scan again and continue with the new job id; otherwise f
 | `postkitty_scan` | open a job, probe files, plan framing, get fit facts | `inputs`, `text`, `platforms` |
 | `postkitty_write` | count, split and store drafts, advice and alt text | `job`, `drafts`, `advice`, `alt_text` |
 | `postkitty_make` | render, check, repair, build the board | `job`, `targets`, `overrides` |
-| `postkitty_redo` | change one target | `job`, `target`, `layout`, `focus`, `trim`, `cover_at` |
+| `postkitty_redo` | change one target | `job`, `target`, `layout`, `focus`, `trim`, `cover_at`, `captions` |
 | `postkitty_check` | check a file that postkitty did not make | `path` + `target` |
 
 Layouts: `crop` follows the subject, `split` stacks two people in a vertical frame, `speaker` cuts to whoever is
 talking, `seam` squeezes the background so two people fit, `pad` keeps the whole frame on a blurred fill. Focus:
 `auto`, `person:N` (1 is the leftmost person), `left`, `center`, `right`, `x:0.0-1.0`.
+
+Captions: when the user wants captions burned into a video, ask for their `.srt` or `.vtt` file and pass its path
+as `captions` (in `postkitty_redo`, or per target in the `overrides` of `postkitty_make`). Never write a transcript
+yourself. The row then reports `captions` with the number of caption screens `shown`; `"none"` removes them again.
 
 ## Procedure
 

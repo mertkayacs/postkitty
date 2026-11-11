@@ -96,3 +96,16 @@ def test_doctor_shows_the_setup_check_from_the_chat_and_the_terminal(out_dir, ca
     code = cli.run(parse("doctor"))
     rows = capsys.readouterr().out.splitlines()
     assert "Output folder" in "\n".join(rows) and code == (1 if any(row.startswith("no ") for row in rows) else 0)
+
+
+def test_cli_make_gives_captions_to_video_targets_only(out_dir, capsys, monkeypatch):
+    from postkitty.engine import pipeline
+
+    scanned = {"job": "j", "job_dir": "/jobs/j", "notes": [], "fit": {},
+               "inputs": [{"id": "in1", "kind": "image"}, {"id": "in2", "kind": "video"}],
+               "plan": [{"id": "x_image", "input": "in1"}, {"id": "tiktok", "input": "in2"}]}
+    seen = {}
+    monkeypatch.setattr(pipeline, "scan", lambda args: scanned)
+    monkeypatch.setattr(pipeline, "make", lambda args: seen.update(args) or {"targets": []})
+    assert cli.run(parse("make", "a.jpg", "b.mp4", "--captions", "talk.srt", "--layout", "pad")) == 0
+    assert seen["overrides"] == {"x_image": {"layout": "pad"}, "tiktok": {"layout": "pad", "captions": "talk.srt"}}

@@ -19,6 +19,10 @@ _OVERRIDE_PROPS = {
     "trim": {"type": "array", "items": {"type": "number"},
              "description": "[start, end] in seconds, video only. Example: [3, 33]."},
     "cover_at": {"type": "number", "description": "Time of the cover frame in seconds, video only. Example: 4.5."},
+    "captions": {"type": "string",
+                 "description": 'Path of the user\'s .srt or .vtt subtitle file to burn into the video, absolute or '
+                                'relative to the working directory; "none" removes captions set earlier. Video only. '
+                                'Example: "/home/me/talk.srt".'},
 }
 
 SCHEMAS = {
@@ -95,9 +99,9 @@ SCHEMAS = {
         "name": "postkitty_redo",
         "description": (
             "Renders one photo or video target again after the user asks for a change: another layout, another "
-            "person in focus, a trim or another cover frame. Give the job, the target and only the keys that "
-            "change; earlier changes to that target stay. It reuses the scan, runs every check again and returns "
-            "the same rows as postkitty_make. For copy changes call postkitty_write instead."),
+            "person in focus, a trim, another cover frame or burned-in captions. Give the job, the target and only "
+            "the keys that change; earlier changes to that target stay. It reuses the scan, runs every check again "
+            "and returns the same rows as postkitty_make. For copy changes call postkitty_write instead."),
         "parameters": {"type": "object", "required": ["job", "target"], "properties": {
             "job": _JOB,
             "target": {"type": "string", "description": 'A target id from the make rows, for example "tiktok" or "x_image".'},

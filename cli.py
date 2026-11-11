@@ -33,6 +33,7 @@ def setup(subparser: argparse.ArgumentParser) -> None:
     make.add_argument("--platforms", help="Comma-separated platform names, for example x,linkedin")
     make.add_argument("--layout", choices=pipeline.LAYOUTS, help="One layout for every target")
     make.add_argument("--focus", help="auto, person:N, left, center, right or x:0.0-1.0")
+    make.add_argument("--captions", help="An .srt or .vtt file to burn into every video target")
     make.add_argument("--out", help="Folder for the job; default: the output folder setting")
 
 
@@ -87,7 +88,12 @@ def _make(args: argparse.Namespace) -> int:
             print(f"{name + ' text':<20} {state:<10} {', '.join(report['files'])}")
             ready = ready and fits
     override = {key: value for key in ("layout", "focus") if (value := getattr(args, key))}
-    overrides = {plan["id"]: override for plan in scan["plan"]} if override else {}
+    videos = {entry["id"] for entry in scan["inputs"] if entry["kind"] == "video"}
+    overrides = {}
+    for plan in scan["plan"]:
+        captions = {"captions": args.captions} if args.captions and plan["input"] in videos else {}
+        if override or captions:
+            overrides[plan["id"]] = {**override, **captions}
     made = pipeline.make({"job": scan["job"], "overrides": overrides})
     for row in made["targets"]:
         detail = row.get("file") or row.get("reason") or "; ".join(row.get("problems", []))

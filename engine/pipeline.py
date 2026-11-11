@@ -36,7 +36,7 @@ from .verify import checks, repair
 ALIASES = {"twitter": "x", "ig": "instagram", "insta": "instagram", "yt": "youtube",
            "shorts": "youtube", "fb": "facebook", "bsky": "bluesky"}
 LAYOUTS = ("crop", "split", "speaker", "seam", "pad", "auto")
-OVERRIDE_KEYS = ("layout", "focus", "trim", "cover_at")
+OVERRIDE_KEYS = ("layout", "focus", "trim", "cover_at", "captions")
 _ENGINES = {
     "image": ("detect.faces", "photo.render", "photo.checks"),
     "video": ("detect.faces", "video.scan", "video.render", "video.checks"),
@@ -381,6 +381,8 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
     entry.update(checks=[c.to_dict() for c in found], repairs=repairs, width=result.width, height=result.height,
                  duration=result.duration, layout=layout,
                  trim=list(getattr(plan, "trim", []) or []) or None, subjects_inside=result.subjects_inside)
+    if (result.extra or {}).get("captions"):
+        entry["captions"] = result.extra["captions"]
     if ok:
         folder = jobs.ready_dir(job, target.platform)
         for pattern in (f"{_stem(target)}.*", f"{_stem(target)}_cover.*"):
@@ -406,6 +408,14 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
         entry.update(_kept(job, previous or {}))
     entry["render_seconds"] = round(time.monotonic() - started, 2)
     return entry
+
+
+def _merged(stored: dict, new: dict) -> dict:
+    """The overrides stored for a target with the new ones over them; captions "none" takes captions off again."""
+    merged = {**stored, **new}
+    if merged.get("captions") == "none":
+        del merged["captions"]
+    return merged
 
 
 def _kept(job: jobs.Job, previous: dict) -> dict:
@@ -440,7 +450,7 @@ def _table(entries: list[dict]) -> list[dict]:
             "size": f"{e['width']}x{e['height']}" if e.get("width") else None, "layout": e.get("layout"),
             "problems": bad or None, "advisory": advisory or None,
             "repairs": [f"{r['check']}: {r['action']}" for r in e.get("repairs", []) if r["ok"]] or None,
-            "kept": e.get("kept"), "reason": e.get("reason")}.items() if v is not None})
+            "captions": e.get("captions"), "kept": e.get("kept"), "reason": e.get("reason")}.items() if v is not None})
     return rows
 
 
@@ -468,9 +478,9 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
             raise ValueError("this job is text only, so there is nothing to render again")
         if tid not in planned:
             raise ValueError(f"target {tid!r} is not planned in this job; planned: {sorted(planned)}")
-        merged_overrides[tid] = {**old.get(tid, {}).get("override", {}), **(overrides.get(tid) or {})}
-        if by_id[planned[tid]].kind == "image" and {"trim", "cover_at"} & set(merged_overrides[tid]):
-            raise ValueError(f"{tid} is made from a photo; trim and cover_at apply to video only")
+        merged_overrides[tid] = _merged(old.get(tid, {}).get("override", {}), overrides.get(tid) or {})
+        if by_id[planned[tid]].kind == "image" and {"trim", "cover_at", "captions"} & set(merged_overrides[tid]):
+            raise ValueError(f"{tid} is made from a photo; trim, cover_at and captions apply to video only")
     for tid in ids:
         info, target, previous = by_id[planned[tid]], platforms.get_target(tid), old.get(tid, {})
         try:
@@ -768,6 +778,20 @@ def _check_focus(value: Any) -> None:
     raise ValueError(f"focus {value!r} is not auto, person:N, left, center, right or x:0.0-1.0")
 
 
+def _captions(value: Any) -> str:
+    """The absolute path of the subtitle file to burn in, or "none" to take stored captions off."""
+    if not isinstance(value, str):
+        raise ValueError(f"captions must be the path of an .srt or .vtt file, got {value!r}")
+    if value.strip().lower() == "none":
+        return "none"
+    path = _resolve(value)
+    if path.suffix.lower() not in {".srt", ".vtt"}:
+        raise ValueError(f"captions must be an .srt or .vtt file, got {path.name!r}")
+    if not path.is_file():
+        raise FileNotFoundError(f"captions file not found: {path}")
+    return str(path)
+
+
 def _override(args: dict) -> dict:
     """The override keys of ``args`` with their values checked, so a bad value is an argument error."""
     out = {k: args[k] for k in OVERRIDE_KEYS if args.get(k) not in (None, "")}
@@ -781,6 +805,8 @@ def _override(args: dict) -> dict:
         if len(trim) != 2 or None in trim or not 0 <= trim[0] < trim[1]:
             raise ValueError(f"trim must be [start, end] in seconds with 0 <= start < end, got {out['trim']!r}")
         out["trim"] = trim
+    if "captions" in out:
+        out["captions"] = _captions(out["captions"])
     if "cover_at" in out:
         cover_at = _number(out["cover_at"])
         if cover_at is None or cover_at < 0:
@@ -797,7 +823,7 @@ def _overrides(raw: dict, planned: list[str]) -> dict:
         if tid not in planned:
             raise ValueError(f"override target {key!r} is not planned in this job; planned: {planned}")
         if not isinstance(value, dict):
-            raise ValueError(f"override for {key!r} must be an object with layout, focus, trim or cover_at")
+            raise ValueError(f"override for {key!r} must be an object with layout, focus, trim, cover_at or captions")
         unknown = sorted(set(value) - set(OVERRIDE_KEYS))
         if unknown:
             raise ValueError(f"unknown override key(s) {unknown} for {key!r}; use {list(OVERRIDE_KEYS)}")
@@ -835,7 +861,7 @@ def _make(job: jobs.Job, args: dict) -> dict:
 
 
 def redo(args: dict) -> dict:
-    """Render one target again with another layout, focus, trim or cover frame."""
+    """Render one target again with another layout, focus, trim, cover frame or captions."""
     _only(args, "redo", "job", "target", *OVERRIDE_KEYS)
     job = _open_job(args)
     with _locked(job):
@@ -848,7 +874,7 @@ def _redo(job: jobs.Job, args: dict) -> dict:
     (target,) = _platform_names([args["target"]])
     override = _override(args)
     if not override:
-        raise ValueError("give at least one of layout, focus, trim, cover_at")
+        raise ValueError("give at least one of layout, focus, trim, cover_at, captions")
     return _build(job, [target], {target: override})
 
 
