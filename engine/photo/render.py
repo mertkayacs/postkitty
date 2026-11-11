@@ -90,15 +90,17 @@ def _split_windows(
 ) -> list[Box]:
     panel_height = max(2, ((target.height - 6) // 2) // 2 * 2)
     panel_aspect = target.width / panel_height
+    # A detector may report a face box that passes the frame edge; a window can only follow the visible part.
+    faces = [face.clamp(info.width, info.height) for face in face_boxes]
     return [
         _split_window(
             info.width,
             info.height,
             panel_aspect,
             face,
-            face_boxes[1 - index],
+            faces[1 - index],
         )
-        for index, face in enumerate(face_boxes)
+        for index, face in enumerate(faces)
     ]
 
 

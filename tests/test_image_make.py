@@ -286,6 +286,18 @@ def test_split_windows_isolate_faces_and_limit_zoom(tmp_path: Path) -> None:
         assert abs((eye_y - window.y) / window.h - 1 / 3) < 0.05
 
 
+def test_split_windows_stay_inside_the_frame_when_a_face_box_passes_the_top_edge(tmp_path: Path) -> None:
+    source = tmp_path / "close.png"
+    faces = [Box(200, -60, 300, 380), Box(1100, -40, 300, 380)]
+    _scene(source, faces, size=(1600, 900))
+    info = InputInfo(source, "close", 1600, 900)
+
+    layout = plan_image(info, _faces(faces), Target("story", 1080, 1920))
+
+    assert layout.mode == "split"
+    assert all(Box(0, 0, 1600, 900).contains(window, 1e-6) for window in layout.boxes)
+
+
 def test_split_panels_have_even_heights(monkeypatch: object) -> None:
     heights: list[int] = []
 
