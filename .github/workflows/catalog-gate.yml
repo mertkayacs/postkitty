@@ -1,0 +1,203 @@
+name: catalog-gate
+
+# Hermes' own admission checks for the plugin catalog, run here on GitHub's runners.
+#
+# A catalog pull request on NousResearch/hermes-agent starts its checks only after a maintainer approves
+# them. This workflow runs the same scripts, from their repository, before anyone is asked to look:
+#   on a change to the plugin: the entry is filled in for that commit and checked against Hermes' main branch
+#   by hand, with the number of a catalog pull request: that pull request's merge commit is checked the
+#   way their CI checks it (the catalog gate, the catalog tests and the repository guards)
+#
+# The work folder holds a checkout of hermes-agent, so every step runs their files where they expect to be.
+# The token of this job can only read this repository and is not left in the checkout.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Number of a catalog pull request on NousResearch/hermes-agent. Empty checks this commit against their main branch.
+        type: string
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - plugin.yaml
+      - pyproject.toml
+      - __init__.py
+      - schemas.py
+      - tools.py
+      - command.py
+      - cli.py
+      - engine/**
+      - skills/**
+      - data/**
+      - .github/catalog-entry.yaml
+      - .github/workflows/catalog-gate.yml
+  pull_request:
+    paths:
+      - .github/catalog-entry.yaml
+      - .github/workflows/catalog-gate.yml
+
+permissions:
+  contents: read
+
+env:
+  ENTRY: plugin-catalog/postkitty.yaml
+  # A pull request here is tested at its head commit: the merge commit GitHub builds for it is on no branch,
+  # so the gate could not clone it.
+  COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  HERMES_PULL_REQUEST: ${{ inputs.pull_request }}
+
+jobs:
+  gate:
+    name: Hermes catalog gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Check out Hermes
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: NousResearch/hermes-agent
+          ref: ${{ inputs.pull_request != '' && format('refs/pull/{0}/merge', inputs.pull_request) || '' }}
+          # Full commit graph and tags, blobs on demand, as their workflow does: Hermes reads its own version
+          # from the release tags, and the changed-entry step needs the merge commit's first parent.
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Fill in the entry for this commit
+        if: inputs.pull_request == ''
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${COMMIT}/.github/catalog-entry.yaml" \
+            | grep -v '^#' | sed "s/__COMMIT__/${COMMIT}/g" > "$ENTRY"
+          grep -n '^sha:\|^version:' "$ENTRY"
+
+      - name: Say what is being checked
+        run: |
+          {
+            echo "### Hermes catalog gate"
+            echo "- Hermes: \`$(git rev-parse HEAD)\` ($(git log -1 --format=%cI))"
+            if [ -n "$HERMES_PULL_REQUEST" ]; then
+              echo "- Pull request: NousResearch/hermes-agent#${HERMES_PULL_REQUEST}, merge of \`$(git rev-parse HEAD^2)\` into \`$(git rev-parse HEAD^1)\`"
+            fi
+            echo "- Entry: $(grep '^sha:' "$ENTRY"), $(grep '^version:' "$ENTRY")"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Validate every catalog entry (structural)
+        run: |
+          set -euo pipefail
+          pip install --quiet ruamel.yaml==0.18.17
+          python3 scripts/validate_plugin_catalog.py plugin-catalog/
+
+      - name: Find changed catalog entries
+        id: changed
+        run: |
+          set -euo pipefail
+          if [ -n "$HERMES_PULL_REQUEST" ]; then
+            python3 -I "$GITHUB_WORKSPACE/scripts/ci/catalog_changed_entries.py"
+          else
+            printf 'files<<__EOF__\n%s\n__EOF__\n' "$ENTRY" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare Hermes from this checkout
+        uses: ./.github/actions/setup-pm
+        with:
+          toolchain: python
+          extras: '[]'
+          cache: 'false'
+          cache-python: 'false'
+
+      - name: Clone the entry at its pinned sha and validate
+        env:
+          CHANGED_FILES: ${{ steps.changed.outputs.files }}
+          GIT_TERMINAL_PROMPT: "0"
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I "$GITHUB_WORKSPACE/scripts/ci/catalog_validate_pinned_entries.py"
+
+  catalog-tests:
+    name: Hermes catalog tests
+    if: inputs.pull_request != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out Hermes at the pull request's merge commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: NousResearch/hermes-agent
+          ref: refs/pull/${{ inputs.pull_request }}/merge
+          persist-credentials: false
+
+      - name: Set up locked Python and test dependencies
+        uses: ./.github/actions/setup-pm
+        with:
+          extras: '[]'
+          test-environment: 'true'
+          cache: 'false'
+          cache-python: 'false'
+
+      - name: Run the catalog tests
+        env:
+          OPENROUTER_API_KEY: ""
+          OPENAI_API_KEY: ""
+          NOUS_API_KEY: ""
+        run: |
+          set -euo pipefail
+          mapfile -t FILES < <(python3 scripts/ci/catalog_test_files.py)
+          echo "Catalog test files (${#FILES[@]}):"; printf '  %s\n' "${FILES[@]}"
+          scripts/run_tests.sh "${FILES[@]}"
+
+  guards:
+    name: Hermes repository guards
+    if: inputs.pull_request != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out Hermes at the pull request's merge commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: NousResearch/hermes-agent
+          ref: refs/pull/${{ inputs.pull_request }}/merge
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Their CI runs only the lanes a pull request can affect. A catalog entry must select the catalog
+      # lane and leave the Python suite off, or the checks below are not the ones that will run there.
+      - name: Lanes their CI selects for this pull request
+        run: |
+          set -euo pipefail
+          git diff --name-only HEAD^1 HEAD | python3 scripts/ci/classify_changes.py | tee "$RUNNER_TEMP/lanes.txt"
+          grep -qx 'catalog=true' "$RUNNER_TEMP/lanes.txt"
+          grep -qx 'python=false' "$RUNNER_TEMP/lanes.txt"
+
+      - name: Reject committed PR-infographic images
+        if: ${{ !cancelled() }}
+        run: python3 scripts/ci/check_infographic_images.py
+
+      - name: Reject profile exports in the checkout
+        if: ${{ !cancelled() }}
+        run: python3 scripts/ci/check_profile_archive_boundary.py
+
+      - name: Reject case-colliding filenames
+        if: ${{ !cancelled() }}
+        run: python3 scripts/check-case-collisions.py
+
+      - name: Judge files added or modified against the base branch tip
+        if: ${{ !cancelled() }}
+        run: python3 scripts/ci/check_blob_size.py --base HEAD^1
+
+      - name: Check tools.lazy_deps imports in tracked production code
+        if: ${{ !cancelled() }}
+        run: python3 scripts/ci/check_lazy_deps_imports.py
+
+      - name: Reject PRs with no common ancestor on main
+        if: ${{ !cancelled() }}
+        run: python3 scripts/ci/check_common_ancestor.py
+
+      - name: Check for unmapped contributor emails
+        if: ${{ !cancelled() }}
+        run: python3 scripts/ci/check_contributor_emails.py

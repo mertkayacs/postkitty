@@ -5,6 +5,8 @@ Version: plugin.yaml, engine.__version__, the SKILL.md front matter, the newest 
 when pyproject.toml has a [project] table, its version.
 Dependencies: plugin.yaml python_dependencies and pyproject.toml [project] dependencies. Hermes reads the
 pyproject list when it exists, and Hermes versions before that rule read the manifest, so both must say the same.
+Catalog entry: .github/catalog-entry.yaml, the file a pin update sends to the Hermes plugin catalog, names the
+same version and the same tools.
 
 Run with the plugin's runtime dependencies installed: python .github/scripts/check_consistency.py
 """
@@ -99,6 +101,12 @@ def main() -> int:
         check(same_requirement_lists(project.get("dependencies") or [], manifest.get("python_dependencies") or []),
               "pyproject.toml [project] dependencies equal plugin.yaml python_dependencies "
               f"({project.get('dependencies')} against {manifest.get('python_dependencies')})")
+
+    entry = yaml.load((ROOT / ".github" / "catalog-entry.yaml").read_text(encoding="utf-8"))
+    check(str(entry.get("version")) == version, f"the catalog entry's version is {version} (got {entry.get('version')})")
+    listed = list((entry.get("capabilities") or {}).get("provides_tools") or [])
+    check(sorted(listed) == sorted(declared), f"the catalog entry lists exactly the declared tools ({sorted(listed)})")
+    check(entry.get("sha") == "__COMMIT__", "the catalog entry keeps the __COMMIT__ placeholder for its pin")
 
     print()
     if _problems:

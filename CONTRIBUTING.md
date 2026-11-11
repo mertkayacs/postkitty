@@ -56,6 +56,12 @@ Keep a pull request to one topic, and say in it what you ran and what you saw.
 
 The steps are in [docs/architecture.md](docs/architecture.md#platform-data-and-how-to-add-a-platform). In short: add the platform to `data/platforms.yaml` with a source for every limit, run `python docs/build_platforms.py` to rebuild [docs/platforms.md](docs/platforms.md), and run the tests.
 
+## Releases and the Hermes catalog
+
+The Hermes plugin catalog pins one commit of this repository. `.github/catalog-entry.yaml` is that entry, with `__COMMIT__` where the pin goes, and the consistency check keeps its version and tool list in step with `plugin.yaml`.
+
+The `catalog-gate` workflow runs Hermes' own admission checks from their repository on every change to the plugin: it fills in the entry for that commit and checks it against Hermes' main branch. A pin update is a pull request on NousResearch/hermes-agent that carries the filled-in entry. Their checks start only after a maintainer approves them, so run the workflow by hand with the pull request's number first. It then checks that pull request's merge commit the way their CI will: the catalog gate, the catalog tests and the repository guards.
+
 ## Report a security problem
 
 Please follow [SECURITY.md](SECURITY.md) and keep the details out of public issues.
