@@ -163,19 +163,6 @@ def target_label(target: dict) -> str:
     return name
 
 
-def format_duration(seconds: Any) -> str:
-    try:
-        total = float(seconds)
-    except (TypeError, ValueError):
-        return ""
-    total = max(0.0, total)
-    minutes = int(total // 60)
-    secs = int(round(total % 60))
-    if minutes:
-        return f"{minutes}:{secs:02d}"
-    return f"{secs} s"
-
-
 def clock(seconds: Any) -> str:
     """m:ss for durations on the cards and in the check lines."""
     try:
@@ -894,7 +881,8 @@ def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
         return int(height * aspect), int(height)
 
     rows = [targets[index:index + cols] for index in range(0, len(targets), cols)]
-    row_heights = [max(thumb_box(_aspect(target))[1] for target in row) + 104 for row in rows]
+    # Under each thumbnail: the platform, the target id, the size and the status badge, with 14 px of padding.
+    row_heights = [max(thumb_box(_aspect(target))[1] for target in row) + 126 for row in rows]
     height = (title_h + gap + sum(row_heights) + (len(rows) - 1) * gap + 60) if rows else (title_h + 80)
     image = Image.new("RGB", (width, height), CREAM)
     draw = ImageDraw.Draw(image)
@@ -912,7 +900,7 @@ def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
             image.paste(mark, (cx, (title_h - mark_size) // 2), mark)
             cx += mark_size + 16
     draw.text((cx, 30), str(manifest.get("job", "Review board")), font=font_job, fill=NAVY)
-    draw.text((cx, 64), str(manifest.get("created", "")), font=font_small, fill=MUTED)
+    draw.text((cx, 64), job_stamp(manifest.get("created", "")), font=font_small, fill=MUTED)
 
     y = title_h + gap
     for row, row_h in zip(rows, row_heights, strict=True):
@@ -940,10 +928,13 @@ def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
             ly = y + 14 + th + 12
             draw.text((x + 12, ly), platform_name(str(target.get("platform", ""))), font=font_badge, fill=NAVY)
             draw.text((x + 12, ly + 20), str(target.get("id", "")), font=font_small, fill=MUTED)
-            size_text = f"{int(target.get('width') or 0)}x{int(target.get('height') or 0)}"
-            duration = format_duration(target.get("duration"))
-            draw.text((x + 12, ly + 40), size_text + (f"  {duration}" if duration else ""), font=font_small, fill=MUTED)
-            status = str(target.get("status", "unknown"))
+            facts = []
+            if target.get("width") and target.get("height"):
+                facts.append(f"{target['width']}x{target['height']}")
+            if target.get("kind") == "video" and target.get("duration"):
+                facts.append(clock(target["duration"]))
+            draw.text((x + 12, ly + 40), "  ".join(facts), font=font_small, fill=MUTED)
+            status = effective_status(target)
             label = STATUS_LABELS.get(status, status)
             badge_w = draw.textlength(label, font=font_badge) + 16
             draw.rounded_rectangle([x + 12, ly + 64, x + 12 + badge_w, ly + 64 + 22], radius=11,

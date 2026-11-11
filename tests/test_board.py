@@ -360,7 +360,9 @@ def test_the_board_loads_nothing_from_the_network(tmp_path):
     paths = write_board(job_dir, _manifest(job_dir))
     for key in ("board", "board_inline"):
         html = Path(paths[key]).read_text(encoding="utf-8")
-        loads = re.findall(r"""(?:src|poster|srcset)=["']([^"']*)|url\(([^)]*)\)|@import\s+([^;]+)|<link[^>]*href=["']([^"']*)""", html)
+        loads = re.findall(
+            r"""(?:src|poster|srcset)=["']([^"']*)|url\(([^)]*)\)|@import\s+([^;]+)|<link[^>]*href=["']([^"']*)""", html
+        )
         remote = [value for match in loads for value in match if value.strip("\"' ").startswith(("http", "//"))]
         assert remote == []
 
@@ -390,3 +392,32 @@ def test_long_unbroken_advice_text_wraps_inside_its_card():
     advice = css[css.index(".advice {"):css.index("}", css.index(".advice {"))]
     assert "overflow-wrap: anywhere" in advice
     assert ".advice > div { min-width: 0;" in css
+
+
+def _sheet_rows(job_dir: Path, target: dict, color: tuple[int, int, int]):
+    """Rows of the contact sheet that hold at least one pixel of exactly ``color``."""
+    import numpy as np
+    from postkitty.engine.board.board import TEMPLATES, write_contact_png
+
+    job_dir.mkdir(parents=True, exist_ok=True)
+    path = write_contact_png(job_dir, {"job": "j", "created": "", "targets": [target]}, TEMPLATES / "pucci-mark-64.png")
+    with Image.open(path) as sheet:
+        pixels = np.asarray(sheet.convert("RGB"))
+    return np.nonzero((pixels == np.array(color, dtype=pixels.dtype)).all(axis=-1).any(axis=1))[0]
+
+
+READY_GREEN, ADVISORY_OLIVE, TILE_WHITE = (0x14, 0x53, 0x2D), (0x71, 0x57, 0x11), (255, 255, 255)
+
+
+def test_contact_sheet_keeps_the_status_badge_inside_its_tile(tmp_path):
+    target = {"id": "x_image", "platform": "x", "kind": "image", "status": "ready", "width": 1600, "height": 900}
+    badge = _sheet_rows(tmp_path / "a", target, READY_GREEN)
+    tile = _sheet_rows(tmp_path / "b", target, TILE_WHITE)
+    assert badge.size and badge.max() + 8 <= tile.max()
+
+
+def test_contact_sheet_shows_the_same_status_as_the_board(tmp_path):
+    target = {"id": "x_image", "platform": "x", "kind": "image", "status": "ready", "width": 1600, "height": 900,
+              "checks": [{"id": "image.upscale", "status": "advisory", "hard": False, "message": "Enlarged."}]}
+    assert _sheet_rows(tmp_path / "a", target, ADVISORY_OLIVE).size
+    assert not _sheet_rows(tmp_path / "b", target, READY_GREEN).size
