@@ -102,7 +102,10 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
             return _json({"error": str(exc), "hint": "Text still works. Run /postkitty doctor to see what is missing."})
         except pipeline.ScanNeeded as exc:
             return _json({"error": str(exc), "hint": "Run postkitty_scan again and continue with the job id it returns."})
-        except (FileNotFoundError, KeyError, ValueError, probe.ProbeError) as exc:
+        except probe.ProbeError as exc:  # an unreadable file, or ffprobe or Pillow missing
+            return _json({"error": str(exc), "hint": "Check the file path and type. If the message names a missing "
+                                                     "tool, tell the user to run /postkitty doctor."})
+        except (FileNotFoundError, KeyError, ValueError) as exc:
             return _json({"error": message(exc), "hint": "Fix the argument and call the tool again."})
         except Exception as exc:
             return _json({"error": f"{type(exc).__name__}: {exc}", "hint": "Unexpected failure; report it with the job id."})

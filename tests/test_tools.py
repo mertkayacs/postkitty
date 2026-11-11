@@ -930,3 +930,13 @@ def test_captions_are_burned_into_a_video_target_and_reported(out_dir, tmp_path,
     row = made["targets"][0]
     assert row["status"] in {"ready", "repaired"}, row
     assert row["captions"] == {"file": str(subtitles), "shown": 1}
+
+
+def test_a_missing_ffprobe_points_to_the_doctor(out_dir, tmp_path, monkeypatch):
+    from postkitty.engine import probe
+
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"\x00" * 64)
+    monkeypatch.setattr(probe.shutil, "which", lambda name: None)
+    out = call(tools.scan, inputs=[str(clip)])
+    assert "ffprobe was not found" in out["error"] and "/postkitty doctor" in out["hint"]
