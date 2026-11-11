@@ -65,3 +65,40 @@ def test_default_out_dir_uses_config(tmp_path):
     assert jobs.default_out_dir(str(tmp_path / "abs")) == tmp_path / "abs"
     assert jobs.default_out_dir("rel").name == "rel"
     assert jobs.default_out_dir("").name == "postkitty"
+
+
+@pytest.mark.parametrize("job_id", ["../outside", "/etc/passwd", "..", "a/../../b", "C:\\Windows\\x", "~/x"])
+def test_a_job_id_never_leaves_the_output_folder(tmp_path, job_id):
+    out = tmp_path / "out"
+    job = jobs.create_job(out, [], "", job_id=job_id)
+    assert job.root.parent == out and job.root.is_dir()
+    assert jobs.open_job(out, job_id).root == job.root
+    assert [path.name for path in tmp_path.iterdir()] == ["out"]
+
+
+def test_a_job_folder_that_links_outside_the_output_folder_is_refused(tmp_path):
+    out, elsewhere = tmp_path / "out", tmp_path / "elsewhere"
+    out.mkdir()
+    elsewhere.mkdir()
+    (out / "linked").symlink_to(elsewhere, target_is_directory=True)
+    with pytest.raises(ValueError, match="outside the output folder"):
+        jobs.open_job(out, "linked")
+    with pytest.raises(ValueError, match="outside the output folder"):
+        jobs.create_job(out, [], "", job_id="linked")
+    assert list(elsewhere.iterdir()) == []
+
+
+def test_a_linked_output_folder_still_works(tmp_path):
+    real = tmp_path / "disk"
+    real.mkdir()
+    (tmp_path / "out").symlink_to(real, target_is_directory=True)
+    job = jobs.create_job(tmp_path / "out", [], "hello")
+    assert jobs.open_job(tmp_path / "out", job.id).root == job.root and (real / job.id).is_dir()
+
+
+@pytest.mark.parametrize("name", ["../../escape", "/abs", "..", "a/b", ""])
+def test_a_platform_folder_name_stays_inside_ready(tmp_path, name):
+    job = jobs.create_job(tmp_path, [], "x")
+    with pytest.raises(ValueError, match="platform folder"):
+        jobs.ready_dir(job, name)
+    assert [path.name for path in tmp_path.iterdir()] == [job.id]

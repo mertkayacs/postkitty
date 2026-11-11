@@ -73,8 +73,14 @@ def job_path(out_dir: Path, job_id: str) -> Path:
     return Path(out_dir).expanduser() / job_id
 
 
-def job_exists(out_dir: Path, job_id: str) -> bool:
-    return (job_path(out_dir, job_id) / "manifest.json").is_file()
+def _job_root(out_dir: Path, job_id: str) -> tuple[str, Path]:
+    """The folder of a job named by the model or the user, always a direct child of the output folder."""
+    clean_id = slugify(job_id, limit=80)
+    root = job_path(out_dir, clean_id)
+    # The slug has no separators, so only a link planted in the output folder can lead elsewhere.
+    if root.resolve().parent != Path(out_dir).expanduser().resolve():
+        raise ValueError(f"job {clean_id!r} points outside the output folder {out_dir}")
+    return clean_id, root
 
 
 def _created_stamp() -> str:
@@ -108,20 +114,10 @@ def create_job(
     """Create (or reopen) a job directory and write its initial manifest."""
     out = Path(out_dir).expanduser()
     if job_id:
-        clean_id = slugify(job_id, limit=80)
-        root = job_path(out, clean_id)
-        if not root.exists():
-            _ensure_dirs(root)
-            manifest = manifest_template(clean_id, created=_created_stamp())
-            save_manifest(Job(id=clean_id, root=root, created=manifest["created"]), manifest)
-        else:
-            _ensure_dirs(root)
+        clean_id, root = _job_root(out, job_id)
+        _ensure_dirs(root)
         job = Job(id=clean_id, root=root, created=_load_created(root))
-        manifest = load_manifest(job)
-        manifest.setdefault("schema", MANIFEST_SCHEMA)
-        manifest.setdefault("created", job.created)
-        manifest["version"] = __version__
-        save_manifest(job, manifest)
+        save_manifest(job, load_manifest(job))
         return job
 
     first = next(iter(inputs), None)
@@ -146,8 +142,7 @@ def _load_created(root: Path) -> str:
 
 
 def open_job(out_dir: Path, job_id: str) -> Job:
-    clean_id = slugify(job_id, limit=80)
-    root = job_path(out_dir, clean_id)
+    clean_id, root = _job_root(out_dir, job_id)
     if not root.is_dir():
         raise FileNotFoundError(f"job {clean_id!r} not found in {out_dir}")
     return Job(id=clean_id, root=root, created=_load_created(root))
@@ -215,14 +210,10 @@ def save_manifest(job: Job, manifest: dict) -> Path:
 
 
 def ready_dir(job: Job, platform: str) -> Path:
+    if platform in {"", ".", ".."} or Path(platform).name != platform:
+        raise ValueError(f"{platform!r} is not a platform folder name")
     path = job.ready / platform
     path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def work_path(job: Job, *parts: str) -> Path:
-    path = job.work.joinpath(*parts)
-    path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 
