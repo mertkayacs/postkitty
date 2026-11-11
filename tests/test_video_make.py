@@ -495,7 +495,7 @@ def _colour(path: Path) -> list[str]:
 
 
 def test_hdr_phone_clip_is_rendered_as_sdr(tmp_path: Path, monkeypatch: Any) -> None:
-    # Phones record 10-bit HLG by default; a platform file is 8-bit BT.709.
+    # Phone cameras record HDR as 10-bit HLG; a platform file is 8-bit BT.709.
     import engine.video.render as video_make
 
     source = tmp_path / "hlg.mp4"
