@@ -103,9 +103,9 @@ postkitty never posts, uploads or schedules anything. You upload the files in `r
 
 - Name the platforms: "for Instagram and TikTok" tells postkitty which files to make.
 - Give the path of each photo or video and paste your draft.
-- Say who has to stay in frame: "keep everyone in the picture" or "focus on the person on the left".
+- Tell it who has to stay in frame, for example "keep everyone in the picture" or "focus on the person on the left".
 - With two people on camera, name the layout: a split screen, a cut to whoever is talking, or the whole wide shot.
-- Give times for a trim and a cover frame: "use 0:12 to 0:48 and take the cover at 0:20".
+- A trim and a cover frame need times: "use 0:12 to 0:48 and take the cover at 0:20".
 - Ask for a change in plain words afterwards: "shorter for X" or "more formal on LinkedIn". Hermes redoes only that part.
 
 [docs/how-to-ask.md](docs/how-to-ask.md) is the full guide, with a vague request next to a clear one for each case.
