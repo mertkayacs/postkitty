@@ -121,3 +121,14 @@ def test_corrupt_video(tmp_path):
     bad.write_bytes(b"\x00" * 64)
     with pytest.raises(probe.ProbeError):
         probe.probe(bad, "in1")
+
+
+@pytest.mark.skipif(FFMPEG is None, reason="ffmpeg not installed")
+@pytest.mark.parametrize(("sar", "shown"), [("2/1", (320, 120)), ("1/2", (160, 240))])
+def test_anamorphic_clip_reports_display_size(tmp_path, sar, shown):
+    # DV, HDV and some camera modes store non-square pixels; players stretch them on screen.
+    path = tmp_path / "anamorphic.mp4"
+    subprocess.run([FFMPEG, "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x120:r=10:d=1",
+                    "-vf", f"setsar={sar}", "-pix_fmt", "yuv420p", str(path)], check=True)
+    info = probe.probe(path, "in1")
+    assert (info.width, info.height) == shown

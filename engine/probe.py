@@ -63,6 +63,22 @@ def _ratio(raw: str | None) -> float | None:
         return None
 
 
+def _square_pixel_size(video: dict) -> tuple[int, int]:
+    """Frame size as shown on screen: anamorphic video (DV, HDV, some camera modes) stores non-square pixels.
+
+    The longer side is stretched so no stored detail is lost, and it is rounded to an even number
+    because the render resamples the frame to this size in 4:2:0.
+    """
+    width = int(video.get("width") or 0)
+    height = int(video.get("height") or 0)
+    pixel_aspect = _ratio(str(video.get("sample_aspect_ratio") or "").replace(":", "/"))
+    if not pixel_aspect or pixel_aspect <= 0 or abs(pixel_aspect - 1.0) < 1e-3:
+        return width, height
+    if pixel_aspect > 1:
+        return max(2, round(width * pixel_aspect / 2) * 2), height
+    return width, max(2, round(height / pixel_aspect / 2) * 2)
+
+
 def _image_info(path: Path, input_id: str, sha: str) -> InputInfo:
     try:
         from PIL import Image
@@ -169,8 +185,7 @@ def _video_info(path: Path, input_id: str, sha: str) -> InputInfo:
         raise ProbeError(f"{path.name} has no video stream.")
     audio = any(stream.get("codec_type") == "audio" for stream in streams)
 
-    width = int(video.get("width") or 0)
-    height = int(video.get("height") or 0)
+    width, height = _square_pixel_size(video)
     rotation = 0
     tags = video.get("tags") or {}
     if tags.get("rotate") is not None:

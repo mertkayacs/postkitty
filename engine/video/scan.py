@@ -436,7 +436,7 @@ def make_peek(info: Any, scan: VideoScan, out_path: Path, n: int = 6) -> Path:
         "-i",
         str(info.path),
         "-vf",
-        f"fps=1/{interval},scale=320:-2,tile={n}x1",
+        f"fps=1/{interval},scale=320:{max(2, round(320 * info.height / info.width / 2) * 2)},setsar=1,tile={n}x1",
         "-frames:v",
         "1",
         str(out_path),

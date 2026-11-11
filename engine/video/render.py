@@ -205,6 +205,16 @@ def _window_values(window: Any, width: int, height: int) -> tuple[int, int, int,
     return crop_width, crop_height, x, y
 
 
+def _source(info: Any, fps: float | None) -> str:
+    """Head of every video graph: the source as square pixels at the probed display size.
+
+    Camera windows are in display coordinates, so an anamorphic source is resampled to that size
+    first. For square-pixel sources the scale has nothing to do and ffmpeg passes frames through.
+    """
+    timing = "" if fps is None else f"setpts=PTS-STARTPTS,fps={fps},"
+    return f"[0:v]{timing}scale={info.width}:{info.height},setsar=1"
+
+
 def _write_commands(
     plan: VideoPlan,
     info: Any,
@@ -237,7 +247,7 @@ def _crop_filter(
     commands_path: Path,
 ) -> str:
     command_file = _escape_filter_path(commands_path)
-    prefix = f"[0:v]setpts=PTS-STARTPTS,fps={fps},sendcmd=f='{command_file}'"
+    prefix = f"{_source(info, fps)},sendcmd=f='{command_file}'"
     if plan.layout == "split":
         top = _window_values(plan.windows[0][0], info.width, info.height)
         bottom = _window_values(plan.windows[0][1], info.width, info.height)
@@ -259,9 +269,9 @@ def _crop_filter(
     )
 
 
-def _pad_filter(target: Any, fps: float) -> str:
+def _pad_filter(info: Any, target: Any, fps: float | None) -> str:
     return (
-        f"[0:v]setpts=PTS-STARTPTS,fps={fps},split=2[background][foreground];"
+        f"{_source(info, fps)},split=2[background][foreground];"
         f"[background]scale={target.width}:{target.height}:"
         "force_original_aspect_ratio=increase:flags=lanczos,"
         f"crop={target.width}:{target.height},boxblur=20:10,"
@@ -372,7 +382,7 @@ def render_video(
     commands_path = render_dir / f"reuse-{key}.commands"
     if not master.exists():
         if plan.layout == "pad":
-            filter_graph = _pad_filter(target, fps)
+            filter_graph = _pad_filter(info, target, fps)
         else:
             _write_commands(plan, info, fps, commands_path)
             filter_graph = _crop_filter(info, plan, target, fps, commands_path)
@@ -472,14 +482,14 @@ def render_video(
 
 def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
     if plan.layout == "pad":
-        return _pad_filter(target, 1.0).replace("fps=1.0,", "")
+        return _pad_filter(info, target, None)
     if plan.layout == "split":
         top = _window_values(plan.windows[index][0], info.width, info.height)
         bottom = _window_values(plan.windows[index][1], info.width, info.height)
         # 4:2:0 frames need even panel heights; ffmpeg 6.1 corrupts its heap scaling to an odd height (1350 / 2).
         panel_height = _even(target.height / 2)
         return (
-            f"[0:v]split=2[topin][bottomin];"
+            f"{_source(info, None)},split=2[topin][bottomin];"
             f"[topin]crop={top[0]}:{top[1]}:{top[2]}:{top[3]},"
             f"scale={target.width}:{panel_height}:flags=lanczos[top];"
             f"[bottomin]crop={bottom[0]}:{bottom[1]}:{bottom[2]}:{bottom[3]},"
@@ -488,7 +498,7 @@ def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
         )
     window = _window_values(plan.windows[index], info.width, info.height)
     return (
-        f"[0:v]crop={window[0]}:{window[1]}:{window[2]}:{window[3]},"
+        f"{_source(info, None)},crop={window[0]}:{window[1]}:{window[2]}:{window[3]},"
         f"scale={target.width}:{target.height}:flags=lanczos,setsar=1[v]"
     )
 

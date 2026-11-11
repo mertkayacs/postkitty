@@ -392,3 +392,47 @@ def test_render_reuse_respects_the_audio_cap_of_the_new_target(tmp_path: Path, m
     assert len(commands) == 2
     reel = commands[1]
     assert int(reel[reel.index("-b:a") + 1]) <= 0.95 * 128000
+
+
+def _anamorphic_video(path: Path) -> InputInfo:
+    """A 240x240 coded frame shown 480x240, holding a box that is square on screen."""
+    _run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+            "-i", "color=c=black:s=240x240:r=10:d=1",
+            "-vf", "drawbox=x=90:y=60:w=60:h=120:color=white:t=fill,setsar=2/1",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(path),
+        ]
+    )
+    return InputInfo(path, "anamorphic-source", 480, 240, 1.0, 10.0)
+
+
+def _white_box_size(path: Path, width: int, height: int) -> tuple[int, int]:
+    decode = subprocess.run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(path), "-frames:v", "1",
+            "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    image = np.frombuffer(decode.stdout, dtype=np.uint8).reshape((height, width))
+    ys, xs = np.where(image > 225)
+    return int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1)
+
+
+def test_anamorphic_source_is_not_stretched_in_crop_pad_or_cover(tmp_path: Path) -> None:
+    info = _anamorphic_video(tmp_path / "anamorphic.mp4")
+    wide = Target("wide_video", 480, 240)
+    crop = VideoPlan(wide.id, "crop", (0.0, 1.0), 0.5, "", [_box(0.0, 0.0, 480.0, 240.0)] * 10)
+    tall = Target("tall_video", 240, 480)
+    pad = VideoPlan(tall.id, "pad", (0.0, 1.0), 0.5, "", [_box(0.0, 0.0, 480.0, 240.0)] * 10)
+
+    cropped = render_video(info, crop, wide, tmp_path / "crop.mp4", tmp_path / "work")
+    padded = render_video(info, pad, tall, tmp_path / "pad.mp4", tmp_path / "work")
+    cover = export_cover(info, crop, wide, tmp_path / "cover.jpg")
+
+    for path, size, side in ((cropped.file, (480, 240), 120), (padded.file, (240, 480), 60), (cover, (480, 240), 120)):
+        box_width, box_height = _white_box_size(path, *size)
+        assert abs(box_width - side) <= 6
+        assert abs(box_height - side) <= 6
