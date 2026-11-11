@@ -25,14 +25,14 @@ config_schema:
     type: str
     default: ""
     label: "Output folder"
-    description: "Where job folders are written. Empty means ./postkitty in the session working directory."
+    description: "Where job folders are written. A relative path starts at the session working directory. Empty means a postkitty folder there."
   default_platforms:
     type: list
     default: []
     label: "Default platforms"
-    description: "Platforms to make when none are named. Empty means every platform that fits the input."
+    description: "Platforms to make when a request names none, for example [\"x\", \"linkedin\"]. Names: instagram, tiktok, youtube, x, linkedin, threads, bluesky, facebook. Empty means every platform that fits the input."
   loudness_lufs:
     type: float
     default: -14
     label: "Loudness target (LUFS)"
-    description: "Integrated loudness target for video audio."
+    description: "Integrated loudness of video audio in LUFS, from -70 to -5."
