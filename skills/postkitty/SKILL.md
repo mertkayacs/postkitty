@@ -10,9 +10,9 @@ metadata:
     category: creative
 ---
 
-# Postkitty Skill
+# postkitty
 
-Postkitty turns one post (photos, landscape video, a draft, or only text) into a folder of files that are ready to
+postkitty turns one post (a photo, a landscape video, a draft, or only text) into a folder of files that are ready to
 upload to Instagram, TikTok, YouTube Shorts, X, LinkedIn, Threads, Bluesky and Facebook, each one checked against
 that platform's published limits. You write the understanding, advice and copy. The tools do detection, framing,
 rendering, counting, checking and repair. The tools decide whether a file passes, you never do. Nothing is posted
@@ -55,11 +55,14 @@ names `postkitty_scan`, scan again and continue with the new job id; otherwise f
 
 Layouts: `crop` follows the subject, `split` stacks two people in a vertical frame, `speaker` cuts to whoever is
 talking, `seam` squeezes the background so two people fit, `pad` keeps the whole frame on a blurred fill. Focus:
-`auto`, `person:N` (1 is the leftmost person), `left`, `center`, `right`, `x:0.0-1.0`.
+`auto`, `person:N` (1 is the leftmost person), `left`, `center`, `right`, `x:0.0-1.0`. `auto` never cuts a person.
+A focus the user asked for is kept even when it leaves someone outside the frame; the row then carries an
+`advisory` that says who. Report it and leave the file as it is: the user chose that crop.
 
 Captions: when the user wants captions burned into a video, ask for their `.srt` or `.vtt` file and pass its path
 as `captions` (in `postkitty_redo`, or per target in the `overrides` of `postkitty_make`). Never write a transcript
 yourself. The row then reports `captions` with the number of caption screens `shown`; `"none"` removes them again.
+Captions need an ffmpeg built with libass; when a `reason` says it is missing, point the user to `/postkitty doctor`.
 
 ## Procedure
 
@@ -92,7 +95,8 @@ Rank the platforms that fit the material, with one concrete reason each, based o
 video belongs on Reels, TikTok and Shorts, a long text-led thought on LinkedIn and Threads, a photo on Instagram
 and Bluesky. For each platform note the angle, the hook (first line or first three seconds), hashtags in that
 platform's norm (Instagram a few specific ones, LinkedIn two or three, X and Bluesky one or none, TikTok a few),
-and what to trim. Use the `fit` facts for limits, never your memory.
+and what to trim. Use the `fit` facts for limits, never your memory. A video is cut only when a platform's hard
+length limit requires it, and the plan says so; a recommended length is reported and the file stays whole.
 
 Pass it as `advice`: `topic`, `audience`, `tone`, `key_message`, `ranking` (list of `{platform, reason}`), `tips`.
 
@@ -108,7 +112,7 @@ characters and treats a file name such as `README.md` or `tools.py` as a link. T
 UTF-8 bytes.
 
 Clean up the draft as you adapt it: fix spelling, grammar and punctuation, and rewrite clumsy or run-on sentences.
-Keep the user's voice, language and facts.
+Keep the user's voice, language and facts. Add emoji only when the user's draft uses them or the user asks.
 
 Alt text goes in `alt_text`, keyed by target id (for example `instagram_feed`), input id (`in1`) or file name.
 Describe only what is visible in the image or video: who or what, where, what happens, any text on screen. Do not
