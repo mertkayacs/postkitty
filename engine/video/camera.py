@@ -761,12 +761,14 @@ def build_camera_path(
     if layout == "crop" and layout_override == "auto" and person is None and anchor_x is None:
         # auto promises that nobody is cut: when the crop loses a person the shot holds for most of
         # the clip, and no split is possible, the whole picture is kept.
-        _, outside = _left_outside(scan, windows, scenes, trim, fps, info.width, info.height, present=0.5)
+        people, outside = _left_outside(scan, windows, scenes, trim, fps, info.width, info.height, present=0.5)
         if outside:
             return replace(
                 build_camera_path(info, scan, target, trim, focus, "pad"),
                 note="the people in this clip do not fit one frame, so the full source is kept over a blurred fill",
             )
+        if people >= 2 and not fallback_note:
+            note = "both people share one frame" if people == 2 else "everyone shares one frame"
     advisory = ""
     if anchor_x is not None and layout in ("crop", "speaker"):
         # A focus position is the user's choice: the window stays where they put it, and the people it

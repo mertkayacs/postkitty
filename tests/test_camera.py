@@ -446,7 +446,7 @@ def test_auto_frames_two_people_who_fit_one_frame_together() -> None:
 
     assert (tall.layout, tall.note, tall.subjects_inside) == ("crop", "both people share one frame", 1.0)
     assert all(window.x <= 195.0 and window.x + window.w >= 540.0 for window in tall.windows)
-    assert (wide.layout, wide.subjects_inside) == ("crop", 1.0)
+    assert (wide.layout, wide.note, wide.subjects_inside) == ("crop", "both people share one frame", 1.0)
     assert all(window.x <= 195.0 and window.x + window.w >= 540.0 for window in wide.windows)
 
 
