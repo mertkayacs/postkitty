@@ -423,3 +423,42 @@ def test_focus_position_ignores_a_person_left_out_for_a_short_shot_only() -> Non
 
     assert (path.subjects_inside, path.advisory) == (1.0, "")
 
+
+def _face_track(person: int, first_x: float, last_x: float) -> Track:
+    return Track(
+        person,
+        person,
+        tuple(
+            TrackPoint(index / 5, first_x + (last_x - first_x) * index / 9, 105.0, 75.0, 100.0, 0.99)
+            for index in range(10)
+        ),
+    )
+
+
+def test_auto_frames_two_people_who_fit_one_frame_together() -> None:
+    # Two people side by side in a 640x480 film scene: a 4:5 frame holds both, but the camera
+    # followed one of them and cut the other for most of the clip.
+    info = InputInfo(width=640, height=480)
+    scan = _scan([_face_track(1, 195.0, 282.0), _face_track(2, 396.0, 465.0)], [(0.0, 2.0)])
+
+    tall = build_camera_path(info, scan, Target(1080, 1350), (0.0, 2.0))
+    wide = build_camera_path(info, scan, Target(1920, 1080), (0.0, 2.0))
+
+    assert (tall.layout, tall.note, tall.subjects_inside) == ("crop", "both people share one frame", 1.0)
+    assert all(window.x <= 195.0 and window.x + window.w >= 540.0 for window in tall.windows)
+    assert (wide.layout, wide.subjects_inside) == ("crop", 1.0)
+    assert all(window.x <= 195.0 and window.x + window.w >= 540.0 for window in wide.windows)
+
+
+def test_auto_keeps_the_whole_picture_when_two_people_cannot_share_or_split_the_frame() -> None:
+    scan = _scan([_track(1, [(index / 5, 40.0) for index in range(10)]),
+                  _track(2, [(index / 5, 1100.0) for index in range(10)])], [(0.0, 2.0)])
+    args = (InputInfo(), scan, Target(1080, 1080), (0.0, 2.0))
+
+    path = build_camera_path(*args)
+
+    assert (path.layout, path.subjects_inside) == ("pad", 1.0)
+    assert path.note == "the people in this clip do not fit one frame, so the full source is kept over a blurred fill"
+    assert build_camera_path(*args, focus="person:1").layout == "crop"
+    assert build_camera_path(*args, layout_override="crop").layout == "crop"
+

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import pairwise
 from typing import Any, Literal
 
@@ -425,6 +425,20 @@ def _can_split(
     return left, right
 
 
+def _shared_window(
+    scan: VideoScan, scene: tuple[float, float], width: int, height: int, aspect: float
+) -> tuple[Any, tuple[Track, Track]] | None:
+    """The one window that holds the two main people of a shot, when such a window exists."""
+    pair = _present_tracks(scan, *scene, minimum=0.5)[:2]
+    if len(pair) < 2:
+        return None
+    _, fit_crop, _ = _geometry()
+    fit = fit_crop(
+        width, height, aspect, [_subject(_representative(track, *scene), width, height) for track in pair]
+    )
+    return (fit.box, (pair[0], pair[1])) if fit.fits_all else None
+
+
 def _inside(box: Any, subject: Any) -> bool:
     return (
         subject.x >= box.x
@@ -451,18 +465,20 @@ def _left_outside(
     fps: float,
     width: int,
     height: int,
+    present: float = 0.0,
 ) -> tuple[int, int]:
     """People in the fullest shot, and how many a one-window layout leaves out for most of the clip.
 
     A cut ends a track, so a person cannot be followed across shots. Each shot counts the tracks
     that are out of its window for most of their samples, and a count stands when the shots with
-    at least that many people left out cover most of the clip.
+    at least that many people left out cover most of the clip. ``present`` is the share of a shot
+    a track must be seen in to count, so a passer-by does not decide the layout.
     """
     people = 0
     shots: list[tuple[float, int]] = []
     for scene in scenes:
         present = missed = 0
-        for track in scan.tracks:
+        for track in _present_tracks(scan, *scene, minimum=present):
             total = outside = 0
             for point in _points_in_scene(track, *scene):
                 index = math.floor((point.t - trim[0]) * fps + 1e-9)
@@ -564,6 +580,7 @@ def build_camera_path(
     inside_count = 0
     subject_count = 0
     speaker_cuts = 0
+    shared_crop = False
     for scene in scenes:
         indices = [index for index, t in enumerate(times) if scene[0] <= t < scene[1]]
         if not indices:
@@ -684,18 +701,29 @@ def build_camera_path(
                     )
                 speaker_cuts += max(0, len(segments) - 1)
         else:
-            selected_track = _select_track(tracks, person, *scene)
-            scene_windows = _track_windows(
-                selected_track,
-                scene_times,
-                scene,
-                info.width,
-                info.height,
-                target.aspect,
-                fps,
-                anchor_x,
+            # Without a chosen person or position, two people who fit one frame are framed together.
+            shared = (
+                _shared_window(scan, scene, info.width, info.height, target.aspect)
+                if person is None and anchor_x is None
+                else None
             )
-            accounting.append((selected_track, *scene, None))
+            if shared is not None:
+                scene_windows = [shared[0]] * len(indices)
+                accounting.extend((track, *scene, None) for track in shared[1])
+                shared_crop = True
+            else:
+                selected_track = _select_track(tracks, person, *scene)
+                scene_windows = _track_windows(
+                    selected_track,
+                    scene_times,
+                    scene,
+                    info.width,
+                    info.height,
+                    target.aspect,
+                    fps,
+                    anchor_x,
+                )
+                accounting.append((selected_track, *scene, None))
 
         for index, window in zip(indices, scene_windows, strict=True):
             windows[index] = window
@@ -725,9 +753,20 @@ def build_camera_path(
         note = f"cuts to whoever is talking ({speaker_cuts} {suffix})"
     elif layout == "pad":
         note = "full source retained over a blurred fill"
+    elif shared_crop:
+        note = "both people share one frame"
     else:
         note = "single-subject camera path"
     subjects_inside = inside_count / subject_count if subject_count else 1.0
+    if layout == "crop" and layout_override == "auto" and person is None and anchor_x is None:
+        # auto promises that nobody is cut: when the crop loses a person the shot holds for most of
+        # the clip, and no split is possible, the whole picture is kept.
+        _, outside = _left_outside(scan, windows, scenes, trim, fps, info.width, info.height, present=0.5)
+        if outside:
+            return replace(
+                build_camera_path(info, scan, target, trim, focus, "pad"),
+                note="the people in this clip do not fit one frame, so the full source is kept over a blurred fill",
+            )
     advisory = ""
     if anchor_x is not None and layout in ("crop", "speaker"):
         # A focus position is the user's choice: the window stays where they put it, and the people it
