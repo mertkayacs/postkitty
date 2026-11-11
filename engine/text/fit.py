@@ -228,34 +228,9 @@ def x_weighted_length(text: str) -> int:
 
 
 def _grapheme_count(text: str) -> int:
-    try:
-        import regex
+    import regex
 
-        return len(regex.findall(r"\X", text))
-    except Exception:
-        return _fallback_graphemes(text)
-
-
-def _fallback_graphemes(text: str) -> int:
-    count = 0
-    i = 0
-    while i < len(text):
-        count += 1
-        i += 1
-        while i < len(text):
-            cp = ord(text[i])
-            prev = ord(text[i - 1])
-            if unicodedata.combining(text[i]) or cp == 0xFE0F or 0x1F3FB <= cp <= 0x1F3FF:
-                i += 1
-                continue
-            if prev == 0x200D:
-                i += 1
-                continue
-            if cp == 0x200D:
-                i += 1
-                continue
-            break
-    return count
+    return len(regex.findall(r"\X", text))
 
 
 @functools.cache
@@ -481,24 +456,24 @@ def _pack(units: list[tuple[str, str]], fits) -> list[str]:
 
 
 def split_for_limit(text: str, rules: TextRules, max_parts: int = 50) -> list[str]:
-    """Split ``text`` on sentence boundaries, never inside a URL, with ``1/n`` suffixes."""
-    if _fits(text, rules):
-        return [text]
-    if rules.platform not in THREAD_PLATFORMS:
+    """Split ``text`` on sentence boundaries, never inside a URL, with ``1/n`` suffixes.
+
+    Returns ``[text]`` unchanged when it fits, when the platform has no threads, or when no split of at most
+    ``max_parts`` posts exists (a single word longer than a post, or too much text).
+    """
+    if _fits(text, rules) or rules.platform not in THREAD_PLATFORMS:
         return [text]
     units = _atoms(text)
-    for count in range(2, max_parts + 1):
-        worst_suffix = f" {count}/{count}"
+    for digits in range(1, len(str(max_parts)) + 1):
+        widest = f" {'9' * digits}/{'9' * digits}"  # room for the longest counter of this width
 
-        def fits_candidate(candidate: str, suffix: str = worst_suffix) -> bool:
+        def fits_with_counter(candidate: str, suffix: str = widest) -> bool:
             return _fits(candidate + suffix, rules)
 
-        parts = _pack(units, fits_candidate)
-        if len(parts) > count:
-            continue
-        with_suffix = [f"{part} {index + 1}/{len(parts)}" for index, part in enumerate(parts)]
-        if all(_fits(part, rules) for part in with_suffix):
-            return with_suffix
+        parts = _pack(units, fits_with_counter)
+        if len(parts) <= min(10**digits - 1, max_parts):
+            numbered = [f"{part} {index}/{len(parts)}" for index, part in enumerate(parts, start=1)]
+            return numbered if all(_fits(part, rules) for part in numbered) else [text]
     return [text]
 
 
@@ -653,16 +628,6 @@ def check_text(text: str, platform_names: list[str] | None = None, split_threads
             "notes": report.notes,
         }
     return result
-
-
-def rules_dict(rules: TextRules) -> dict:
-    return {
-        "unit": rules.unit,
-        "limit": rules.limit,
-        "hashtags_max": rules.hashtags_max,
-        "mentions_max": rules.mentions_max,
-        "bytes_max": rules.bytes_max,
-    }
 
 
 # Data copied from the libraries X publishes, so the count matches the composer.

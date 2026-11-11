@@ -160,7 +160,3 @@ def fit_facts(
             "facts": facts,
         }
     return result
-
-
-def free_text_platforms() -> list[str]:
-    return list(platforms.load_platforms())

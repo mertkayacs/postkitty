@@ -195,6 +195,18 @@ class TestSplit:
             assert part.endswith(f" {index}/{n}")
             assert c.x_weighted_length(part) <= 280
 
+    def test_two_digit_counters_still_fit(self):
+        report = c.fit("x", self._long(120))
+        n = len(report.parts)
+        assert report.ok and 10 <= n <= 50
+        assert [part.rsplit(" ", 1)[1] for part in report.parts] == [f"{i}/{n}" for i in range(1, n + 1)]
+        assert max(report.counts) <= 280
+
+    def test_more_than_fifty_posts_or_one_endless_word_is_not_split(self):
+        for draft in (self._long(700), "a" * 600):
+            report = c.fit("x", draft)
+            assert report.parts == [draft] and not report.ok and not report.split and report.overflow > 0
+
     def test_split_happens_on_sentence_boundaries(self):
         report = c.fit("x", self._long())
         for part in report.parts[:-1]:
