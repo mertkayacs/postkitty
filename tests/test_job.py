@@ -102,3 +102,29 @@ def test_a_platform_folder_name_stays_inside_ready(tmp_path, name):
     with pytest.raises(ValueError, match="platform folder"):
         jobs.ready_dir(job, name)
     assert [path.name for path in tmp_path.iterdir()] == [job.id]
+
+
+def test_two_scans_in_the_same_moment_get_separate_folders(tmp_path, monkeypatch):
+    first = jobs.create_job(tmp_path, [], "same text")
+    real_exists, looked = jobs.Path.exists, []
+
+    def not_there_yet(self, *args, **kwargs):
+        # The second scan looks for the folder just before the first scan creates it.
+        if self == first.root and not looked:
+            looked.append(self)
+            return False
+        return real_exists(self, *args, **kwargs)
+
+    monkeypatch.setattr(jobs.Path, "exists", not_there_yet)
+    second = jobs.create_job(tmp_path, [], "same text")
+    assert second.id != first.id and second.root != first.root
+
+
+def test_a_folder_with_spaces_and_non_ascii_letters_holds_a_job(tmp_path):
+    out = tmp_path / "çıktı klasörü 写真"
+    job = jobs.create_job(out, [out / "Doğum günü 🎂.jpg"])
+    manifest = jobs.load_manifest(job)
+    manifest["text"] = {"note": "İyi ki doğdun, 日本"}
+    jobs.save_manifest(job, manifest)
+    assert job.id.endswith("-dogum-gunu") and job.root.parent == out
+    assert jobs.load_manifest(jobs.open_job(out, job.id))["text"] == {"note": "İyi ki doğdun, 日本"}

@@ -93,16 +93,17 @@ def _ensure_dirs(root: Path) -> None:
         (root / relative).mkdir(parents=True, exist_ok=True)
 
 
-def _unique_root(out_dir: Path, base_id: str) -> Path:
-    candidate = job_path(out_dir, base_id)
-    if not candidate.exists():
-        return candidate
-    index = 2
+def _claim_root(out_dir: Path, base_id: str) -> Path:
+    """Create the first free folder for ``base_id``. mkdir is the claim, so two scans never share one."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    index = 1
     while True:
-        candidate = job_path(out_dir, f"{base_id}-{index}")
-        if not candidate.exists():
+        candidate = job_path(out_dir, base_id if index == 1 else f"{base_id}-{index}")
+        try:
+            candidate.mkdir()
             return candidate
-        index += 1
+        except FileExistsError:
+            index += 1
 
 
 def create_job(
@@ -124,7 +125,7 @@ def create_job(
     seed = Path(str(first)).stem if first is not None else (text.strip().split(" ")[0] if text.strip() else "post")
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     base_id = f"{stamp}-{slugify(seed)}"
-    root = _unique_root(out, base_id)
+    root = _claim_root(out, base_id)
     clean_id = root.name
     _ensure_dirs(root)
     created = _created_stamp()
