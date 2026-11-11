@@ -576,3 +576,24 @@ def test_surround_audio_is_mixed_down_to_stereo(tmp_path: Path, source_channels:
         text=True,
     ).stdout.strip()
     assert int(channels) == rendered
+
+
+@dataclass(frozen=True)
+class Advice:
+    value: Any
+    enforcement: str = "recommendation"
+
+
+def test_only_a_hard_duration_cap_cuts_the_video(tmp_path: Path) -> None:
+    # A story clip over the 60 seconds Instagram recommends was cut without being asked.
+    info = InputInfo(tmp_path / "unused.mp4", "long", 320, 180, 200.0, 1.0)
+    story = Target("instagram_story", 320, 180, {"duration_max": Advice(60.0)})
+    capped = Target("x_video", 320, 180, {"duration_max": Spec(140.0)})
+
+    kept = plan_video(info, _flat_scan(200.0), story, {"cover_at": 1.0})
+    cut = plan_video(info, _flat_scan(200.0), capped, {"cover_at": 1.0})
+
+    assert kept.trim == (0.0, 200.0)
+    assert "cut" not in kept.note
+    assert cut.trim == (0.0, 140.0)
+    assert cut.note.endswith("The video is cut to the 140 s x_video allows, from 0 s to 140 s.")

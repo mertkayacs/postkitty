@@ -13,7 +13,8 @@ from engine.video.checks import (
     repair_fps,
     repair_subjects,
 )
-from engine.video.render import VideoPlan, render_video
+from engine.video.render import VideoPlan, plan_video, render_video
+from engine.video.scan import VideoScan
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,10 @@ class Target:
     height: int
     limits: dict[str, Spec] = field(default_factory=dict)
     kind: str = "video"
+
+    @property
+    def aspect(self) -> float:
+        return self.width / self.height
 
 
 @dataclass(frozen=True)
@@ -349,3 +354,56 @@ def test_failed_repair_names_ffmpeg_and_leaves_no_partial_file(tmp_path: Path) -
         repair_fps(result, Target("square_video", 320, 180), check, {})
 
     assert [path.name for path in tmp_path.iterdir()] == ["broken.mp4"]
+
+
+def _two_second_plan(tmp_path: Path, target: Target, override: dict[str, Any]) -> tuple[InputInfo, Any]:
+    info = InputInfo(tmp_path / "source.mp4", "checks", 320, 180, 2.0, 20.0)
+    scan = VideoScan(scenes=[(0.0, 2.0)], tracks=[], faces={"sample_fps": 5.0, "frames": []}, audio_rms=[])
+    return info, plan_video(info, scan, target, {"cover_at": 0.5, **override})
+
+
+def test_recommended_duration_is_reported_and_the_file_is_left_alone(tmp_path: Path) -> None:
+    result, target = _render(tmp_path)
+    advised = Target(target.id, 320, 180, {"duration_max": Spec(1, enforcement="recommendation")})
+    size = result.file.stat().st_size
+
+    repaired, found, repairs = repair_mod.check_and_repair(result, advised, {})
+
+    check = {item.id: item for item in found}["video.duration_max"]
+    assert (check.status, check.hard) == ("advisory", False)
+    assert check.message == "The video is 2 s long, longer than the 1 s recommended for test_video. It was not cut."
+    assert repairs == []
+    assert repaired.file.stat().st_size == size
+
+
+def test_result_says_when_a_hard_cap_cut_the_video(tmp_path: Path) -> None:
+    _render(tmp_path)
+    capped = Target("test_video", 320, 180, {"duration_max": Spec(1)})
+    info, plan = _two_second_plan(tmp_path, capped, {})
+
+    result = render_video(info, plan, capped, tmp_path / "cut.mp4", tmp_path / "work")
+
+    check = {item.id: item for item in check_video(result, capped)}["video.duration_max"]
+    assert check.status == "pass"
+    assert check.message == "The video was cut to the 1 s test_video allows; it keeps 0 s to 1 s of the source."
+
+
+def test_user_trim_longer_than_a_hard_cap_is_repaired_to_fit(tmp_path: Path) -> None:
+    _render(tmp_path)
+    capped = Target("test_video", 320, 180, {"duration_max": Spec(1)})
+    info, plan = _two_second_plan(tmp_path, capped, {"trim": [0.0, 2.0]})
+    result = render_video(info, plan, capped, tmp_path / "asked.mp4", tmp_path / "work")
+
+    def rerender(overrides: dict[str, Any]) -> Any:
+        again = _two_second_plan(tmp_path, capped, overrides)[1]
+        return render_video(info, again, capped, tmp_path / "again.mp4", tmp_path / "work")
+
+    repaired, found, repairs = repair_mod.check_and_repair(
+        result, capped, {"overrides": {"trim": [0.0, 2.0]}, "render": rerender}
+    )
+
+    assert result.duration > 1.9
+    assert repairs == [{"check": "video.duration_max", "action": "repair_duration", "ok": True}]
+    assert repaired.duration <= 1.05
+    assert checks_mod.hard_pass(found)
+

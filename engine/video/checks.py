@@ -221,23 +221,26 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
             continue
         expected = _value(spec)
         passed = compare(measured, expected)
-        checks.append(
-            _check(
-                f"video.{key}",
-                target,
-                measured,
-                expected,
-                passed,
-                (
-                    f"The video {label} meets the {key.removeprefix(label.split()[0] + '_')} limit."
-                    if passed
-                    else f"The video {label} is below its minimum."
-                    if key.endswith("_min")
-                    else f"The video {label} exceeds its maximum."
-                ),
-                spec,
-            )
+        message = (
+            f"The video {label} meets the {key.removeprefix(label.split()[0] + '_')} limit."
+            if passed
+            else f"The video {label} is below its minimum."
+            if key.endswith("_min")
+            else f"The video {label} exceeds its maximum."
         )
+        if key == "duration_max" and not passed and not _hard(spec):
+            message = (
+                f"The video is {round(measured, 1):g} s long, longer than the {expected:g} s recommended "
+                f"for {target.id}. "
+                "It was not cut."
+            )
+        elif key == "duration_max" and passed and result.extra.get("cut_to_duration_max"):
+            start, end = result.extra["trim"]
+            message = (
+                f"The video was cut to the {expected:g} s {target.id} allows; "
+                f"it keeps {start:g} s to {end:g} s of the source."
+            )
+        checks.append(_check(f"video.{key}", target, measured, expected, passed, message, spec))
 
     bitrate_spec = _spec(target, "video_bps_max")
     if bitrate_spec is not None:

@@ -33,6 +33,7 @@ class VideoPlan:
     subjects_inside: float = 1.0
     normalize_audio: bool = True
     captions: Any = None
+    cut_to_duration_max: bool = False
 
 
 @cache
@@ -218,8 +219,11 @@ def plan_video(
             raise ValueError(f"trim starts at {trim[0]:g} s but the video is {info.duration:g} s long")
         trim = (trim[0], min(trim[1], info.duration))
     else:
-        maximum = float(_limit(target, "duration_max", info.duration))
-        trim = _best_trim(scan, info.duration, maximum)
+        # Only a cap the platform enforces may cut the user's video. A recommended length is left to the check.
+        cap = target.limits.get("duration_max")
+        enforced = cap is not None and getattr(cap, "enforcement", "hard") == "hard"
+        trim = _best_trim(scan, info.duration, float(_limit(target, "duration_max")) if enforced else info.duration)
+    cut = "trim" not in override and trim[1] - trim[0] < info.duration
 
     camera = build_camera_path(
         info,
@@ -244,11 +248,17 @@ def plan_video(
         layout=camera.layout,
         trim=trim,
         cover_at=cover_at,
-        note=camera.note,
+        note=(
+            f"{camera.note} The video is cut to the {trim[1] - trim[0]:g} s {target.id} allows, "
+            f"from {trim[0]:g} s to {trim[1]:g} s."
+        ).strip()
+        if cut
+        else camera.note,
         windows=camera.windows,
         subjects_inside=camera.subjects_inside,
         normalize_audio=not levels or max(levels) >= -50.0,
         captions=captions,
+        cut_to_duration_max=cut,
     )
 
 
@@ -421,7 +431,12 @@ def _render_result(
     video = next(
         stream for stream in probe["streams"] if stream["codec_type"] == "video"
     )
-    extra = {"trim": list(plan.trim), "probe": probe, "quiet_audio": not plan.normalize_audio}
+    extra = {
+        "trim": list(plan.trim),
+        "probe": probe,
+        "quiet_audio": not plan.normalize_audio,
+        "cut_to_duration_max": plan.cut_to_duration_max,
+    }
     if plan.captions is not None:
         extra["captions"] = {"file": str(plan.captions.file), "shown": captions_shown}
     return RenderResult(
