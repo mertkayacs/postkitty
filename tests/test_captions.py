@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from engine.photo.framing import Box
+from engine.probe import run_tool
 from engine.video import render as video_make
 from engine.video.captions import Captions, ass_document, load_captions
 from engine.video.render import VideoPlan, export_cover, plan_video, render_video
@@ -44,6 +45,10 @@ class InputInfo:
 
 
 REEL = Target("instagram_reel", 1080, 1920, {"safe_area": Spec({"top": 0.14, "bottom": 0.35, "side": 0.06})})
+
+
+# TikTok's published insets: the icon column makes the right one wider than the left.
+TIKTOK = Target("tiktok", 1080, 1920, {"safe_area": Spec({"top": 0.13, "bottom": 0.25, "left": 0.111, "right": 0.278})})
 
 
 def _dialogue(document: str) -> list[tuple[str, str, str]]:
@@ -173,9 +178,9 @@ def test_ass_control_characters_in_caption_text_stay_text() -> None:
 
 
 def _clip(path: Path, size: str = "270x480", duration: float = 2.0) -> InputInfo:
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
             "-i", f"color=c=black:s={size}:r=10:d={duration}", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(path),
         ],
         check=True,
@@ -270,3 +275,26 @@ def test_plan_reads_the_captions_override(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(video_make, "has_filter", lambda name: name != "ass")
     with pytest.raises(ValueError, match="this ffmpeg build has no libass"):
         _plan_with(tmp_path, {"captions": str(path)})
+
+
+def test_uneven_side_insets_shape_the_caption_box() -> None:
+    words = " ".join(["caption"] * 12)
+    document, _ = ass_document(Captions(Path("talk.srt"), ((0.0, 6.0, words),)), TIKTOK, (0.0, 6.0))
+
+    # 1080 wide: the box runs from x=120 to x=780, which holds 15 letters at font size 70.
+    # One inset for both sides (300 px) would leave 11.
+    assert ",2,120,300,480,1" in document
+    lines = [line for _, _, text in _dialogue(document) for line in text.split("\\N")]
+    assert lines == ["caption caption"] * 6
+
+
+def test_word_longer_than_a_narrow_line_is_cut_into_full_lines() -> None:
+    word = "Donaudampfschifffahrtsgesellschaftskapitän"
+    captions = Captions(Path("talk.srt"), ((0.0, 3.0, f"Der {word} kommt"),))
+
+    screens = _dialogue(ass_document(captions, TIKTOK, (0.0, 3.0))[0])
+
+    lines = [line for _, _, text in screens for line in text.split("\\N")]
+    assert lines == ["Der", word[:15], word[15:30], word[30:], "kommt"]
+    assert all(text.count("\\N") <= 1 for _, _, text in screens)
+

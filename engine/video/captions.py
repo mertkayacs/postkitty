@@ -110,12 +110,14 @@ def _wrap(text: str, limit: int) -> list[str]:
     return lines
 
 
-def _layout(target: Any) -> tuple[int, int, int, int]:
-    """Font size, side margin, bottom margin and columns per line for ``target``.
+def _layout(target: Any) -> tuple[int, int, int, int, int]:
+    """Font size, left, right and bottom margins, and columns per line for ``target``.
 
-    Captions sit on the bottom edge of the platform's caption-safe area. Targets without a published
-    safe area get a default: full-screen vertical feeds draw their own caption and buttons over the
-    lower quarter, other shapes only need a title-safe edge.
+    Captions sit on the bottom edge of the platform's caption-safe area, centred between its side
+    insets. A safe area gives one ``side`` inset, or ``left`` and ``right`` where the platform's
+    buttons make one side wider. Targets without a published safe area get a default: full-screen
+    vertical feeds draw their own caption and buttons over the lower quarter, other shapes only
+    need a title-safe edge.
     """
     spec = target.limits.get("safe_area")
     safe = getattr(spec, "value", spec) or {}
@@ -123,10 +125,10 @@ def _layout(target: Any) -> tuple[int, int, int, int]:
     side = float(safe.get("side") or (0.06 if tall else 0.05))
     bottom = float(safe.get("bottom") or (0.25 if tall else 0.08))
     font_size = max(18, round(min(target.height * 0.045, target.width * 0.065)))
-    margin_x = round(target.width * side)
+    left, right = (round(target.width * float(safe.get(edge) or side)) for edge in ("left", "right"))
     # 0.6 of the font size per letter is wide enough for the fallback fonts fontconfig picks.
-    columns = min(_MAX_COLUMNS, max(8, int((target.width - 2 * margin_x) / (font_size * 0.6))))
-    return font_size, margin_x, round(target.height * bottom), columns
+    columns = min(_MAX_COLUMNS, max(8, int((target.width - left - right) / (font_size * 0.6))))
+    return font_size, left, right, round(target.height * bottom), columns
 
 
 def _ass_time(centiseconds: int) -> str:
@@ -148,7 +150,7 @@ def ass_document(captions: Captions, target: Any, trim: tuple[float, float]) -> 
     Cue times move with the trim and are cut at its ends. A cue longer than two lines becomes
     several screens that share its time by their length.
     """
-    font_size, margin_x, margin_y, columns = _layout(target)
+    font_size, margin_left, margin_right, margin_y, columns = _layout(target)
     outline = max(2, round(font_size * 0.09))
     duration = trim[1] - trim[0]
     events: list[str] = []
@@ -174,7 +176,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,0,0,0,100,100,0,0,1,{outline},0,2,{margin_x},{margin_x},{margin_y},1
+Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,0,0,0,100,100,0,0,1,{outline},0,2,{margin_left},{margin_right},{margin_y},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
