@@ -8,6 +8,7 @@ reply.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -31,6 +32,32 @@ def _config(key: str, default: Any) -> Any:
         return default
 
 
+def _session_dir() -> str:
+    """The session's working directory. Inside the gateway the process directory is the gateway's own."""
+    try:
+        from agent.runtime_cwd import resolve_agent_cwd
+
+        return str(resolve_agent_cwd())
+    except Exception:
+        return os.getcwd()
+
+
+def _data_dir() -> str | None:
+    """The plugin's data folder, which survives plugin updates. ``None`` outside Hermes."""
+    try:
+        from plugins.plugin_storage import plugin_data_dir
+
+        return str(plugin_data_dir("postkitty"))
+    except Exception:
+        return None
+
+
+def apply_settings() -> None:
+    """Hand the plugin settings and the session's folders to the pipeline, fresh for every call."""
+    pipeline.configure(output_dir=_config("output_dir", ""), default_platforms=_config("default_platforms", []),
+                       loudness_lufs=_config("loudness_lufs", -14), base_dir=_session_dir(), data_dir=_data_dir())
+
+
 def _json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, default=str)
 
@@ -48,10 +75,7 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
         try:
             if not isinstance(args, dict):
                 raise ValueError("tool arguments must be an object")
-            if _CTX is not None:
-                pipeline.configure(output_dir=_config("output_dir", ""),
-                                   default_platforms=_config("default_platforms", []),
-                                   loudness_lufs=_config("loudness_lufs", -14))
+            apply_settings()
             return _json(fn(args))
         except pipeline.Unavailable as exc:
             return _json({"error": str(exc), "hint": "Text copy still works; this media kind is not available."})

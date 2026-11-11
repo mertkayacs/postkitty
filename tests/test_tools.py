@@ -823,3 +823,28 @@ def test_scan_says_which_inputs_it_does_not_use(out_dir, tmp_path, stub_image_en
 
 def test_redo_on_a_text_only_job_says_there_is_nothing_to_render(out_dir, text_job):
     assert "text only" in call(tools.redo, job=text_job, target="x_image", layout="pad")["error"]
+
+
+def test_relative_paths_start_at_the_session_folder(tmp_path, monkeypatch, stub_image_engine):
+    session, gateway = tmp_path / "session", tmp_path / "gateway"
+    session.mkdir()
+    gateway.mkdir()
+    Image.new("RGB", (1600, 1200), "orange").save(session / "me.jpg")
+    monkeypatch.delenv("POSTKITTY_OUTPUT_DIR", raising=False)
+    monkeypatch.chdir(gateway)
+    monkeypatch.setattr(tools, "_session_dir", lambda: str(session))
+    out = call(tools.scan, inputs=["me.jpg"], platforms=["x"])
+    assert out["inputs"][0]["path"] == str(session / "me.jpg")
+    assert Path(out["job_dir"]).parent == session / "postkitty"
+    assert call(tools.check, path="me.jpg", target="x_image")["file"] == str(session / "me.jpg")
+
+
+def test_session_folder_comes_from_hermes_and_falls_back_to_the_process_folder(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(sys.modules, "agent", None)
+    assert tools._session_dir() == str(tmp_path)
+    runtime = types.ModuleType("agent.runtime_cwd")
+    runtime.resolve_agent_cwd = lambda: Path("/srv/session")
+    monkeypatch.setitem(sys.modules, "agent", types.ModuleType("agent"))
+    monkeypatch.setitem(sys.modules, "agent.runtime_cwd", runtime)
+    assert tools._session_dir() == "/srv/session"

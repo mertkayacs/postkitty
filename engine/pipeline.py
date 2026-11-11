@@ -52,14 +52,17 @@ class ScanNeeded(ValueError):
 
 
 def configure(*, output_dir: str | os.PathLike[str] | None = None, default_platforms: list[str] | None = None,
-              loudness_lufs: float | None = None) -> None:
+              loudness_lufs: float | None = None, base_dir: str | os.PathLike[str] | None = None,
+              data_dir: str | os.PathLike[str] | None = None) -> None:
     """Set where job folders go, the platforms a scan uses when it names none, and the video loudness target.
 
-    A setting left as ``None`` keeps its value. An empty ``output_dir`` falls back to the
-    ``POSTKITTY_OUTPUT_DIR`` environment variable, then to ``./postkitty``.
+    ``base_dir`` is where relative input paths and a relative or empty ``output_dir`` start; unset, it is
+    the process working directory. ``data_dir`` holds the detection cache that outlives a job. A setting
+    left as ``None`` keeps its value. An empty ``output_dir`` falls back to the ``POSTKITTY_OUTPUT_DIR``
+    environment variable, then to ``postkitty`` under ``base_dir``.
     """
     for key, value in (("output_dir", output_dir), ("default_platforms", default_platforms),
-                       ("loudness_lufs", loudness_lufs)):
+                       ("loudness_lufs", loudness_lufs), ("base_dir", base_dir), ("data_dir", data_dir)):
         if value is not None:
             _SETTINGS[key] = value
 
@@ -68,8 +71,14 @@ def _setting(key: str, default: Any) -> Any:
     return _SETTINGS.get(key) or default
 
 
+def _resolve(raw: Any) -> Path:
+    """An absolute path; a relative one starts at ``base_dir``."""
+    path = Path(str(raw)).expanduser()
+    return path if path.is_absolute() else Path(_setting("base_dir", "") or Path.cwd()) / path
+
+
 def _out_dir() -> Path:
-    return jobs.default_out_dir(str(_setting("output_dir", "") or os.environ.get("POSTKITTY_OUTPUT_DIR", "")))
+    return _resolve(_setting("output_dir", "") or os.environ.get("POSTKITTY_OUTPUT_DIR", "") or "postkitty")
 
 
 def _engine(kind: str) -> SimpleNamespace:
@@ -143,7 +152,7 @@ def _bool_arg(args: dict, key: str, default: bool) -> bool:
 
 
 def _input_path(raw: Any) -> Path:
-    path = Path(str(raw)).expanduser()
+    path = _resolve(raw)
     if path.is_dir():
         raise ValueError(f"{raw} is a directory; give the image or video file itself")
     return path
@@ -199,11 +208,13 @@ class _LazyDetector:
         return self._get().detect(image)
 
 
-def _shared_faces_dir(eng: SimpleNamespace) -> Path:
+def _shared_faces_dir() -> Path:
     """Detections are cached by content hash across jobs, next to the model cache."""
     override = os.environ.get("POSTKITTY_FACES_CACHE")
     if override:
         return Path(override)
+    if _setting("data_dir", ""):
+        return Path(_setting("data_dir", "")) / "faces"
     return importlib.import_module(".detect.models", __package__).model_cache_dir().parent / "faces"
 
 
@@ -225,7 +236,7 @@ class _Media:
         eng = _engine(info.kind)
         if info.id not in self._scans:
             job_faces = self.job.work / "faces" / f"{info.sha256}.json"
-            shared = _shared_faces_dir(eng) / f"{info.sha256}.json"
+            shared = _shared_faces_dir() / f"{info.sha256}.json"
             if shared.is_file() and not job_faces.is_file():
                 job_faces.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(shared, job_faces)
