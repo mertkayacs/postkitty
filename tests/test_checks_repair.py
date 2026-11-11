@@ -120,7 +120,7 @@ def test_copy_checks_report_overflow_and_caps():
 
 
 def test_copy_bytes_cap_is_checked_per_post():
-    copyfit = __import__("engine.copyfit", fromlist=["x"])
+    copyfit = __import__("engine.text.fit", fromlist=["x"])
     rules = copyfit.rules_for("bluesky")
     thread = ["é" * 300] * 6  # 600 bytes each, 3,600 in total
     assert all(c.status == "pass" for c in checks.copy_checks("bluesky", thread, rules))
