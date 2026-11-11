@@ -124,8 +124,8 @@ def test_detect_image_caches_fake_results(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["", '{"schema": "postkitty.faces/1", "fra', '{"schema": "something/9"}'],
-    ids=["empty", "truncated", "other-schema"],
+    ["", '{"schema": "postkitty.faces/1", "fra', '{"schema": "something/9"}', "[]"],
+    ids=["empty", "truncated", "other-schema", "not-an-object"],
 )
 def test_detect_image_redetects_over_a_corrupt_cache(tmp_path: Path, content: str) -> None:
     path = tmp_path / "source.png"

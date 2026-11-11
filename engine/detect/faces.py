@@ -156,8 +156,8 @@ def saliency_box(image_bgr: np.ndarray) -> Box | None:
 
 def load_faces(path: Path) -> dict:
     document = json.loads(path.read_text(encoding="utf-8"))
-    if document.get("schema") != "postkitty.faces/1":
-        raise ValueError(f"unsupported faces schema: {document.get('schema')}")
+    if not isinstance(document, dict) or document.get("schema") != "postkitty.faces/1":
+        raise ValueError(f"{path} is not a postkitty.faces/1 document")
     return document
 
 
