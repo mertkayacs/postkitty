@@ -1,6 +1,11 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from engine.text import fit as c
+
+_CONFORMANCE = json.loads((Path(__file__).parent / "fixtures" / "twitter_text_weighted.json").read_text(encoding="utf-8"))
 
 
 class TestXWeighted:
@@ -25,14 +30,67 @@ class TestXWeighted:
     def test_zwj_family_is_not_summed_per_code_point(self):
         assert c.x_weighted_length("👨‍👩‍👧‍👦") == 2
 
-    def test_url_counts_23_whatever_its_length(self):
-        long_url = "https://example.com/" + "a" * 200
-        assert c.x_weighted_length(f"see {long_url} now") == 4 + 23 + 4
-        assert c.x_weighted_length("https://t.co/x") == 23
+    @pytest.mark.parametrize("case", _CONFORMANCE["cases"], ids=lambda case: case["description"][:60])
+    def test_twitter_text_conformance_suite(self, case):
+        assert c.x_weighted_length(case["text"]) == case["weighted_length"]
 
-    def test_bare_domain_counts_23_but_prose_with_dots_does_not(self):
-        assert c.x_weighted_length("example.com") == 23
-        assert c.x_weighted_length("e.g. this") == 9
+    # Expected values below come from twitter-text 3.1.0 parseTweet() with the twemoji-parser 14.0.0 emoji table.
+    @pytest.mark.parametrize("text, expected", [
+        ("see https://example.com/" + "a" * 200 + " now", 4 + 23 + 4),
+        ("https://en.wikipedia.org/wiki/Rust_(programming_language)", 23),  # balanced parentheses belong to the link
+        ("(https://example.com)", 25),
+        ("Read https://example.com.", 29),
+        ("https://example.com/a,b.", 24),
+        ("https://example.com/path日本語", 29),     # the link ends where the CJK text starts
+        ("https://example.com🎉", 25),
+        ("https://example.com\nhttps://example.org", 47),
+        ("https://t.co/abc-def", 27),               # a t.co link ends with its slug
+        ("https://пример.рф/путь", 23),
+        ("example.com", 23),
+        ("EXAMPLE.COM", 23),
+        ("example.eu", 23),
+        ("example.com/a?x=1", 23),
+        ("example.com?x=1", 27),                    # without a path the query stays plain text
+        ("example.com:8080", 28),
+        ("README.md", 23),                          # .md and .py are country domains, so X links file names
+        ("tools.py and SKILL.md", 51),
+        ("plugin.yaml", 11),
+        ("node.js", 7),
+        ("v1.0.0", 6),
+        ("e.g. this", 9),
+        ("me@example.com", 14),                     # an email address is no link
+        ("ftp://example.com", 17),
+        ("http://localhost:3000/x", 23),
+        ("Bitti.Şimdi", 11),
+        ("BİLGİ.İNFO", 10),                         # Turkish dotted İ is not the ASCII I of .info
+        ("bilgi.info", 23),
+        ("#🎉.example.com", 27),
+        ("example.com/abc–(c)", 27),                # a path does not end with a dash and a bracket pair
+        ("x_y.com:8080.com", 16),                   # no underscore next to the top-level domain
+        ("あ" * 20000 + ".", 40001),                 # long unspaced text is counted in linear time
+        ("a." * 10000, 20000),
+    ])
+    def test_links_count_23_exactly_where_x_links_them(self, text, expected):
+        assert c.x_weighted_length(text) == expected
+
+    @pytest.mark.parametrize("text, expected", [
+        ("❤️‍🔥", 2), ("🧔‍♂️", 2), ("🫱🏻‍🫲🏽", 2), ("🏴󠁧󠁢󠁥󠁮󠁧󠁿", 2), ("🏳️‍🌈", 2), ("⭐️", 2), ("©️", 2),
+        ("🇹🇷🇩🇪", 4), ("👍🏽👍🏽", 4),
+        ("©", 1),                                   # no emoji without its variation selector
+        ("🧔‍♂", 5),                                 # the gender sign needs U+FE0F to form the sequence
+        ("😀\u200d😀", 5),                          # a joiner between two emoji that form no known sequence
+        ("⭐🏻", 4),                                 # a skin tone after an emoji that takes none
+        ("🙂‍↔️", 5),                                # newer than the last Twemoji table
+    ])
+    def test_emoji_follow_the_twemoji_table(self, text, expected):
+        assert c.x_weighted_length(text) == expected
+
+    @pytest.mark.parametrize("text, expected", [
+        ("…", 2), ("“”", 2), ("—", 1), ("€", 2), ("₺", 2), ("™", 2), ("→", 2), ("•", 2), ("ß", 1), ("ẞ", 2),
+        ("ı", 1), ("İ", 1), ("ع", 1), ("ש", 1), ("я", 1), ("한", 2), ("\u200b", 1), ("\r\n", 2), ("\t", 1),
+    ])
+    def test_single_characters(self, text, expected):
+        assert c.x_weighted_length(text) == expected
 
     def test_limit_boundary(self):
         assert c.x_weighted_length("a" * 280) == 280
