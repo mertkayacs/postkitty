@@ -14,4 +14,4 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 # ASS subtitle headers must stay single lines.
-"engine/captions.py" = ["E501"]
+"engine/video/captions.py" = ["E501"]
