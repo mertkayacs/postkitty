@@ -819,3 +819,7 @@ def test_scan_says_which_inputs_it_does_not_use(out_dir, tmp_path, stub_image_en
     assert [entry["id"] for entry in out["inputs"]] == ["in1", "in2"]
     assert any("same file as in1" in note for note in out["notes"])
     assert any(note.startswith("in2 (b.jpg) is not used") for note in out["notes"])
+
+
+def test_redo_on_a_text_only_job_says_there_is_nothing_to_render(out_dir, text_job):
+    assert "text only" in call(tools.redo, job=text_job, target="x_image", layout="pad")["error"]

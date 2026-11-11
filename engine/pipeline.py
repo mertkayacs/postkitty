@@ -415,6 +415,8 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
     old = {t["id"]: t for t in manifest.get("targets", [])}
     media, masters, built, merged_overrides = _Media(job), {}, [], {}
     for tid in ids:  # every argument is checked before the first render
+        if not planned:
+            raise ValueError("this job is text only, so there is nothing to render again")
         if tid not in planned:
             raise ValueError(f"target {tid!r} is not planned in this job; planned: {sorted(planned)}")
         merged_overrides[tid] = {**old.get(tid, {}).get("override", {}), **(overrides.get(tid) or {})}
