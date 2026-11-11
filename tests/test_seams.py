@@ -91,6 +91,7 @@ def test_large_image_small_reduction_is_exact(
     assert analysis_widths == [1000]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in caire is a shebang script, which Windows cannot run")
 def test_caire_binary_on_path_is_used(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
