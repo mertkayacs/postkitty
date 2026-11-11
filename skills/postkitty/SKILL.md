@@ -99,6 +99,10 @@ One draft per platform, in the user's voice and language, plain and specific. Pu
 and Bluesky, give LinkedIn room to explain, keep TikTok and Reels captions short with the hook first. For YouTube
 the draft is the Shorts title.
 
+Counting follows each platform's own rule, so trust the counts the tool returns. X counts every link as 23
+characters and treats a file name such as `README.md` or `tools.py` as a link. Threads counts an emoji as its
+UTF-8 bytes.
+
 Clean up the draft as you adapt it: fix spelling, grammar and punctuation, and rewrite clumsy or run-on sentences.
 Keep the user's voice, language and facts.
 
