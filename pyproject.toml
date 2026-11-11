@@ -3,7 +3,7 @@
 # There is no build system on purpose: postkitty is installed as a Hermes plugin folder.
 [project]
 name = "postkitty"
-version = "1.0.0"
+version = "1.0.1"
 description = "One post in, every platform out. A Hermes Agent plugin."
 readme = "README.md"
 license = "MIT"

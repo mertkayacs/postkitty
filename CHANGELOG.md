@@ -2,6 +2,19 @@
 
 All notable changes to postkitty are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-11
+
+### Fixed
+
+- **Captions on a machine without fonts.** ffmpeg draws no caption text there and still exits cleanly, so a video came out without its captions while the result said they were burned in. A bare server or a container is where this happens. postkitty now draws the caption text once before it renders. No font at all stops the call with the reason. Text that no installed font has fails that target and names the characters. A symbol that no font has, an emoji for example, is left out and listed in the result. `/postkitty doctor` checks for a font on its Captions row.
+- **Cover frames.** When the cover frame of a finished video cannot be made, the row says so in its advice. The reason was stored and never shown.
+- **Setup check.** `/postkitty doctor` prints a fix once when it settles several rows. Without ffmpeg, the same install line appeared three times.
+
+### Changed
+
+- Captions of a split sit on the seam between the two people. At the bottom of the frame they covered the lower face.
+- The README and the troubleshooting page say what the ffmpeg that Hermes brings covers: on Windows and most Linux systems there is nothing to install for video, and on macOS ffprobe has to be added.
+
 ## [1.0.0] - 2026-11-11
 
 ### Changed

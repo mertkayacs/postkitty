@@ -1,7 +1,7 @@
 ---
 name: postkitty
 description: Fix a draft and make checked files for every platform.
-version: 1.0.0
+version: 1.0.1
 author: Mert Kaya
 license: MIT
 metadata:
