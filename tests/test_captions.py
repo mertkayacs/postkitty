@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -211,9 +212,10 @@ def _full_frame_plan(info: InputInfo, target: Target, captions: Captions | None,
 
 
 def test_render_burns_captions_inside_the_safe_area_at_the_trimmed_time(tmp_path: Path) -> None:
-    # The folder name holds every character that needs escaping in an ffmpeg filter graph,
-    # the drive colon and backslashes of a Windows path among them.
-    work = tmp_path / "C:\\Users\\it's a [job], 50%; x=1"
+    # The folder name holds every character that needs escaping in an ffmpeg filter graph. On POSIX it
+    # also holds the drive colon and backslashes of a Windows path, which Windows would read as a path
+    # outside the temp folder.
+    work = tmp_path / ("it's a [job], 50%; x=1" if sys.platform == "win32" else "C:\\Users\\it's a [job], 50%; x=1")
     info = _clip(tmp_path / "source.mp4", duration=4.0)
     target = Target("instagram_reel", 270, 480, REEL.limits)
     captions = Captions(tmp_path / "talk.srt", ((0.0, 1.5, "EARLY WORDS"), (2.5, 3.5, "LATE WORDS HERE"),))

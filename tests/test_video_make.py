@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -473,7 +474,17 @@ def test_pad_layout_scales_only_to_even_sizes(tmp_path: Path) -> None:
 
 
 
-@pytest.mark.parametrize("folder", ["it's a [job], 50%; x=1:2", "C:\\Users\\me\\jobs"])
+@pytest.mark.parametrize(
+    "folder",
+    [
+        # Windows refuses a colon inside a folder name.
+        "it's a [job], 50%; x=1" if sys.platform == "win32" else "it's a [job], 50%; x=1:2",
+        pytest.param(
+            "C:\\Users\\me\\jobs",
+            marks=pytest.mark.skipif(sys.platform == "win32", reason="on Windows this is a path outside the temp folder"),
+        ),
+    ],
+)
 def test_render_works_from_a_job_folder_with_quotes_and_filter_syntax_in_its_name(tmp_path: Path, folder: str) -> None:
     # The second name is one POSIX folder holding the drive colon and backslashes of a Windows path.
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
@@ -503,8 +514,9 @@ def test_hdr_phone_clip_is_rendered_as_sdr(tmp_path: Path, monkeypatch: Any) -> 
     _run(
         [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=320x180:r=10:d=0.5",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
-            "-colorspace", "bt2020nc", str(source),
+            # The frames carry the tags: newer ffmpeg ignores colour options given to the encoder.
+            "-vf", "format=yuv420p10le,setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc",
+            "-c:v", "libx264", str(source),
         ]
     )
     info = InputInfo(source, "hlg-source", 320, 180, 0.5, 10.0)
@@ -635,7 +647,8 @@ def test_no_video_step_needs_the_nice_binary(tmp_path: Path, monkeypatch: Any) -
     check_video(result, target)
 
     assert len(started) >= 8
-    assert {Path(name).name for name in started} == {"ffmpeg", "ffprobe"}
+    # Windows starts the full path that shutil.which returns, such as ffprobe.EXE.
+    assert {Path(name).stem.lower() for name in started} == {"ffmpeg", "ffprobe"}
 
 
 def test_render_result_carries_the_advisory_of_a_chosen_focus(tmp_path: Path) -> None:
