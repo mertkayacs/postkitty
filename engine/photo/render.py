@@ -53,7 +53,7 @@ def _salient_box(path: Path, sha256: str) -> Box | None:
     del sha256  # only part of the cache key: the same path can hold another photo later
     image = load_srgb(path).convert("RGB")
     width, height = image.size
-    # The saliency model works on a 64 px copy, so a small image gives the same region with far less memory.
+    # OpenCV computes this saliency on a 64 px copy, so a small image gives the same region with far less memory.
     image.thumbnail((512, 512))
     box = saliency_box(cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR))
     if box is None:
