@@ -59,7 +59,7 @@ def show(key: str, spec: dict) -> str:
     elif key.startswith("dimension"):
         text = f"{value:,} px"
     elif isinstance(value, dict):
-        text = ", ".join(f"{side} {amount:.0%}" for side, amount in value.items())
+        text = ", ".join(f"{side} {amount * 100:g}%" for side, amount in value.items())
     elif isinstance(value, list):
         text = ", ".join(str(item) for item in value)
     else:

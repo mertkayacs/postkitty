@@ -40,7 +40,7 @@ If you always post to the same places, set `default_platforms` once ([settings](
 |---|---|
 | "Use the video I recorded yesterday." | "The video is /home/me/talk.mp4." |
 
-postkitty reads files by their full path. One job is made from one photo, one video, or one of each. A photo gives you image targets and a video gives you video targets, so a request for TikTok needs a video and a request for a feed photo needs a photo.
+Give each file by its path. A full path always works, and a relative one starts at the folder of your Hermes session. One job is made from one photo, one video, or one of each. A photo gives you image targets and a video gives you video targets, so a request for TikTok needs a video and a request for a feed photo needs a photo.
 
 It reads JPEG, PNG, WebP, BMP, TIFF and still GIF images, and MP4, MOV, M4V, WebM, MKV, AVI and MTS video. HEIC and AVIF photos need the `pillow-heif` package. A phone JPEG that stores a second picture, such as a depth map, is read as one photo. An animated GIF, WebP or PNG is refused as an animated image, with a hint to export one frame or give a video.
 
@@ -52,9 +52,9 @@ Text alone works: paste the draft and name the platforms.
 |---|---|
 | "Make these ready for Instagram." | "Make each of these three photos ready for Instagram: /home/me/a.jpg, /home/me/b.jpg, /home/me/c.jpg" |
 
-Hermes runs postkitty once for each photo, so you get one job folder per photo, each with its own files and review board. postkitty does not assemble a carousel: you pick the photos in the app when you post.
+Hermes runs postkitty once for each photo, so you get one job folder per photo, each with its own files and review board. The text is written once, with the first photo. postkitty does not assemble a carousel: you pick the photos in the app when you post.
 
-When one job gets several photos, every target is made from the first one, and a note in the result says so.
+When one job gets several photos, every target is made from the first one, and a note in the result names the photo that was used.
 
 ## Say who stays in frame
 
@@ -74,7 +74,7 @@ postkitty frames each file around the faces it finds, and a check fails the file
 
 With `auto`, nobody is cut. With a person in focus, that person stays whole. A file that would cut them fails its check and is made again with the whole frame.
 
-A side or a point is your call. On a photo postkitty makes the crop exactly as you asked, marks the file ready, and tells you who is left outside the frame.
+A side or a point is your call. postkitty makes the crop exactly as you asked, in a photo and in a video, marks the file ready, and tells you who is left outside the frame.
 
 If you ask for a person who is not there, postkitty answers with the number of people it found.
 
@@ -140,7 +140,7 @@ Say which one you want. When you say nothing, Hermes shortens the text until it 
 
 postkitty draws the lines of an `.srt` or `.vtt` file into the video: white text with a dark outline, at most two lines at a time, at the bottom of the area the platform keeps clear of its buttons. The times follow your trim, and the cover frame stays free of captions.
 
-It does not transcribe speech, so you bring the subtitle file. Give its full path and say which clips get captions. Captions need an ffmpeg build with libass, and [Troubleshooting](troubleshooting.md#captions-cannot-be-burned-in) says how to get one.
+It does not transcribe speech, so you bring the subtitle file. Give its path and say which clips get captions. To take the captions off again, say so. Captions need an ffmpeg build with libass, and [Troubleshooting](troubleshooting.md#captions-cannot-be-burned-in) says how to get one.
 
 ## Ask for a change
 
@@ -164,3 +164,9 @@ If you swap the photo or the video itself, say so. Hermes then starts a new job,
 Name the file and the kind of post. postkitty measures the file (size, length, format, frame rate, bitrate and more, depending on the platform) and answers pass or fail with each failing check. It works for files made anywhere.
 
 Files that postkitty made are checked before they reach `ready/`, so there is no need to ask about those.
+
+The same check runs without the model when you type it as a command:
+
+```text
+/postkitty check /home/me/final.mp4 instagram_reel
+```

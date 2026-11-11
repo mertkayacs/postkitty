@@ -23,7 +23,7 @@
 
 <p align="center">
   <a href="#install"><img alt="Install" src="https://img.shields.io/badge/Install-B9472E?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIj48cGF0aCBkPSJNMTIgMjJWMTIiLz48cGF0aCBkPSJtMTYgMTcgMiAyIDQtNCIvPjxwYXRoIGQ9Ik0yMSAxMS4xMjdWOGEyIDIgMCAwIDAtMS0xLjczbC03LTRhMiAyIDAgMCAwLTIgMGwtNyA0QTIgMiAwIDAgMCAzIDh2OGEyIDIgMCAwIDAgMSAxLjcyOWw3IDRhMiAyIDAgMCAwIDIgLjAwMWwxLjMyLS43NTMiLz48cGF0aCBkPSJNMy4yOSA3IDEyIDEybDguNzEtNSIvPjxwYXRoIGQ9Im03LjUgNC4yNyA4Ljk5NyA1LjE0OCIvPjwvZz48L3N2Zz4%3D&logoColor=white"></a>
-  <a href="https://postkitty.mertkayacs.com/media/postkitty-launch.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-badge"><img alt="Watch the video" src="https://img.shields.io/badge/Watch%20the%20video-B9472E?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNNSA1YTIgMiAwIDAgMSAzLjAwOC0xLjcyOGwxMS45OTcgNi45OThhMiAyIDAgMCAxIC4wMDMgMy40NThsLTEyIDdBMiAyIDAgMCAxIDUgMTl6Ii8%2BPC9zdmc%2B&logoColor=white"></a>
+  <a href="https://postkitty.mertkayacs.com/media/explainer.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-badge"><img alt="Watch the video" src="https://img.shields.io/badge/Watch%20the%20video-B9472E?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNNSA1YTIgMiAwIDAgMSAzLjAwOC0xLjcyOGwxMS45OTcgNi45OThhMiAyIDAgMCAxIC4wMDMgMy40NThsLTEyIDdBMiAyIDAgMCAxIDUgMTl6Ii8%2BPC9zdmc%2B&logoColor=white"></a>
   <a href="https://postkitty.mertkayacs.com/try/?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=try-badge"><img alt="Try it" src="https://img.shields.io/badge/Try%20it-1E2A44?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIj48cGF0aCBkPSJNMTQgNC4xIDEyIDYiLz48cGF0aCBkPSJtNS4xIDgtMi45LS44Ii8%2BPHBhdGggZD0ibTYgMTItMS45IDIiLz48cGF0aCBkPSJNNy4yIDIuMiA4IDUuMSIvPjxwYXRoIGQ9Ik05LjAzNyA5LjY5YS40OTguNDk4IDAgMCAxIC42NTMtLjY1M2wxMSA0LjVhLjUuNSAwIDAgMS0uMDc0Ljk0OWwtNC4zNDkgMS4wNDFhMSAxIDAgMCAwLS43NC43MzlsLTEuMDQgNC4zNWEuNS41IDAgMCAxLS45NS4wNzR6Ii8%2BPC9nPjwvc3ZnPg%3D%3D&logoColor=white"></a>
   <a href="https://postkitty.mertkayacs.com/docs/?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=docs-badge"><img alt="Docs" src="https://img.shields.io/badge/Docs-1E2A44?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIj48cGF0aCBkPSJNMTIgNXYxNiIvPjxwYXRoIGQ9Ik0yMC4wMDEgMTlBMiAyIDAgMDAyMiAxN1Y1YTIgMiAwIDAwLTEuOTk5LTJMMTYgMy4wMDJBNSA1IDAgMDAxMiA1YTUgNSAwIDAwLTQtMkg0YTIgMiAwIDAwLTIgMnYxMmEyIDIgMCAwMDEuOTk5IDJIOGE1IDUgMCAwMTQgMiA1IDUgMCAwMTQtMnoiLz48L2c%2BPC9zdmc%2B&logoColor=white"></a>
   <a href="https://postkitty.mertkayacs.com/?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=website-badge"><img alt="Website" src="https://img.shields.io/badge/Website-1E2A44?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIvPjxwYXRoIGQ9Ik0xMiAyYTE0LjUgMTQuNSAwIDAgMCAwIDIwYTE0LjUgMTQuNSAwIDAgMCAwLTIwTTIgMTJoMjAiLz48L2c%2BPC9zdmc%2B&logoColor=white"></a>
@@ -34,7 +34,7 @@ postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousRes
 
 One of the best free and open source plugins for Hermes Agent on automatic multi social media content editing.
 
-[![Watch the postkitty video](docs/launch-poster.jpg)](https://postkitty.mertkayacs.com/media/postkitty-launch.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-poster)
+[![Watch the postkitty video: one post in, every platform out, explained in about a minute](docs/explainer-poster.jpg)](https://postkitty.mertkayacs.com/media/explainer.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-poster)
 
 ---
 
@@ -45,7 +45,7 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 - <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> **Counts text the way each platform does.** X is counted by the rules of its own twitter-text library, where a link is 23 characters and an emoji 2. Threads counts every emoji as its UTF-8 bytes, Bluesky counts graphemes and TikTok counts UTF-16 units.
 - <img src="docs/assets/readme/icons/list-checks.svg" width="18" height="18" alt=""> **Checks every file against the platform's published limits and repairs what fails.** Only passing files reach `ready/`.
 - <img src="docs/assets/readme/icons/layout-grid.svg" width="18" height="18" alt=""> **Builds a review board,** one page that shows every file with its text, alt text and checks.
-- <img src="docs/assets/readme/icons/square-terminal.svg" width="18" height="18" alt=""> **Answers `/postkitty` without the model:** every size and limit, plus a check of your setup.
+- <img src="docs/assets/readme/icons/square-terminal.svg" width="18" height="18" alt=""> **Works without the model too.** `/postkitty` shows every size and limit, checks your setup and checks a file. `hermes postkitty` does the same from a terminal and makes the files, for scripts and cron jobs.
 
 The words come from the model your Hermes uses: the rewritten drafts, the advice on where to post, and the alt text. The rest is code in this repository.
 
@@ -62,7 +62,7 @@ Answer yes when Hermes asks to install the Python packages and to turn the plugi
 ## What you need
 
 - **Hermes Agent 0.22.7 or newer**, running on Python 3.11 or newer.
-- **Four Python packages:** OpenCV, NumPy, Pillow and regex. Hermes installs them during the install step.
+- **Five Python packages:** OpenCV, NumPy, Pillow, regex and ruamel.yaml. Hermes installs them during the install step.
 - **ffmpeg with ffprobe on your PATH, for video only.** Text and photos work without it. Burning in captions needs an ffmpeg build with libass.
 
 To check all of it, type this in a Hermes chat. It prints one fix line for each thing that is missing.
@@ -146,7 +146,7 @@ The same engine answers over HTTP at `https://postkitty.mertkayacs.com/api`. [do
 ## Documentation
 
 - [How to ask](docs/how-to-ask.md): requests that get the right result the first time
-- [Tools](docs/tools.md): the five tools, the `/postkitty` command and the settings
+- [Tools](docs/tools.md): the five tools, the `/postkitty` and `hermes postkitty` commands and the settings
 - [Layouts](docs/layouts.md): crop, split, speaker, seam, pad and focus, with examples
 - [Platforms](docs/platforms.md): every size and limit with its source
 - [HTTP API](docs/api.md): the hosted API behind the playground
@@ -162,7 +162,7 @@ postkitty touches these things on your machine:
 
 - **Network:** one download. The first time a photo or a video is scanned, postkitty fetches the YuNet face detector from the OpenCV Zoo repository on GitHub, pinned to one commit, and checks its size and SHA-256 before using it. It makes no other request and sends no telemetry.
 - **Files it reads:** the photos, videos and subtitle files you name. It leaves them unchanged.
-- **Files it writes:** the job folder (`./postkitty` in the session's working folder unless you set another one) and its own data folder in the Hermes home, `plugin-data/postkitty/`, which holds the face model and cached detections.
+- **Files it writes:** the job folder (`./postkitty` in the session's working folder unless you set another one) and its own data folder in the Hermes home, `plugin-data/postkitty/`, which holds the face model and cached detections. Nothing is written into the plugin's install folder.
 - **Commands it runs:** `ffmpeg` and `ffprobe`, only while a tool call is working. The seam layout uses `caire` when it is installed.
 - **Background processes:** none.
 - **Credentials:** none. It needs no API key and stores no account data.
@@ -206,13 +206,38 @@ Hermes calls five tools, in this order. [docs/tools.md](docs/tools.md) has their
 </details>
 
 <details>
+<summary><b>Which commands work without the model?</b></summary>
+
+postkitty has commands that answer from the plugin, with no model involved.
+
+In a Hermes chat:
+
+- `/postkitty` shows what it does, example requests and every target with its size and limits.
+- `/postkitty tiktok` shows one platform.
+- `/postkitty doctor` checks your setup and prints one fix line for each problem.
+- `/postkitty check clip.mp4 tiktok` checks a file against a target.
+
+In a terminal, for scripts, cron jobs and release automation:
+
+```sh
+hermes postkitty make clip.mp4 --text-file post.txt --platforms tiktok,x
+hermes postkitty check clip.mp4 --target tiktok
+hermes postkitty platforms
+hermes postkitty doctor
+```
+
+`hermes postkitty make` uses your text as written: it counts and splits it for each platform and does not rewrite it. It exits with 0 only when every file is ready. [docs/tools.md](docs/tools.md#the-hermes-postkitty-terminal-command) has the options and the exit codes.
+
+</details>
+
+<details>
 <summary><b>Which settings can I change?</b></summary>
 
 postkitty has three settings. Change them on the plugin's settings page in Hermes, or under `plugins.entries.postkitty.settings` in `config.yaml`.
 
 - **`output_dir`**, empty by default: where job folders go. Empty means `./postkitty` in the session's working folder.
 - **`default_platforms`**, empty by default: the platforms to make when you name none. Empty means every platform that fits the input.
-- **`loudness_lufs`**, -14 by default: the loudness target for video audio.
+- **`loudness_lufs`**, -14 by default: the loudness target for video audio, from -70 to -5.
 
 </details>
 

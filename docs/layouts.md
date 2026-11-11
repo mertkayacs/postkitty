@@ -58,7 +58,7 @@ Focus says which person or which part of the frame a crop is built around.
 | `left`, `center`, `right` | The left edge, the middle or the right edge of the frame. |
 | `x:0.0` to `x:1.0` | A point across the frame, from the left edge (`0.0`) to the right edge (`1.0`). |
 
-`auto` cuts nobody, and `person:N` keeps that person whole: a file that would cut them fails its check and is made again as a `pad`. A side or a point is taken as given. On a photo the crop is made where you asked, the file is ready, and an advisory names how many people are outside the frame.
+`auto` cuts nobody, and `person:N` keeps that person whole: a file that would cut them fails its check and is made again as a `pad`. A side or a point is taken as given, in a photo and in a video. The crop is made where you asked, the file is ready, and an advisory says how many people are outside the frame. In a video that means outside for most of the clip.
 
 A focus on one person turns a split into a crop of that person. Asking for `person:3` when two people were found returns a message with the number of people in the file.
 
@@ -75,4 +75,4 @@ The cover is saved next to the video as `<name>_cover.jpg`.
 
 ## Captions
 
-Captions from an `.srt` or `.vtt` file are drawn at the bottom of the frame, at most two lines at a time. They sit inside the platform's published safe area where the platform publishes one, and inside postkitty's own default margin otherwise. [Platforms](platforms.md) shows the safe areas on the "Keep clear of the edges" rows, and [How to ask](how-to-ask.md#add-captions) says how to request captions.
+Captions from an `.srt` or `.vtt` file are drawn at the bottom of the frame, at most two lines at a time. They sit inside the platform's published safe area where the platform publishes one, and inside postkitty's own default margin otherwise. TikTok and YouTube Shorts publish separate left and right insets, Instagram and Facebook Reels publish one inset for both sides, and Threads and Bluesky get postkitty's default. [Platforms](platforms.md) shows the safe areas on the "Keep clear of the edges" rows, and [How to ask](how-to-ask.md#add-captions) says how to request captions.

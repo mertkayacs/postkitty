@@ -16,7 +16,7 @@ python -c "from ruamel.yaml import YAML; print('\n'.join(YAML(typ='safe').load(o
 python -m pip install -r .venv/requirements.txt
 ```
 
-The runtime packages live in `plugin.yaml`, so the third command reads them from there.
+The runtime packages are declared in `plugin.yaml` and again in `pyproject.toml`, and a test keeps the two lists identical. The third command reads them from `plugin.yaml`.
 
 ## Run the checks
 

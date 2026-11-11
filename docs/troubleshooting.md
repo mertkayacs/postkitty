@@ -6,7 +6,7 @@ Start here. Type this in a Hermes chat:
 /postkitty doctor
 ```
 
-It checks Python, ffmpeg and ffprobe, caption support, OpenCV, Pillow and the other Python packages, the face model and the output folder. Each problem gets one fix line, and the last line says what works now: text, photos, video, captions. The sections below cover the messages you can meet in a chat.
+It checks Python, ffmpeg and ffprobe, caption support, OpenCV, Pillow and the other Python packages, the face model and the output folder. Each problem gets one fix line, and the last line says what works now: text, photos, video, captions. From a terminal, `hermes postkitty doctor` prints the same report. The sections below cover the messages you can meet in a chat.
 
 - [The tools do not show up after installing](#the-tools-do-not-show-up-after-installing)
 - [ffmpeg is missing](#ffmpeg-is-missing)
@@ -49,7 +49,7 @@ The result of a scan has a `notes` list. A note names the input and the reason a
 
 | The reason says | What to do |
 |---|---|
-| The video or image engine needs a Python package | The install did not finish. Run `hermes plugins install postkitty --force` and answer yes to the Python packages. |
+| `Photos cannot be made here: the Python package ... is missing` (or `Video cannot be made here`) | The install did not finish. Run `hermes plugins install postkitty --force` and answer yes to the Python packages. |
 | A download or network error | See the next section. |
 | ffprobe or ffmpeg | See the section above. |
 
@@ -113,6 +113,8 @@ When a redo fails, the earlier file that passed stays in `ready/`, and the resul
 
 ## Other messages
 
+Every error comes with a hint that says what to do next: scan again, fix the argument, or run `/postkitty doctor`. Hermes acts on most of them by itself. These are the ones you may be asked about.
+
 | Message | Meaning | What to do |
 |---|---|---|
 | `input file not found` | The path does not point to a file. | Give the full path, starting from `/` or the drive. |
@@ -128,7 +130,8 @@ When a redo fails, the earlier file that passed stays in `ready/`, and the resul
 | `cover_at ... is outside the trim` | The cover time lies outside the trimmed part. | Pick a time between the trim's start and end. |
 | `is HDR video and this ffmpeg build has no zscale filter` | The clip is HDR and this ffmpeg cannot convert it. | Install an ffmpeg build with libzimg, or export the clip as SDR. |
 | `ffmpeg failed while rendering` | ffmpeg stopped with an error. The message ends with ffmpeg's own last lines. | Try the clip in a player. If it plays, report the message. |
-| `trim and cover_at apply to video only` | The target is made from a photo. | Leave those two out for photo targets. |
+| `trim, cover_at and captions apply to video only` | The target is made from a photo. | Leave those three out for photo targets. |
+| `this job is text only, so there is nothing to render again` | A change to a photo or a video was asked for in a job that has only text. | Give a photo or a video and start again. |
 
 ## Report a problem
 

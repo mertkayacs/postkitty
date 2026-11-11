@@ -17,7 +17,8 @@ plugin.yaml            manifest: name, version, tools, dependencies, settings
 __init__.py            register(ctx): the five tools, the skill, the /postkitty command
 schemas.py             tool names, descriptions and JSON parameters (what the model reads)
 tools.py               handlers: read arguments, call engine.pipeline, return JSON
-command.py             the text of the /postkitty command
+command.py             the /postkitty command
+cli.py                 the hermes postkitty terminal command
 engine/
   pipeline.py          scan, write, make, redo, check as plain functions, plus configure()
   platforms.py         loads data/platforms.yaml into typed specs
@@ -36,7 +37,7 @@ skills/postkitty/      SKILL.md, the workflow Hermes follows
 tests/
 ```
 
-**The Hermes adapter** is `__init__.py`, `schemas.py`, `tools.py` and `command.py`. `register(ctx)` registers the tools in the `postkitty` toolset, the skill and the command. A handler takes `(args, **kwargs)`, returns a JSON string and never raises: an exception from the engine becomes `{"error": "...", "hint": "..."}`. The handlers also read the plugin settings from Hermes and pass them to the engine.
+**The Hermes adapter** is `__init__.py`, `schemas.py`, `tools.py`, `command.py` and `cli.py`. `register(ctx)` registers the tools in the `postkitty` toolset, the skill, the `/postkitty` command and, where Hermes supports it, the `hermes postkitty` terminal command. A handler takes `(args, **kwargs)`, returns a JSON string and never raises: an exception from the engine becomes `{"error": "...", "hint": "..."}`. The handlers also read the plugin settings and the session's working folder from Hermes for every call and pass them to the engine, scoped to that call, because one gateway serves several sessions at once.
 
 **The engine** imports nothing from Hermes. The adapter hands it the session's working folder and the plugin's data folder. Without them it uses the current directory and `~/.cache/postkitty`. OpenCV, NumPy and Pillow are imported by the call that needs them, so loading the plugin stays cheap and a missing package switches off one kind of media while text keeps working.
 

@@ -51,6 +51,7 @@ when the source has transparency and the platform takes PNG.
 |  | Longer side, at most | 4,096 px | required | 2026-11-11 | [developers.tiktok.com](https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide) |
 |  | Length, at most | 600 s (the API maximum; every creator can post 3 minutes, some accounts 5 or 10) | required | 2026-11-11 | [developers.tiktok.com](https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide) |
 |  | File size, at most | 4 GB | required | 2026-11-11 | [developers.tiktok.com](https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide) |
+|  | Keep clear of the edges | top 12.5%, bottom 34.4%, left 11.1%, right 27.8% (TikTok's in-feed template (720x1280): top 160, bottom 440, left 80, right 80 plus an icon column 120 wide beside the lower 720, so right is 200) | advised | 2026-11-11 | [ads.tiktok.com](https://ads.tiktok.com/resources/help/article/tiktok-auction-in-feed-ads) |
 
 ## YouTube Shorts
 
@@ -60,6 +61,7 @@ when the source has transparency and the platform takes PNG.
 | `youtube_shorts`, video, `ready/youtube/shorts.mp4` | Output size | 1080×1920 | required | | |
 |  | Length, at most | 180 s | required | 2026-11-11 | [support.google.com](https://support.google.com/youtube/answer/15424877) |
 |  | Video bitrate, at most | 8 Mbps (1080p SDR at 24 to 30 fps; YouTube recommends 12 Mbps at 48 to 60 fps) | advised | 2026-11-11 | [support.google.com](https://support.google.com/youtube/answer/1722171) |
+|  | Keep clear of the edges | top 15%, bottom 35%, left 4.4%, right 17.8% (Google's drawing for vertical video ads (1080x1920): top 288, bottom 672, left 48, right 192) | advised | 2026-11-11 | [support.google.com](https://support.google.com/google-ads/answer/13547298) |
 
 ## X
 
@@ -126,5 +128,6 @@ when the source has transparency and the platform takes PNG.
 | Text | Length | 63,206 characters (not confirmed on a Facebook help or developer page; value carried from seed data) | advised | 2026-11-11 | [facebook.com](https://www.facebook.com/help/), secondary |
 | `facebook_reel`, video, `ready/facebook/reel.mp4` | Output size | 1080×1920 | required | | |
 |  | Aspect ratio, one of | 9:16 (1080 x 1920 recommended, 540 x 960 minimum) | advised | 2026-11-11 | [developers.facebook.com](https://developers.facebook.com/docs/video-api/guides/reels-publishing) |
+|  | Keep clear of the edges | top 14%, bottom 35%, side 6% | advised | 2026-11-11 | [facebook.com](https://www.facebook.com/business/ads-guide/update/video/facebook-facebook-reels) |
 | `facebook_feed`, photo, `ready/facebook/feed.jpg` | Output size | 1080×1350 | required | | |
 |  | Aspect ratio, one of | 4:5 | advised | 2026-11-11 | [facebook.com](https://www.facebook.com/business/ads-guide/update/image/facebook-feed) |
