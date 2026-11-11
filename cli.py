@@ -13,6 +13,7 @@ from pathlib import Path
 from . import command, tools
 from .engine import doctor, pipeline, probe
 from .engine.detect import models
+from .engine.text import fit
 
 USAGE = "Usage: hermes postkitty <make|check|platforms|doctor> ..., see hermes postkitty --help"
 
@@ -84,7 +85,7 @@ def _make(args: argparse.Namespace) -> int:
         written = pipeline.write({"job": scan["job"], "drafts": dict.fromkeys(scan["fit"], text)})
         for name, report in written["platforms"].items():
             fits = report["ok"] or report["enforcement"] != "hard"
-            state = "ready" if fits else f"over by {report['overflow']} {report['unit']}"
+            state = "ready" if fits else f"over by {report['overflow']} {fit.unit_words(report['unit'])}"
             print(f"{name + ' text':<20} {state:<10} {', '.join(report['files'])}")
             ready = ready and fits
     override = {key: value for key in ("layout", "focus") if (value := getattr(args, key))}

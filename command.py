@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import tools
 from .engine import doctor, pipeline, platforms
+from .engine.text import fit
 
 DOCS = "https://postkitty.mertkayacs.com/docs/"
 CHECK_USAGE = "Usage: /postkitty check <file> [target], for example /postkitty check clip.mp4 tiktok"
@@ -66,11 +67,17 @@ def targets(filter_text: str = "") -> str:
         if want and name not in want:
             continue
         limit = plat.text.get("limit")
-        text = f"text {limit.value} {limit.unit}" if limit else "no text limit"
+        text = f"text {limit.value} {fit.unit_words(limit.unit)}" if limit else "no text limit"
         lines.append(f"{plat.label}: {text}")
         for t in plat.targets.values():
-            extras = [f"{k.replace('_max', '')} <= {t.limits[k].value}" for k in ("duration_max", "bytes_max") if k in t.limits]
-            lines.append(f"  {t.id}: {t.width}x{t.height} {t.kind}" + (f" ({', '.join(extras)})" if extras else ""))
+            extras = []
+            if "duration_max" in t.limits:
+                extras.append(f"up to {t.limits['duration_max'].value:g} s")
+            if "bytes_max" in t.limits:
+                size = t.limits["bytes_max"].value
+                extras.append(f"up to {size / 1e9:g} GB" if size >= 1e9 else f"up to {size / 1e6:g} MB")
+            kind = "photo or video" if t.kind == "image_or_video" else "photo" if t.kind == "image" else t.kind
+            lines.append(f"  {t.id}: {t.width}x{t.height} {kind}" + (f" ({', '.join(extras)})" if extras else ""))
     return "\n".join(lines) or "No matching platform."
 
 

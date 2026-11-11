@@ -64,7 +64,7 @@ def test_cli_make_counts_the_text_as_given_and_exits_zero_when_everything_is_rea
     out = capsys.readouterr().out
     assert "x text" in out and "ready/x/post.txt" in out and "bluesky text" in out and "job folder:" in out
     assert cli.run(parse("make", "--text", "word " * 900, "--platforms", "linkedin")) == 1
-    assert "linkedin text" in (out := capsys.readouterr().out) and "over by 1500 codepoints" in out
+    assert "linkedin text" in (out := capsys.readouterr().out) and "over by 1500 characters" in out
 
 
 def test_cli_make_renders_every_target_with_the_layout_given(out_dir, tmp_path, capsys, stub_image_engine):
