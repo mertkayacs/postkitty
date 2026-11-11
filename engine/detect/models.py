@@ -58,14 +58,13 @@ def verify_yunet(path: Path) -> bool:
 def get_yunet_model(cache_dir: Path | None = None) -> Path:
     """Path of the verified face model, downloaded into the cache on first use.
 
+    A cached file that fails its checksum is never returned; a fresh download replaces it.
     Raises ModelUnavailable when the model is neither cached nor downloadable.
     """
     directory = cache_dir or model_cache_dir()
     path = directory / YUNET_FILENAME
-    if path.exists():
-        if verify_yunet(path):
-            return path
-        raise ValueError(f"YuNet model checksum mismatch: {path}")
+    if path.is_file() and verify_yunet(path):
+        return path
     try:
         directory.mkdir(parents=True, exist_ok=True)
         for delay in (*RETRY_DELAYS, None):

@@ -116,3 +116,28 @@ def test_a_reply_that_is_never_the_model_is_refused(monkeypatch: pytest.MonkeyPa
     with pytest.raises(models.ModelUnavailable, match="checksum"):
         models.get_yunet_model(tmp_path)
     assert len(calls) == 1 and list(tmp_path.iterdir()) == []
+
+
+def test_a_damaged_cached_model_is_replaced_by_a_verified_download(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    payload = b"verified model bytes"
+    monkeypatch.setattr(models, "YUNET_SHA256", hashlib.sha256(payload).hexdigest())
+    monkeypatch.setattr(models, "YUNET_SIZE", len(payload))
+    monkeypatch.setattr(models.urllib.request, "urlopen", lambda request, timeout: io.BytesIO(payload))
+    path = tmp_path / models.YUNET_FILENAME
+    path.write_bytes(b"wrong")
+
+    assert models.get_yunet_model(tmp_path) == path
+    assert path.read_bytes() == payload
+
+
+def test_a_damaged_cached_model_is_never_returned_when_the_download_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def offline(request, timeout):
+        raise models.urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
+
+    monkeypatch.setattr(models.urllib.request, "urlopen", offline)
+    (tmp_path / models.YUNET_FILENAME).write_bytes(b"wrong")
+
+    with pytest.raises(models.ModelUnavailable):
+        models.get_yunet_model(tmp_path)
