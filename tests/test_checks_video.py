@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from engine.photo.framing import Box
+from engine.probe import run_tool
 from engine.verify import checks as checks_mod
 from engine.verify import repair as repair_mod
 from engine.video.checks import (
@@ -51,14 +52,10 @@ class InputInfo:
 
 
 def _render(tmp_path: Path) -> tuple[Any, Target]:
-    import subprocess
 
     source = tmp_path / "source.mp4"
-    subprocess.run(
+    run_tool(
         [
-            "nice",
-            "-n",
-            "10",
             "ffmpeg",
             "-hide_banner",
             "-loglevel",
@@ -159,23 +156,22 @@ def test_minimum_failures_say_the_value_is_too_low(tmp_path: Path) -> None:
 
 def test_checker_measures_a_rotated_phone_clip_at_its_display_size(tmp_path: Path) -> None:
     # Phones store landscape pixels with a rotate tag; players and platforms show them as portrait.
-    import subprocess
 
     from engine.probe import probe
 
     flat = tmp_path / "flat.mp4"
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
             "-f", "lavfi", "-i", "testsrc2=s=320x180:r=20:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(flat),
         ],
         check=True,
         capture_output=True,
     )
     portrait = tmp_path / "portrait.mp4"
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
             "-display_rotation", "-90", "-i", str(flat), "-c", "copy", str(portrait),
         ],
         check=True,
@@ -196,12 +192,11 @@ def test_checker_measures_a_rotated_phone_clip_at_its_display_size(tmp_path: Pat
 def test_unpublished_defaults_are_advisory_for_a_user_file(tmp_path: Path) -> None:
     # A phone clip with Main profile and 44.1 kHz audio checked against a target whose platform
     # publishes neither rule must not be told it will be rejected.
-    import subprocess
 
     source = tmp_path / "phone.mp4"
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
             "-f", "lavfi", "-i", "testsrc2=s=320x180:r=20:d=1",
             "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
             "-c:v", "libx264", "-profile:v", "main", "-pix_fmt", "yuv420p",
@@ -226,12 +221,11 @@ def test_unpublished_defaults_are_advisory_for_a_user_file(tmp_path: Path) -> No
 
 def test_low_frame_rate_is_repaired_into_the_platform_range(tmp_path: Path) -> None:
     # A 15 fps screen recording failed tiktok and instagram_reel (fps_min 23) with nothing to repair it.
-    import subprocess
 
     source = tmp_path / "slow.mp4"
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
             "-f", "lavfi", "-i", "testsrc2=s=320x180:r=15:d=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(source),
         ],
         check=True,
@@ -301,14 +295,13 @@ def test_fps_repair_caps_real_output(tmp_path: Path) -> None:
 
 def test_audio_bitrate_repair_brings_a_reused_render_under_the_cap(tmp_path: Path) -> None:
     # A tiktok render at 160k was reused for instagram_reel and its audio.bitrate_max failure was final.
-    import subprocess
 
     from engine.video.checks import repair_audio_bitrate
 
     source = tmp_path / "source.mp4"
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-threads", "2", "-y",
             "-f", "lavfi", "-i", "testsrc2=s=320x180:r=20:d=2",
             "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2",
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(source),

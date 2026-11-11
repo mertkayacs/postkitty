@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from engine.photo.framing import Box
+from engine.probe import run_tool
 from engine.video.render import VideoPlan, export_cover, plan_video, render_video
 from engine.video.scan import Track, TrackPoint, VideoScan
 
@@ -43,8 +44,8 @@ class InputInfo:
 
 
 def _run(command: list[str]) -> None:
-    subprocess.run(
-        ["nice", "-n", "10", *command],
+    run_tool(
+        command,
         check=True,
         capture_output=True,
     )

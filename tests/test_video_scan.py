@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from engine.probe import run_tool
 from engine.video.scan import _build_tracks, make_peek, scan_video
 
 
@@ -69,8 +70,8 @@ class InputInfo:
 
 
 def _run(command: list[str]) -> None:
-    subprocess.run(
-        ["nice", "-n", "10", *command],
+    run_tool(
+        command,
         check=True,
         capture_output=True,
     )
