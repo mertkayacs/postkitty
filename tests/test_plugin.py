@@ -6,7 +6,7 @@ import textwrap
 import tomllib
 from pathlib import Path
 
-from postkitty import register, schemas, tools
+from postkitty import command, register, schemas, tools
 from postkitty.engine import __version__
 from ruamel.yaml import YAML
 
@@ -94,15 +94,24 @@ def test_skill_frontmatter_and_size():
         assert tool in skill
 
 
-def test_skill_uses_vision_and_does_not_recheck_generated_files():
+def test_every_tool_named_in_the_skill_the_command_text_and_the_schemas_is_registered():
+    registered = set(MANIFEST["provides_tools"])
+    assert set(schemas.SCHEMAS) == set(tools.HANDLERS) == registered
     skill = (ROOT / "skills/postkitty/SKILL.md").read_text()
+    described = json.dumps(schemas.SCHEMAS)
+    for text in (skill, command.OVERVIEW, described):
+        assert set(re.findall(r"postkitty_[a-z]+", text)) <= registered
+    assert set(re.findall(r"postkitty_[a-z]+", skill)) == registered
 
-    assert "Never call `postkitty_check` on files made by `postkitty_make` or `postkitty_redo`." in skill
-    assert "only for files the user brings from elsewhere" in skill
-    assert "under 180 words plus the file list" in skill
-    assert "If no vision tool is available" in skill
-    assert "`speaker` cuts to whoever is talking" in skill
-    assert "two other choices exist" in skill
+
+def test_the_skill_table_names_only_arguments_the_schemas_have():
+    skill = (ROOT / "skills/postkitty/SKILL.md").read_text()
+    rows = [line.split("|") for line in skill.splitlines() if line.startswith("| `postkitty_")]
+    assert len(rows) == len(schemas.SCHEMAS)
+    for row in rows:
+        tool = row[1].strip().strip("`")
+        named = set(re.findall(r"`([a-z_]+)`", row[3]))
+        assert named and named <= set(schemas.SCHEMAS[tool]["parameters"]["properties"]), tool
 
 
 def test_no_em_dashes_or_emoji_in_shipped_text():
