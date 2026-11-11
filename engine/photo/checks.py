@@ -1,29 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
-try:
-    from ..verify.checks import Check
-except ImportError:
-
-    @dataclass
-    class Check:
-        id: str
-        target: str
-        status: str
-        hard: bool
-        measured: Any
-        expected: Any
-        message: str
-        source_url: str | None = None
-        source_scope: str | None = None
-        checked_on: str | None = None
-
+from ..verify.checks import Check, register_checker
+from ..verify.repair import register
 
 # Output pixels per source pixel above which an enlarged image reads as blurry.
 UPSCALE_SOFT = 1.5
@@ -45,8 +29,8 @@ def _value(spec: Any | None, default: Any = None) -> Any:
     return default if spec is None else getattr(spec, "value", spec)
 
 
-def _hard(spec: Any | None, default: bool = True) -> bool:
-    return default if spec is None else getattr(spec, "enforcement", "hard") == "hard"
+def _hard(spec: Any | None) -> bool:
+    return spec is None or getattr(spec, "enforcement", "hard") == "hard"
 
 
 def _check(
@@ -228,20 +212,6 @@ def check_image(result: Any, target: Any) -> list[Check]:
     return checks
 
 
-def _call_rerender(rerender: dict[str, Any], updates: dict[str, Any]) -> Any | None:
-    callback: Callable[..., Any] | None = rerender.get("render") or rerender.get(
-        "rerender"
-    )
-    if callback is None:
-        return None
-    current = dict(rerender.get("overrides", {}))
-    current.update(updates)
-    try:
-        return callback(current)
-    except TypeError:
-        return callback(overrides=current)
-
-
 def repair_image_size(
     result: Any, target: Any, check: Check, rerender: dict[str, Any]
 ) -> Any | None:
@@ -267,27 +237,12 @@ def repair_image_subjects(
     result: Any, target: Any, check: Check, rerender: dict[str, Any]
 ) -> Any | None:
     del result, target, check
-    return _call_rerender(rerender, {"layout": "pad"})
+    render = rerender.get("render")
+    if render is None:
+        return None
+    return render({**rerender.get("overrides", {}), "layout": "pad"})
 
 
-def register_image_checker() -> bool:
-    try:
-        from ..verify.checks import register_checker
-    except ImportError:
-        return False
-    register_checker("image", check_image)
-    return True
-
-
-def register_image_repairs() -> bool:
-    try:
-        from ..verify.repair import register
-    except ImportError:
-        return False
-    register("image.bytes_max", repair_image_size)
-    register("frame.subjects_inside", repair_image_subjects)
-    return True
-
-
-register_image_checker()
-register_image_repairs()
+register_checker("image", check_image)
+register("image.bytes_max", repair_image_size)
+register("frame.subjects_inside", repair_image_subjects)

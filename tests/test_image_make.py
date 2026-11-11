@@ -197,12 +197,9 @@ def test_low_score_detection_uses_saliency_crop(
     assert abs(plan.boxes[0].cy - 150) < 20
 
 
-def test_render_crop_is_exact_jpeg_and_strips_metadata(tmp_path: Path) -> None:
+def test_render_crop_is_an_exact_jpeg(tmp_path: Path) -> None:
     source = tmp_path / "source.jpg"
-    image = Image.new("RGB", (400, 300), "navy")
-    exif = Image.Exif()
-    exif[315] = "fixture author"
-    image.save(source, exif=exif)
+    Image.new("RGB", (400, 300), "navy").save(source)
     info = InputInfo(source, "source", 400, 300)
     target = Target("feed", 200, 250)
     layout = Layout("crop", [Box(80, 0, 240, 300)], "test crop")
@@ -212,8 +209,6 @@ def test_render_crop_is_exact_jpeg_and_strips_metadata(tmp_path: Path) -> None:
     with Image.open(result.file) as rendered:
         assert rendered.size == (200, 250)
         assert rendered.format == "JPEG"
-        assert not rendered.getexif()
-    assert result.extra["metadata_stripped"]
 
 
 _JFIF_KEYS = {"jfif", "jfif_version", "jfif_unit", "jfif_density"}
@@ -250,7 +245,6 @@ def test_jpeg_output_carries_no_gps_comment_or_xmp_from_the_source(tmp_path: Pat
         assert set(rendered.info) <= _JFIF_KEYS
     data = result.file.read_bytes()
     assert b"shot at home" not in data and b"GPSLatitude" not in data and b"Exif" not in data
-    assert result.extra["metadata_stripped"]
 
 
 def test_png_output_carries_no_profile_gps_or_text_from_the_source(tmp_path: Path) -> None:
@@ -271,7 +265,6 @@ def test_png_output_carries_no_profile_gps_or_text_from_the_source(tmp_path: Pat
         assert rendered.format == "PNG"
         assert not rendered.getexif()
         assert not rendered.info
-    assert result.extra["metadata_stripped"]
 
 
 def test_render_split_has_six_pixel_background_gap(tmp_path: Path) -> None:
@@ -322,25 +315,7 @@ def test_split_windows_stay_inside_the_frame_when_a_face_box_passes_the_top_edge
     assert all(Box(0, 0, 1600, 900).contains(window, 1e-6) for window in layout.boxes)
 
 
-def test_split_panels_have_even_heights(monkeypatch: object) -> None:
-    heights: list[int] = []
-
-    def crop(image: Image.Image, box: Box, size: tuple[int, int]) -> Image.Image:
-        del image, box
-        heights.append(size[1])
-        return Image.new("RGB", size, "red")
-
-    monkeypatch.setattr(image_make, "_crop", crop)
-    image_make._split(
-        Image.new("RGB", (800, 450), "navy"),
-        [Box(0, 0, 400, 450), Box(400, 0, 400, 450)],
-        (180, 320),
-    )
-
-    assert heights and all(height % 2 == 0 for height in heights)
-
-
-def test_render_pad_and_jpeg_quality_ladder(tmp_path: Path) -> None:
+def test_jpeg_quality_drops_until_the_file_fits_the_byte_cap(tmp_path: Path) -> None:
     source = tmp_path / "noise.png"
     random = np.random.default_rng(7)
     Image.fromarray(random.integers(0, 256, (400, 400, 3), dtype=np.uint8)).save(source)

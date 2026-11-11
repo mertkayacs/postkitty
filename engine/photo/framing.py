@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import reduce
 from typing import Literal
 
 
@@ -52,16 +53,6 @@ class Box:
             and other.y >= self.y - tol
             and other.x2 <= self.x2 + tol
             and other.y2 <= self.y2 + tol
-        )
-
-    def expand(self, fx: float, fy: float) -> Box:
-        expanded_w = self.w * fx
-        expanded_h = self.h * fy
-        return Box(
-            self.cx - expanded_w / 2,
-            self.cy - expanded_h / 2,
-            expanded_w,
-            expanded_h,
         )
 
     def clamp(self, width: int, height: int) -> Box:
@@ -128,15 +119,13 @@ def fit_crop(
     headroom: bool = True,
 ) -> CropFit:
     crop_width, crop_height = _window_size(width, height, aspect)
+    combined = reduce(Box.union, keep) if keep else None
     if anchor is not None:
         if not all(0.0 <= value <= 1.0 for value in anchor):
             raise ValueError("anchor values must be between 0 and 1")
         desired_x = width * anchor[0] - crop_width / 2
         desired_y = height * anchor[1] - crop_height / 2
-    elif keep:
-        combined = keep[0]
-        for box in keep[1:]:
-            combined = combined.union(box)
+    elif combined is not None:
         desired_x = combined.cx - crop_width / 2
         if headroom and len(keep) == 1:
             eye_y = keep[0].y + keep[0].h * 0.4
@@ -147,33 +136,14 @@ def fit_crop(
         desired_x = (width - crop_width) / 2
         desired_y = (height - crop_height) / 2
 
-    if keep and anchor is None:
-        combined = keep[0]
-        for box in keep[1:]:
-            combined = combined.union(box)
+    x = min(max(0.0, desired_x), width - crop_width)
+    y = min(max(0.0, desired_y), height - crop_height)
+    if combined is not None and anchor is None:
+        # Where the subjects fit along an axis, the window slides on that axis until it holds all of them.
         if combined.w <= crop_width:
-            x = _origin(
-                desired_x,
-                crop_width,
-                width,
-                combined.x2 - crop_width,
-                combined.x,
-            )
-        else:
-            x = min(max(0.0, desired_x), width - crop_width)
+            x = _origin(desired_x, crop_width, width, combined.x2 - crop_width, combined.x)
         if combined.h <= crop_height:
-            y = _origin(
-                desired_y,
-                crop_height,
-                height,
-                combined.y2 - crop_height,
-                combined.y,
-            )
-        else:
-            y = min(max(0.0, desired_y), height - crop_height)
-    else:
-        x = min(max(0.0, desired_x), width - crop_width)
-        y = min(max(0.0, desired_y), height - crop_height)
+            y = _origin(desired_y, crop_height, height, combined.y2 - crop_height, combined.y)
 
     crop = Box(x, y, crop_width, crop_height)
     cut = [index for index, box in enumerate(keep) if not crop.contains(box, 1e-6)]

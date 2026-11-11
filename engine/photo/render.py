@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import io
 import tempfile
-from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, reduce
 from pathlib import Path
 from typing import Any
 
@@ -12,21 +11,9 @@ import numpy as np
 from PIL import Image, ImageCms, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 from ..detect.faces import SUBJECT_MIN_SCORE, faces_at, saliency_box
+from ..verify.checks import RenderResult
 from .framing import Box, Layout, choose_layout, fit_crop, subject_box
 from .seams import seam_engine, seam_resize
-
-
-@dataclass
-class _FallbackRenderResult:
-    target: str
-    file: Path
-    width: int
-    height: int
-    duration: float | None
-    bytes: int
-    layout: dict[str, Any]
-    subjects_inside: float | None
-    extra: dict[str, Any]
 
 
 def _limit(target: Any, key: str, default: Any = None) -> Any:
@@ -124,9 +111,7 @@ def _tight_pad_box(
 ) -> Box:
     if not subjects:
         return Box(0.0, 0.0, float(width), float(height))
-    combined = subjects[0]
-    for subject in subjects[1:]:
-        combined = combined.union(subject)
+    combined = reduce(Box.union, subjects)
     crop_width = min(float(width), combined.w * 1.12)
     crop_height = min(float(height), combined.h * 1.12)
     if crop_width / crop_height > aspect:
@@ -258,7 +243,7 @@ def _srgb(image: Image.Image) -> Image.Image:
 
 
 def load_srgb(path: Path) -> Image.Image:
-    """Open a source the way every stage must see it: oriented, 8-bit, sRGB, alpha kept."""
+    """Open a source the way every stage must see it: oriented, 8-bit, sRGB, alpha kept, metadata dropped."""
     with Image.open(path) as opened:
         return _srgb(ImageOps.exif_transpose(opened))
 
@@ -409,20 +394,12 @@ def _save(
     return selected, out_path
 
 
-def _result_type() -> type:
-    try:
-        from ..verify.checks import RenderResult
-    except ImportError:
-        return _FallbackRenderResult
-    return RenderResult
-
-
 def render_image(
     info: Any,
     layout: Layout,
     target: Any,
     out_path: Path,
-) -> Any:
+) -> RenderResult:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     image = load_srgb(info.path)
     has_alpha = bool(getattr(info, "has_alpha", False) or "A" in image.getbands())
@@ -440,11 +417,7 @@ def render_image(
     with Image.open(out_path) as output:
         width, height = output.size
         output_format = str(output.format).lower()
-        metadata_stripped = not output.getexif() and not {
-            key for key in output.info if key not in {"jfif", "jfif_version", "jfif_unit", "jfif_density"}
-        }
-    result_type = _result_type()
-    return result_type(
+    return RenderResult(
         target=target.id,
         file=out_path,
         width=width,
@@ -454,7 +427,6 @@ def render_image(
         layout={"mode": layout.mode, "note": layout.note},
         subjects_inside=0.0 if " cuts " in layout.note else 1.0,
         extra={
-            "metadata_stripped": metadata_stripped,
             "format": output_format,
             "quality": quality,
             "seam_engine": engine,

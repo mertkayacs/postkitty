@@ -28,7 +28,7 @@ def test_crop_has_target_aspect_and_stays_inside(
     box_width=st.floats(0.05, 0.25, allow_nan=False),
     box_height=st.floats(0.05, 0.25, allow_nan=False),
 )
-def test_fitting_crop_contains_every_keep_box(
+def test_crop_keeps_every_box_when_together_they_fit_the_window(
     width: int,
     height: int,
     left: float,
@@ -47,7 +47,9 @@ def test_fitting_crop_contains_every_keep_box(
     ]
     result = fit_crop(width, height, 1.0, boxes)
 
-    if result.fits_all:
+    together = boxes[0].union(boxes[1])
+    if together.w <= result.box.w and together.h <= result.box.h:
+        assert result.fits_all
         assert all(result.box.contains(box, 1e-6) for box in boxes)
 
 
@@ -68,14 +70,13 @@ def test_anchor_moves_crop_window() -> None:
     assert right.x > left.x
 
 
-def test_box_helpers_and_subject_box() -> None:
+def test_box_geometry_and_the_subject_box_around_a_face() -> None:
     face = Box(10, 20, 30, 40)
     subject = subject_box(face, 100, 100)
 
     assert subject == Box(0, 0, 58.0, 100.0)
     assert Box(0, 0, 10, 10).intersect(Box(5, 5, 10, 10)) == Box(5, 5, 5, 5)
     assert Box(0, 0, 10, 10).union(Box(5, 5, 10, 10)) == Box(0, 0, 15, 15)
-    assert Box(10, 20, 30, 40).expand(2, 3) == Box(-5, -20, 60, 120)
     assert Box(1.2, 2.8, 3.1, 4.1).to_int() == Box(1, 2, 4, 5)
 
 
@@ -88,7 +89,7 @@ def test_crop_centers_subject_that_is_too_large_to_fit() -> None:
     assert crop.cx == subject.cx
 
 
-def test_layout_selection() -> None:
+def test_layout_falls_back_to_split_seam_or_pad_when_one_crop_cuts_a_subject() -> None:
     separated = [Box(0, 200, 250, 400), Box(1750, 200, 250, 400)]
 
     assert choose_layout(2000, 1000, 9 / 16, separated, True).mode == "split"

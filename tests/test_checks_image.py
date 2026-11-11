@@ -6,13 +6,7 @@ from typing import Any
 
 from PIL import Image
 
-from engine.photo.checks import (
-    check_image,
-    register_image_checker,
-    register_image_repairs,
-    repair_image_size,
-    repair_image_subjects,
-)
+from engine.photo.checks import check_image, repair_image_size, repair_image_subjects
 from engine.verify import checks as checks_mod
 from engine.verify import repair as repair_mod
 
@@ -44,7 +38,7 @@ def _result(path: Path, subjects_inside: float = 1.0) -> Any:
         bytes=path.stat().st_size,
         layout={"mode": "crop", "note": "test"},
         subjects_inside=subjects_inside,
-        extra={"quality": 92, "metadata_stripped": True},
+        extra={"quality": 92},
     )
 
 
@@ -177,8 +171,6 @@ def test_subject_repair_requests_pad(tmp_path: Path) -> None:
     assert calls == [{"layout": "pad"}]
 
 
-def test_registration_functions_are_callable() -> None:
-    assert register_image_checker()
-    assert register_image_repairs()
+def test_importing_the_module_registers_the_image_checker_and_the_size_repair() -> None:
     assert check_image in checks_mod._CHECKERS["image"]
     assert repair_mod._STRATEGIES["image.bytes_max"] is repair_image_size
