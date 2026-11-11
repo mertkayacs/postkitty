@@ -588,12 +588,12 @@ def _write(job: jobs.Job, args: dict) -> dict:
     if not (_dict_arg(args, "drafts") or _dict_arg(args, "advice") or _dict_arg(args, "alt_text")):
         raise ValueError("give at least one of drafts, advice or alt_text")
     advice = _dict_arg(args, "advice")
+    result: dict[str, Any] = {}
+    drafts, draft_notes = _platform_drafts(_dict_arg(args, "drafts"))  # every argument is checked before a file is written
+    unknown = _write_alt(job, manifest, _dict_arg(args, "alt_text"))
     if advice:
         manifest["advice"] = advice
         jobs.write_advice(job, advice)
-    result: dict[str, Any] = {}
-    drafts, draft_notes = _platform_drafts(_dict_arg(args, "drafts"))
-    unknown = _write_alt(job, manifest, _dict_arg(args, "alt_text"))  # may reject keys before any draft is written
     for name, draft in drafts.items():
         report = copyfit.fit(name, draft, split_threads=split)
         rules = copyfit.rules_for(name)

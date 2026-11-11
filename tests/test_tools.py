@@ -867,3 +867,8 @@ def test_a_job_id_cannot_leave_the_output_folder(out_dir):
     out = call(tools.scan, text="hi", job="../../outside")
     assert Path(out["job_dir"]).parent == out_dir
     assert "does not exist" in call(tools.make, job="../../etc")["error"]
+
+
+def test_a_refused_write_leaves_no_advice_file(out_dir, text_job):
+    out = call(tools.write, job=text_job, advice={"topic": "Sentences"}, drafts={"x": ""})
+    assert "error" in out and not (out_dir / text_job / "advice.md").exists()
