@@ -30,14 +30,15 @@ SCHEMAS = {
         "name": "postkitty_scan",
         "description": (
             "Always the first call for a social media post, also when the user only wants a draft fixed or asks "
-            "what to post where. Give the user's photos, one landscape video, their draft text, or any mix; text "
-            "alone works. It opens a job, finds the people and shots, plans a framing for each platform target and "
+            "what to post where. Give one photo, one landscape video or one of each, the user's draft text, or any "
+            "mix; text alone works. It opens a job, finds the people and shots, plans a framing for each platform target and "
             "returns the job id, the plan, fit facts (sizes, character counts, limits), notes and the path of a "
             "preview image. It renders nothing and never posts or uploads. Load the skill postkitty:postkitty "
             "(skill_view) before the first call for the full workflow."),
         "parameters": {"type": "object", "properties": {
             "inputs": {"type": "array", "items": {"type": "string"},
-                       "description": 'Paths of photos or one video, absolute or relative to the working directory. '
+                       "description": 'One photo or one video, or one of each: paths, absolute or relative to the '
+                                      'working directory. For several photos call the tools once per photo. '
                                       'Example: ["/home/me/team.jpg"].'},
             "text": {"type": "string", "description": "The user's draft exactly as they wrote it."},
             "platforms": {"type": "array", "items": {"type": "string"},

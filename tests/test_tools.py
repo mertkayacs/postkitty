@@ -754,14 +754,17 @@ def test_write_with_nothing_to_write_is_an_error(out_dir, text_job):
     assert "give at least one of drafts" in call(tools.write, job=text_job)["error"]
 
 
-def test_scan_says_which_inputs_it_does_not_use(out_dir, tmp_path, stub_image_engine):
-    first, second = tmp_path / "a.jpg", tmp_path / "b.jpg"
+def test_scan_says_which_photo_a_job_with_several_photos_uses(out_dir, tmp_path, stub_image_engine):
+    first, second = tmp_path / "team.jpg", tmp_path / "b.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(first)
     Image.new("RGB", (1600, 1200), "blue").save(second)
     out = call(tools.scan, inputs=[str(first), str(first), str(second)], platforms=["x"])
-    assert [entry["id"] for entry in out["inputs"]] == ["in1", "in2"]
+    assert [(entry["id"], entry["used"]) for entry in out["inputs"]] == [("in1", True), ("in2", False)]
     assert any("same file as in1" in note for note in out["notes"])
-    assert any(note.startswith("in2 (b.jpg) is not used") for note in out["notes"])
+    several = [note for note in out["notes"] if note.startswith("2 photos were given")]
+    assert several and "this job uses team.jpg" in several[0] and "once per photo" in several[0]
+    single = call(tools.scan, inputs=[str(first)], platforms=["x"])
+    assert single["inputs"][0]["used"] is True and single["notes"] == []
 
 
 def test_redo_on_a_text_only_job_says_there_is_nothing_to_render(out_dir, text_job):

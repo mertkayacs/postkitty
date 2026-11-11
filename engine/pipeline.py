@@ -567,8 +567,14 @@ def scan(args: dict) -> dict:
                 plan = _plan_summary(info, None, target)
             plans.append({"id": target.id, "input": info.id, "size": f"{target.width}x{target.height}", **plan})
         used = {plan["input"] for plan in plans}
-        notes.extend(f"{info.id} ({info.path.name}) is not used: each target is made from the first photo or the first video"
-                     for info in infos if plans and info.id not in used)
+        for entry in entries:
+            entry["used"] = entry["id"] in used
+        for kind, word in (("image", "photo"), ("video", "video")):
+            same = [info for info in infos if info.kind == kind]
+            chosen = next((info for info in same if info.id in used), None)
+            if chosen and len(same) > 1:  # one job makes each platform file from one photo and one video
+                notes.append(f"{len(same)} {word}s were given. Each platform file is made from one {word}, and this "
+                             f"job uses {chosen.path.name}. Run postkitty once per {word} for the others.")
         jobs.write_json(job.work / "scan.json", {"targets": plans, "inputs": entries, "peek": peek, "notes": notes})
         jobs.save_manifest(job, manifest)
         return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,

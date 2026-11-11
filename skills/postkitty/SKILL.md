@@ -68,8 +68,12 @@ yourself. The row then reports `captions` with the number of caption screens `sh
 Call `postkitty_scan` first, even for text only. Read `inputs` (kind, size, duration, `people`, `shots`), `plan`
 (layout, trim and cover proposal per target), `fit` (per-platform facts) and `text` (character, X weighted,
 grapheme, hashtag, mention and URL counts). Keep the `job` id for every later call. Read `notes` too and tell the
-user what they say: a media step that was skipped and why, a file that was given twice, or an input that is not
-used (each target is made from the first photo or the first video).
+user what they say: a media step that was skipped and why, a file that was given twice, or which photo a job
+with several photos uses.
+
+Several photos: one job makes each platform file from one photo (and one video). For more photos run
+`postkitty_scan`, `postkitty_write` and `postkitty_make` once per photo, give the text to the first job only, and
+tell the user that each photo has its own job folder. Never say that a carousel was assembled.
 
 If a vision tool is available (`vision_analyze` or similar), inspect the scan's `peek` image and every photo input
 before writing advice or alt text. The peek is a still or a keyframe strip of the user's media.
