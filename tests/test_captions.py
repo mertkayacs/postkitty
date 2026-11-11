@@ -244,6 +244,23 @@ def test_render_burns_captions_inside_the_safe_area_at_the_trimmed_time(tmp_path
     assert _gray_frame(export_cover(info, plan, target, tmp_path / "cover.jpg"), 0.0, 270, 480).max() < 40
 
 
+def test_captions_of_a_split_sit_on_the_seam_between_the_two_people(tmp_path: Path) -> None:
+    info = _clip(tmp_path / "source.mp4", size="480x270")
+    target = Target("instagram_reel", 270, 480, REEL.limits)
+    captions = Captions(tmp_path / "talk.srt", ((0.0, 2.0, "BETWEEN THEM"),))
+    halves = (Box(0.0, 0.0, 240.0, 270.0), Box(240.0, 0.0, 240.0, 270.0))
+    plan = VideoPlan(target.id, "split", (0.0, 2.0), 0.0, "", [halves] * 20, captions=captions)
+
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "work")
+
+    rows, columns = np.where(_gray_frame(result.file, 1.0, 270, 480) > 150)
+    # The two panels meet at half the height. At the bottom of the frame the words would cover the lower face.
+    assert rows.size > 50
+    assert 480 * 0.42 < rows.min() and rows.max() < 480 * 0.58
+    assert abs((rows.min() + rows.max()) / 2 - 240) < 6
+    assert columns.min() >= 270 * 0.06 - 1 and columns.max() <= 270 * 0.94 + 1
+
+
 def test_captions_outside_the_trim_render_a_clean_video_and_say_so(tmp_path: Path) -> None:
     from engine.video.checks import check_video
 

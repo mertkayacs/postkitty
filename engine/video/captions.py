@@ -166,11 +166,15 @@ def _escape_ass(text: str) -> str:
     return text.replace("\\", "\\\u2060").replace("{", r"\{").replace("}", r"\}")
 
 
-def ass_document(captions: Captions, target: Any, trim: tuple[float, float]) -> tuple[str, int]:
+def ass_document(
+    captions: Captions, target: Any, trim: tuple[float, float], between_panels: bool = False
+) -> tuple[str, int]:
     """The ASS file for ``target`` and how many caption screens it shows.
 
     Cue times move with the trim and are cut at its ends. A cue longer than two lines becomes
-    several screens that share its time by their length.
+    several screens that share its time by their length. ``between_panels`` is for a split, where
+    two people are stacked: the words go on the seam at half the height, because at the bottom of
+    the frame they would cover the lower face.
     """
     font_size, margin_left, margin_right, margin_y, columns = _layout(target)
     outline = max(2, round(font_size * 0.09))
@@ -189,11 +193,15 @@ def ass_document(captions: Captions, target: Any, trim: tuple[float, float]) -> 
             if end > start:
                 text = "\\N".join(_escape_ass(line) for line in screen)
                 events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Default,,0,0,0,,{text}")
-    header = _header(target.width, target.height, font_size, outline, margin_left, margin_right, margin_y)
+    # ASS alignment 2 is bottom centre, 5 is the middle of the frame.
+    alignment = 5 if between_panels else 2
+    header = _header(target.width, target.height, font_size, outline, margin_left, margin_right, margin_y, alignment)
     return header + "\n".join(events) + "\n", len(events)
 
 
-def _header(width: int, height: int, font_size: int, outline: int, left: int, right: int, bottom: int) -> str:
+def _header(
+    width: int, height: int, font_size: int, outline: int, left: int, right: int, bottom: int, alignment: int = 2
+) -> str:
     return f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {width}
@@ -203,7 +211,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,0,0,0,100,100,0,0,1,{outline},0,2,{left},{right},{bottom},1
+Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,0,0,0,100,100,0,0,1,{outline},0,{alignment},{left},{right},{bottom},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

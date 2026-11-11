@@ -300,8 +300,13 @@ def check_captions(call, job: str, job_dir: Path, max_duration: float) -> None:
         return
     share, top, bottom = changed_rows(plain[CAPTION_AT], frame_at(shorts, CAPTION_AT, LOG_DIR / "video-shorts-cue.png"))
     check(share >= 0.002, f"caption text is visible in the frame at {CAPTION_AT} s ({share:.2%} of the pixels changed)")
-    check(0.4 <= top and bottom <= 0.9,
-          f"the caption sits in the lower part of the frame, clear of the bottom edge ({top:.0%} to {bottom:.0%} of the height)")
+    mode = (rows[0].get("layout") or {}).get("mode") if rows else None
+    if mode == "split":
+        check(0.4 <= top and bottom <= 0.6,
+              f"the caption sits on the seam between the two people ({top:.0%} to {bottom:.0%} of the height)")
+    else:
+        check(0.4 <= top and bottom <= 0.9,
+              f"the caption sits in the lower part of the frame, clear of the bottom edge ({top:.0%} to {bottom:.0%})")
     share, _, _ = changed_rows(plain[NO_CAPTION_AT], frame_at(shorts, NO_CAPTION_AT, LOG_DIR / "video-shorts-gap.png"))
     check(share <= 0.0005, f"no caption is drawn between the cues at {NO_CAPTION_AT} s ({share:.2%} of the pixels changed)")
 

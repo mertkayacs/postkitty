@@ -488,7 +488,7 @@ def render_video(
     audio_bitrate = _audio_bitrate(info, target)
     subtitles, captions_shown = "", 0
     if plan.captions is not None:
-        subtitles, captions_shown = ass_document(plan.captions, target, plan.trim)
+        subtitles, captions_shown = ass_document(plan.captions, target, plan.trim, plan.layout == "split")
     key = _plan_key(info, plan, target, loudness_lufs, audio_bitrate, subtitles if captions_shown else "")
     master = render_dir / f"reuse-{key}.mp4"
     commands_path = render_dir / f"reuse-{key}.commands"
