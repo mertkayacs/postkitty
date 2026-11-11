@@ -8,7 +8,8 @@ Phases (one per invocation, so ffmpeg can be installed in between):
   text                 scan a draft, fit drafts for x, linkedin, threads and bluesky, then read /postkitty
   novideo <clip>       scan a video while ffmpeg is missing; the error and /postkitty doctor say to install ffmpeg
   doctor               /postkitty doctor on a complete setup: text, photos, video and captions all work
-  photo <image>        scan, write and make for instagram and x, then check the source photo and a made file by path
+  photo <image>        scan, write and make for instagram and x, then check the source photo and a made file by path,
+                       with the tool and with /postkitty check
   video <clip>         scan, make for tiktok, youtube_shorts and instagram_reel, redo tiktok as speaker and pad,
                        burn captions from an .srt into youtube_shorts, check the source clip by path
 Every tool result is written to $FIRST_RUN_LOG_DIR/<phase>-<step>.json.
@@ -21,6 +22,7 @@ import inspect
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -228,14 +230,14 @@ def phase_novideo(call, slash, clip: Path) -> None:
 
 def phase_doctor(slash) -> None:
     report = slash("doctor")
-    check(report.startswith("postkitty doctor"), "/postkitty doctor prints the setup check")
+    check(has_line(report, r"postkitty doctor$"), "/postkitty doctor prints the setup check")
     broken = [line for line in report.splitlines() if line.startswith("no ")]
     check(not broken, f"/postkitty doctor finds nothing to fix ({broken})")
     check(has_line(report, r"Works now: text, photos, video, captions\."),
           "/postkitty doctor says text, photos, video and captions all work")
 
 
-def phase_photo(call, photo: Path) -> None:
+def phase_photo(call, slash, photo: Path) -> None:
     scan = call("postkitty_scan", {"inputs": [str(photo)], "text": DRAFT, "platforms": ["instagram", "x"]},
                 "photo-1-scan")
     expect_no_error(scan, "scan")
@@ -271,6 +273,12 @@ def phase_photo(call, photo: Path) -> None:
                 "photo-6-check-path")
     expect_no_error(made, "check of a made file by path")
     check(made.get("pass") is True, f"the made X image passes x_image when checked by path ({made.get('checks')})")
+    reply = slash(f"check {shlex.quote(str(photo))} instagram_feed")
+    check(has_line(reply, rf"{re.escape(photo.name)} does not pass for instagram_feed\.$") and has_line(reply, r"\s+Fix: "),
+          "/postkitty check says the source photo does not pass instagram_feed and what to fix")
+    reply = slash(f"check {shlex.quote(str(job_dir / 'ready' / 'x' / 'image.jpg'))} x_image")
+    check(has_line(reply, r"image\.jpg passes every check that blocks an upload for x_image\.$"),
+          "/postkitty check says the made X image passes x_image")
 
 
 def check_captions(call, job: str, job_dir: Path, max_duration: float) -> None:
@@ -343,7 +351,7 @@ def main(argv: list[str]) -> int:
     elif phase == "doctor":
         phase_doctor(slash)
     elif phase == "photo":
-        phase_photo(call, Path(argv[2]))
+        phase_photo(call, slash, Path(argv[2]))
     elif phase == "video":
         phase_video(call, Path(argv[2]))
     print()

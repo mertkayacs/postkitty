@@ -164,6 +164,23 @@ jobs:
           set -o pipefail
           "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" doctor 2>&1 | tee "$LOG_DIR/phase-doctor.log"
 
+      - name: Terminal command (hermes postkitty)
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -o pipefail
+          log="$LOG_DIR/phase-cli.log"
+          hermes postkitty doctor 2>&1 | tee "$log"
+          hermes postkitty platforms tiktok 2>&1 | tee -a "$log"
+          grep -q "tiktok: 1080x1920 video" "$log"
+          # Exit code 1 means the file was checked and does not pass; a landscape clip must not pass TikTok.
+          code=0
+          hermes postkitty check "$MEDIA_DIR/$CLIP" --target tiktok 2>&1 | tee -a "$log" || code=$?
+          test "$code" -eq 1
+          grep -q "$CLIP does not pass for tiktok" "$log"
+          hermes postkitty make --text "Episode 42 is out. Reframing landscape video for vertical feeds." --platforms x,linkedin 2>&1 | tee -a "$log"
+          grep -q "^job folder: " "$log"
+
       - name: Photo flow
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
         working-directory: ${{ runner.temp }}
