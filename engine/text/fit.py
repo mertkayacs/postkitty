@@ -56,7 +56,7 @@ def _weight(cp: int) -> int:
 
 
 def _prefix_tree(words: list[str]) -> str:
-    """One regex for ``words`` that shares their prefixes, so a failed match costs a few steps and not one per word.
+    """One regex for ``words`` that shares their prefixes, so a failed match costs a few steps however long the list is.
 
     The lists put a longer word before its own prefix, which is the order the optional tail keeps.
     """
@@ -245,7 +245,8 @@ def _threads_length(text: str) -> int:
     """Threads length: a character counts one, and a character that holds an emoji counts its UTF-8 bytes.
 
     Meta states the byte rule and leaves open what it treats as an emoji, so every cluster with a pictograph,
-    a flag letter, a skin tone, a keycap or the emoji selector counts in bytes. That can count high, never low.
+    a flag letter, a skin tone, a keycap or the emoji selector counts in bytes. This can overcount an unusual
+    symbol and cannot undercount an emoji.
     """
     clusters, emoji = _threads_patterns()
     return sum(len(c.encode("utf-8")) if emoji.search(c) else len(c) for c in clusters.findall(text))
