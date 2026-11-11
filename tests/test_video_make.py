@@ -515,3 +515,21 @@ def test_hdr_phone_clip_is_rendered_as_sdr(tmp_path: Path, monkeypatch: Any) -> 
     monkeypatch.setattr(video_make, "has_filter", lambda name: name != "zscale")
     with pytest.raises(ValueError, match="hlg.mp4 is HDR video and this ffmpeg build has no zscale filter"):
         render_video(info, plan, target, tmp_path / "other.mp4", tmp_path / "work2")
+
+
+def test_failed_render_and_cover_name_ffmpeg_and_leave_no_partial_file(tmp_path: Path) -> None:
+    broken = tmp_path / "broken.mp4"
+    broken.write_bytes(b"this is not a video")
+    info = InputInfo(broken, "broken-source", 320, 180, 1.0, 10.0)
+    target = Target("square_video", 180, 180)
+    plan = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "", [_box(70.0, 0.0, 180.0, 180.0)] * 10)
+    ready = tmp_path / "ready"
+
+    with pytest.raises(RuntimeError, match="ffmpeg failed while rendering square_video: .*broken.mp4"):
+        render_video(info, plan, target, ready / "square.mp4", tmp_path / "work")
+    with pytest.raises(RuntimeError, match="ffmpeg failed while writing the cover of square_video: .*broken.mp4"):
+        export_cover(info, plan, target, ready / "square_cover.jpg")
+
+    assert not list(ready.glob("*"))
+    assert not list((tmp_path / "work" / "render").glob("*.mp4"))
+

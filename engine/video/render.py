@@ -48,6 +48,18 @@ def has_filter(name: str) -> bool:
     return name in _filters()
 
 
+def _run_ffmpeg(command: list[str], doing: str) -> None:
+    """Run an ffmpeg command. A failure says what was being made and quotes ffmpeg's last lines."""
+    try:
+        subprocess.run(command, check=True, capture_output=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"could not start ffmpeg while {doing}: {exc}; install ffmpeg and retry") from exc
+    except subprocess.CalledProcessError as exc:
+        lines = (exc.stderr or b"").decode(errors="replace").strip().splitlines()
+        detail = " | ".join(lines[-3:]) or f"exit code {exc.returncode}"
+        raise RuntimeError(f"ffmpeg failed while {doing}: {detail}") from exc
+
+
 @cache
 def _hdr_transfer(path: Path, sha256: str) -> str | None:
     """The transfer curve of an HDR source (PQ or HLG), else ``None``. Cached by content hash."""
@@ -542,7 +554,7 @@ def render_video(
             ]
         )
         try:
-            subprocess.run(command, check=True, capture_output=True)
+            _run_ffmpeg(command, f"rendering {target.id}")
             temporary.replace(master)
         except BaseException:
             temporary.unlink(missing_ok=True)
@@ -587,6 +599,8 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
     # A seek at or past the last frame decodes nothing and ffmpeg still exits 0 without a file.
     seek_at = max(plan.trim[0], min(plan.cover_at, plan.trim[1] - 1.0 / fps))
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # The cover is written into ready/, so a failed export must not leave a partial image there.
+    temporary = out_path.with_name(f"{out_path.stem}.tmp{out_path.suffix}")
     command = [
         "nice",
         "-n",
@@ -611,9 +625,13 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         "1",
         "-q:v",
         "2",
-        str(out_path),
+        str(temporary),
     ]
-    subprocess.run(command, check=True, capture_output=True)
-    if not out_path.is_file():
-        raise RuntimeError(f"ffmpeg decoded no cover frame at {seek_at:.3f} s")
+    try:
+        _run_ffmpeg(command, f"writing the cover of {target.id}")
+        if not temporary.is_file():
+            raise RuntimeError(f"ffmpeg decoded no cover frame at {seek_at:.3f} s")
+        temporary.replace(out_path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return out_path
