@@ -34,7 +34,9 @@ hermes plugins enable postkitty
 ffprobe was not found. Install ffmpeg (which provides ffprobe) and retry.
 ```
 
-Video needs `ffmpeg` and `ffprobe` on your PATH. Text and photos work without them.
+Video needs `ffmpeg` and `ffprobe`. Text and photos work without them.
+
+A Hermes set up with the official installer brings its own ffmpeg and uses it before any other copy. On Windows and most Linux systems that copy includes ffprobe, so there is nothing to install. On macOS it comes without ffprobe, and `brew install ffmpeg` adds it. Alpine Linux gets no ffmpeg from Hermes, and a Hermes that runs from a source checkout uses the ffmpeg on your PATH:
 
 ```sh
 sudo apt install ffmpeg     # Debian, Ubuntu

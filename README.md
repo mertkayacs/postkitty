@@ -63,7 +63,7 @@ Answer yes when Hermes asks to install the Python packages and to turn the plugi
 
 - **Hermes Agent 0.22.7 or newer**, running on Python 3.11 or newer.
 - **Five Python packages:** OpenCV, NumPy, Pillow, regex and ruamel.yaml. Hermes installs them during the install step.
-- **ffmpeg with ffprobe on your PATH, for video only.** Text and photos work without it. Burning in captions needs an ffmpeg build with libass.
+- **ffmpeg with ffprobe, for video only.** Text and photos work without it. A Hermes set up with the official installer brings its own ffmpeg: on Windows and most Linux systems there is nothing to install, and on macOS that copy comes without ffprobe, so run `brew install ffmpeg` once. Burning in captions needs an ffmpeg build with libass and one font on the machine, which a bare server or a container may not have.
 
 To check all of it, type this in a Hermes chat. It prints one fix line for each thing that is missing.
 
