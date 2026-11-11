@@ -65,9 +65,12 @@ def render_text(report: dict) -> str:
     items = report["items"]
     width = max(len(item["label"]) for item in items)
     lines = ["postkitty doctor", ""]
+    told: set[str] = set()
     for item in items:
         lines.append(f"{'ok' if item['ok'] else 'no'}  {item['label']:<{width}}  {item['detail']}")
-        if not item["ok"]:
+        # One fix can settle several rows (installing ffmpeg brings ffprobe and captions), so it is said once.
+        if not item["ok"] and item["fix"] not in told:
+            told.add(item["fix"])
             lines.append(f"    fix: {item['fix']}")
     works = [name for name in _WORKS if report["works"][name]]
     waiting = [name for name in _WORKS if not report["works"][name]]

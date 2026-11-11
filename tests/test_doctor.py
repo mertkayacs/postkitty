@@ -100,7 +100,9 @@ def test_without_ffmpeg_text_and_photos_still_work(setup: SimpleNamespace) -> No
         assert not items[key]["ok"]
         assert all(word in items[key]["fix"] for word in ("brew install ffmpeg", "apt install ffmpeg", "winget"))
     text = doctor.render_text(report)
-    assert "no  ffmpeg" in text and "    fix: Install ffmpeg" in text
+    # One install settles all three rows, so the line is printed once, under the first of them.
+    assert "no  ffmpeg" in text and text.count("    fix: Install ffmpeg") == 1
+    assert text.index("    fix: Install ffmpeg") < text.index("no  ffprobe")
     assert text.splitlines()[-1] == "Works now: text, photos. Not yet: video, captions."
 
 
