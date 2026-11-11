@@ -41,13 +41,13 @@ def handle(raw_args: str = "", **kwargs) -> str:
     except ValueError:  # an unbalanced quote
         words = (raw_args or "").split()
     try:
-        if words and words[0].lower() == "check":
-            return check_file(words[1:])
-        if [word.lower() for word in words] == ["doctor"]:
-            tools.apply_settings()
-            # The rows align in a monospace font, which chats give only to a code block.
-            return f"```\n{doctor.render_text(doctor.report(pipeline.jobs_dir()))}\n```"
-        return targets_overview(raw_args or "")
+        with tools.session():  # relative paths start at the session folder
+            if words and words[0].lower() == "check":
+                return check_file(words[1:])
+            if [word.lower() for word in words] == ["doctor"]:
+                # The rows align in a monospace font, which chats give only to a code block.
+                return f"```\n{doctor.render_text(doctor.report(pipeline.jobs_dir()))}\n```"
+            return targets_overview(raw_args or "")
     except Exception as exc:  # Hermes does not catch a command handler's exception
         return f"postkitty could not answer: {exc}"
 
@@ -81,7 +81,6 @@ def check_file(words: list[str]) -> str:
     known = {*platforms.platform_names(), *platforms.target_ids(), *pipeline.ALIASES}
     target = words[-1].lower() if len(words) > 1 and words[-1].lower() in known else None
     path = " ".join(words[:-1] if target else words)
-    tools.apply_settings()  # relative paths start at the session folder
     if target is None:
         try:
             options = pipeline.check_targets(path)

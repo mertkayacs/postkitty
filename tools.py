@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from functools import wraps
 from typing import Any
 
@@ -54,13 +55,19 @@ def _data_dir() -> str | None:
         return None
 
 
-def apply_settings() -> None:
-    """Hand the plugin settings and the session's folders to the pipeline, fresh for every call."""
+@contextmanager
+def session() -> Iterator[None]:
+    """The plugin settings and the session's folders, for the pipeline calls made inside the block.
+
+    They are read fresh and scoped to the call: one gateway serves several sessions and profiles at once.
+    """
     names = _config("default_platforms", [])
     if isinstance(names, str):  # a hand-edited config may hold "x, linkedin"
         names = names.replace(",", " ").split()
-    pipeline.configure(output_dir=_config("output_dir", ""), default_platforms=names,
-                       loudness_lufs=_config("loudness_lufs", -14), base_dir=_session_dir(), data_dir=_data_dir())
+    pipeline.configure(data_dir=_data_dir())
+    with pipeline.scoped(output_dir=_config("output_dir", ""), default_platforms=names,
+                         loudness_lufs=_config("loudness_lufs", -14), base_dir=_session_dir()):
+        yield
 
 
 def ask_choice(question: str, choices: list[str]) -> str | None:
@@ -89,8 +96,8 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
         try:
             if not isinstance(args, dict):
                 raise ValueError("tool arguments must be an object")
-            apply_settings()
-            return _json(fn(args))
+            with session():
+                return _json(fn(args))
         except (pipeline.Unavailable, models.ModelUnavailable) as exc:
             return _json({"error": str(exc), "hint": "Text still works. Run /postkitty doctor to see what is missing."})
         except pipeline.ScanNeeded as exc:

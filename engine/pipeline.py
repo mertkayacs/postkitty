@@ -22,6 +22,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -42,6 +43,7 @@ _ENGINES = {
 }
 _SETUP = "The setup check shows how to fix it."
 _SETTINGS: dict[str, Any] = {}
+_SCOPED: ContextVar[dict[str, Any] | None] = ContextVar("postkitty.settings", default=None)
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
 
@@ -73,14 +75,32 @@ def configure(*, output_dir: str | os.PathLike[str] | None = None, default_platf
         models.set_data_dir(data_dir)
 
 
+@contextmanager
+def scoped(*, output_dir: str | os.PathLike[str] | None = None, default_platforms: list[str] | None = None,
+           loudness_lufs: float | None = None, base_dir: str | os.PathLike[str] | None = None) -> Iterator[None]:
+    """The settings of ``configure`` for the calls made inside the block, in this thread or task only.
+
+    A host that serves several sessions at once uses it, so the folder and settings of one session never
+    reach a call that another session is running.
+    """
+    given = {key: value for key, value in (("output_dir", output_dir), ("default_platforms", default_platforms),
+                                           ("loudness_lufs", loudness_lufs), ("base_dir", base_dir)) if value is not None}
+    token = _SCOPED.set({**(_SCOPED.get() or {}), **given})
+    try:
+        yield
+    finally:
+        _SCOPED.reset(token)
+
+
 def _setting(key: str, default: Any) -> Any:
-    return _SETTINGS.get(key) or default
+    return (_SCOPED.get() or {}).get(key, _SETTINGS.get(key)) or default
 
 
 def _loudness() -> float:
-    level = _number(_SETTINGS.get("loudness_lufs", -14))
+    raw = (_SCOPED.get() or {}).get("loudness_lufs", _SETTINGS.get("loudness_lufs", -14))
+    level = _number(raw)
     if level is None or not -70 <= level <= -5:
-        raise ValueError(f"the loudness_lufs setting must be a number from -70 to -5, got {_SETTINGS['loudness_lufs']!r}")
+        raise ValueError(f"the loudness_lufs setting must be a number from -70 to -5, got {raw!r}")
     return float(level)
 
 

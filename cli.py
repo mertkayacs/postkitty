@@ -38,20 +38,20 @@ def setup(subparser: argparse.ArgumentParser) -> None:
 
 def run(args: argparse.Namespace) -> int:
     """Run one subcommand, print the result and return the exit code (0 only when everything is ready)."""
-    tools.apply_settings()
     try:
-        sub = getattr(args, "postkitty_command", None)
-        if sub == "platforms":
-            print(command.targets(args.name))
-            return 0
-        if sub == "doctor":
-            report = doctor.report(pipeline.jobs_dir())
-            print(doctor.render_text(report))
-            return 0 if report["ok"] else 1
-        if sub == "check":
-            return _check(args)
-        if sub == "make":
-            return _make(args)
+        with tools.session(), pipeline.scoped(output_dir=getattr(args, "out", None)):
+            sub = getattr(args, "postkitty_command", None)
+            if sub == "platforms":
+                print(command.targets(args.name))
+                return 0
+            if sub == "doctor":
+                report = doctor.report(pipeline.jobs_dir())
+                print(doctor.render_text(report))
+                return 0 if report["ok"] else 1
+            if sub == "check":
+                return _check(args)
+            if sub == "make":
+                return _make(args)
     except (ValueError, KeyError, FileNotFoundError, probe.ProbeError, pipeline.Unavailable, models.ModelUnavailable) as exc:
         print(f"postkitty: {tools.message(exc)}", file=sys.stderr)
         return 2
@@ -73,8 +73,6 @@ def _check(args: argparse.Namespace) -> int:
 
 
 def _make(args: argparse.Namespace) -> int:
-    if args.out:
-        pipeline.configure(output_dir=args.out)
     text = Path(args.text_file).expanduser().read_text(encoding="utf-8") if args.text_file else (args.text or "")
     wanted = [name.strip() for name in (args.platforms or "").split(",") if name.strip()]
     scan = pipeline.scan({"inputs": args.files, "text": text, "platforms": wanted})

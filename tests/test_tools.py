@@ -798,15 +798,14 @@ def test_a_zero_setting_is_kept_and_a_bad_loudness_fails_video_with_the_reason(m
         def get_config(self, key, default=None):
             return {"loudness_lufs": 0, "default_platforms": "x, linkedin"}.get(key, default)
 
-    monkeypatch.setattr(pipeline, "_SETTINGS", dict(pipeline._SETTINGS))
     monkeypatch.setattr(tools, "_CTX", Ctx())
-    tools.apply_settings()
-    assert pipeline._SETTINGS["default_platforms"] == ["x", "linkedin"]
-    with pytest.raises(ValueError, match="-70 to -5"):
-        pipeline._loudness()
+    with tools.session():
+        assert pipeline._setting("default_platforms", []) == ["x", "linkedin"]
+        with pytest.raises(ValueError, match="-70 to -5"):
+            pipeline._loudness()
     monkeypatch.setattr(tools, "_CTX", None)
-    tools.apply_settings()
-    assert pipeline._loudness() == -14.0
+    with tools.session():
+        assert pipeline._loudness() == -14.0
 
 
 def test_handlers_take_context_keywords_and_answer_garbage_with_an_argument_error(out_dir, text_job):
@@ -872,3 +871,33 @@ def test_a_job_id_cannot_leave_the_output_folder(out_dir):
 def test_a_refused_write_leaves_no_advice_file(out_dir, text_job):
     out = call(tools.write, job=text_job, advice={"topic": "Sentences"}, drafts={"x": ""})
     assert "error" in out and not (out_dir / text_job / "advice.md").exists()
+
+
+def test_two_sessions_at_once_keep_their_own_working_directory(out_dir, tmp_path, monkeypatch):
+    import threading
+
+    for name, size in (("a", (1600, 900)), ("b", (1200, 1200))):
+        (tmp_path / name).mkdir()
+        Image.new("RGB", size, "teal").save(tmp_path / name / "me.jpg")
+    session = threading.local()
+    monkeypatch.setattr(tools, "_session_dir", lambda: str(tmp_path / session.name))
+    both_configured = threading.Barrier(2, timeout=5)
+    real_only = pipeline._only
+
+    def only_after_both_calls_are_configured(args, step, *known):
+        both_configured.wait()
+        real_only(args, step, *known)
+
+    monkeypatch.setattr(pipeline, "_only", only_after_both_calls_are_configured)
+    seen = {}
+
+    def check_in(name):
+        session.name = name
+        seen[name] = call(tools.check, path="me.jpg", target="x_image").get("file")
+
+    threads = [threading.Thread(target=check_in, args=(name,)) for name in ("a", "b")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert seen == {"a": str(tmp_path / "a" / "me.jpg"), "b": str(tmp_path / "b" / "me.jpg")}
