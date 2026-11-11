@@ -2,11 +2,12 @@
 
 This is the public Python API and it needs no Hermes. Call ``configure`` once, then the steps in order.
 Bad arguments raise ``ValueError``, ``KeyError``, ``FileNotFoundError`` or ``probe.ProbeError``. A call
-that only a new scan can fix raises ``ScanNeeded``, and a media kind whose packages are missing raises
-``Unavailable``. Messages are plain sentences for any caller, so they never name a Hermes tool.
+that only a new scan can fix raises ``ScanNeeded``. Messages are plain sentences for any caller, so they
+never name a Hermes tool.
 
 Media engines (photo, video, board) are imported inside the steps, so importing this module loads
-neither OpenCV, NumPy nor Pillow, and a missing engine module only disables its own media kind.
+neither OpenCV, NumPy nor Pillow, and a missing package only disables its own media kind: the scan
+notes it and make skips those targets with the reason.
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ _LOCKS_GUARD = threading.Lock()
 
 
 class Unavailable(Exception):
-    """A media engine module is missing or lacks a dependency."""
+    """A Python package that a media kind needs is missing."""
 
 
 class ScanNeeded(ValueError):
@@ -96,7 +97,7 @@ def jobs_dir() -> Path:
 
 
 def _engine(kind: str) -> SimpleNamespace:
-    """Import one media engine lazily. Raises ``Unavailable`` when a module or dependency is missing."""
+    """Import one media engine lazily. Raises ``Unavailable`` when a package it needs is missing."""
     mods = {}
     for name in _ENGINES[kind]:
         try:
