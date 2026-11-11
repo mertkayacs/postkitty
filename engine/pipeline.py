@@ -97,6 +97,13 @@ def _platform_names(names: Any) -> list[str]:
     return out
 
 
+def _only(args: dict, step: str, *known: str) -> None:
+    """A misspelled argument would be ignored and silently change the result, so it is an error."""
+    unknown = sorted(set(args) - set(known))
+    if unknown:
+        raise ValueError(f"unknown argument {', '.join(map(repr, unknown))}; {step} takes {', '.join(known)}")
+
+
 def _list_arg(args: dict, key: str) -> list:
     """An optional list argument; a bare string or any other type is a clear error, never iterated."""
     value = args.get(key)
@@ -432,6 +439,7 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
 
 def scan(args: dict) -> dict:
     """Open a job, probe the inputs, detect people and plan a framing per target. Renders nothing."""
+    _only(args, "scan", "inputs", "text", "platforms", "job")
     paths = [str(p) for p in _list_arg(args, "inputs")]
     text = _str_arg(args, "text")
     if not paths and not text.strip():
@@ -525,6 +533,7 @@ def _image_peek(job: jobs.Job, info: probe.InputInfo) -> str:
 
 def write(args: dict) -> dict:
     """Count each draft with its platform's rule, split threads and write the text files into ``ready/``."""
+    _only(args, "write", "job", "drafts", "advice", "alt_text", "split_threads")
     job = _open_job(args)
     with _locked(job):
         return _write(job, args)
@@ -718,6 +727,7 @@ def _overrides(raw: dict, planned: list[str]) -> dict:
 
 def make(args: dict) -> dict:
     """Render the planned targets, check and repair each file, and build the review board."""
+    _only(args, "make", "job", "targets", "overrides")
     job = _open_job(args)
     with _locked(job):
         return _make(job, args)
@@ -746,6 +756,7 @@ def _make(job: jobs.Job, args: dict) -> dict:
 
 def redo(args: dict) -> dict:
     """Render one target again with another layout, focus, trim or cover frame."""
+    _only(args, "redo", "job", "target", *OVERRIDE_KEYS)
     job = _open_job(args)
     with _locked(job):
         return _redo(job, args)
@@ -763,6 +774,7 @@ def _redo(job: jobs.Job, args: dict) -> dict:
 
 def check(args: dict) -> dict:
     """Check one file against a target, or every ready file of a job, without rendering."""
+    _only(args, "check", "path", "target", "job")
     if args.get("path"):
         path = _input_path(args["path"]).resolve()
         job = _open_job(args) if args.get("job") else _job_for_ready_path(path)

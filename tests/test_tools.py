@@ -158,7 +158,7 @@ def test_redo_rejects_the_unknown_seam_key(out_dir, tmp_path, stub_image_engine)
     Image.new("RGB", (1600, 1200), "orange").save(photo)
     job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
     assert "seam" not in pipeline.OVERRIDE_KEYS
-    assert "give at least one" in call(tools.redo, job=job, target="x_image", seam=0.5)["error"]
+    assert "unknown argument 'seam'" in call(tools.redo, job=job, target="x_image", seam=0.5)["error"]
 
 
 def test_check_on_a_job_without_ready_media_says_so(out_dir, text_job):
@@ -790,3 +790,10 @@ def test_two_calls_on_one_job_keep_each_others_changes(out_dir, text_job, monkey
         thread.join()
     manifest = json.loads((out_dir / text_job / "manifest.json").read_text())
     assert set(manifest["copy"]) == {"x", "linkedin"}
+
+
+def test_a_misspelled_argument_is_an_error_that_lists_the_real_ones(out_dir, text_job):
+    out = call(tools.scan, text="hi", platform=["x"])
+    assert "unknown argument 'platform'" in out["error"] and "inputs, text, platforms, job" in out["error"]
+    assert "unknown argument 'draft'" in call(tools.write, job=text_job, draft={"x": "hi"})["error"]
+    assert "unknown argument 'file'" in call(tools.check, file="a.jpg", target="x")["error"]
