@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -11,8 +12,9 @@ import pytest
 
 from engine.photo.framing import Box
 from engine.probe import run_tool
+from engine.video import captions as caption_files
 from engine.video import render as video_make
-from engine.video.captions import Captions, ass_document, load_captions
+from engine.video.captions import Captions, FontMissing, ass_document, drawable, has_font, load_captions
 from engine.video.render import VideoPlan, export_cover, plan_video, render_video
 from engine.video.scan import VideoScan
 
@@ -88,6 +90,14 @@ def test_windows_line_ends_bom_and_utf16_are_read(tmp_path: Path) -> None:
 
     assert load_captions(tmp_path / "bom.srt").cues == ((0.0, 1.0, "Merhaba dünya"),)
     assert load_captions(tmp_path / "wide.srt").cues == ((0.0, 1.0, "Merhaba dünya"),)
+
+
+def test_decomposed_letters_and_the_non_breaking_hyphen_are_read_as_plain_text(tmp_path: Path) -> None:
+    # libass looks a font up for each code point, so a letter with a separate accent or a non-breaking hyphen
+    # would be reported as missing on a machine whose fonts draw the composed letter and the hyphen fine.
+    path = _write(tmp_path / "talk.srt", "1\n00:00:00,000 --> 00:00:01,000\ncafe\u0301 non\u2011breaking\n")
+
+    assert load_captions(path).cues == ((0.0, 1.0, "caf\u00e9 non-breaking"),)
 
 
 def test_unusable_caption_files_say_what_is_wrong(tmp_path: Path) -> None:
@@ -279,6 +289,27 @@ def test_plan_reads_the_captions_override(tmp_path: Path, monkeypatch: pytest.Mo
         _plan_with(tmp_path, {"captions": str(path)})
 
 
+def test_only_the_captions_inside_the_trim_need_a_font(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = _write(tmp_path / "talk.vtt", "WEBVTT\n\n00:00.000 --> 00:01.000\nHi\n\n00:03.000 --> 00:04.000\n\u4e16\u754c\n")
+    asked: list[tuple] = []
+
+    def latin_only(captions: Captions) -> Captions:
+        asked.append(captions.cues)
+        if any("\u4e16" in words for _, _, words in captions.cues):
+            raise FontMissing("No installed font has these caption characters: \u4e16 (U+4E16).")
+        return captions
+
+    monkeypatch.setattr(video_make, "drawable", latin_only)
+
+    assert _plan_with(tmp_path, {"captions": str(path), "trim": [0.0, 2.0]}).captions == Captions(path, ((0.0, 1.0, "Hi"),))
+    with pytest.raises(FontMissing, match="U\\+4E16"):
+        _plan_with(tmp_path, {"captions": str(path)})
+    # Between the two captions nothing is drawn, so nothing is asked.
+    between = {"captions": str(path), "trim": [1.5, 2.5], "cover_at": 2.0}
+    assert _plan_with(tmp_path, between).captions == Captions(path, ())
+    assert asked == [((0.0, 1.0, "Hi"),), ((0.0, 1.0, "Hi"), (3.0, 4.0, "\u4e16\u754c"))]
+
+
 def test_uneven_side_insets_shape_the_caption_box() -> None:
     words = " ".join(["caption"] * 12)
     document, _ = ass_document(Captions(Path("talk.srt"), ((0.0, 6.0, words),)), TIKTOK, (0.0, 6.0))
@@ -300,3 +331,134 @@ def test_word_longer_than_a_narrow_line_is_cut_into_full_lines() -> None:
     assert lines == ["Der", word[:15], word[15:30], word[30:], "kommt"]
     assert all(text.count("\\N") <= 1 for _, _, text in screens)
 
+
+
+def _only_these_fonts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *fonts: Path) -> None:
+    folder = tmp_path / "fonts"
+    folder.mkdir()
+    for font in fonts:
+        shutil.copy(font, folder)
+    config = tmp_path / "fonts.conf"
+    config.write_text(
+        f'<?xml version="1.0"?>\n<fontconfig><dir>{folder}</dir><cachedir>{tmp_path / "font-cache"}</cachedir></fontconfig>\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FONTCONFIG_FILE", str(config))
+
+
+def _spoken(*words: str) -> Captions:
+    return Captions(Path("talk.srt"), tuple((float(index), index + 1.0, text) for index, text in enumerate(words)))
+
+
+# Linux builds of ffmpeg find fonts through fontconfig, which a test can point at its own folder.
+# macOS and Windows builds read the system's fonts.
+fontconfig_only = pytest.mark.skipif(sys.platform != "linux", reason="needs an ffmpeg that finds fonts through fontconfig")
+
+
+def test_plain_captions_can_be_drawn_on_this_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    captions = _spoken("Hello there", r"It's 50% {done} \N")
+    frames: list[subprocess.CompletedProcess] = []
+
+    def watched(command: list[str], **options: Any) -> subprocess.CompletedProcess:
+        frames.append(run_tool(command, **options))
+        return frames[-1]
+
+    monkeypatch.setattr(caption_files, "run_tool", watched)
+
+    assert has_font()
+    assert drawable(captions) is captions
+    # The check answers the same when it cannot run, so look at what ffmpeg did: one frame, with letters on it.
+    assert [(frame.returncode, len(frame.stdout)) for frame in frames] == [(0, 320 * 180)] * 2
+    assert all(max(frame.stdout) > 128 for frame in frames)
+
+
+@fontconfig_only
+def test_a_machine_without_fonts_is_told_before_a_video_loses_captions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = _write(tmp_path / "talk.srt", "1\n00:00:00,000 --> 00:00:01,000\nHello\n")
+    _only_these_fonts(monkeypatch, tmp_path)
+
+    assert not has_font()
+    with pytest.raises(FontMissing, match="ffmpeg found no font on this machine"):
+        drawable(_spoken("Hello"))
+    with pytest.raises(ValueError, match="sudo apt install fonts-dejavu-core"):
+        _plan_with(tmp_path, {"captions": str(path)})
+
+
+@fontconfig_only
+def test_text_no_font_has_is_refused_and_a_symbol_is_left_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    latin = [font for name in ("DejaVuSans.ttf", "LiberationSans-Regular.ttf") for font in Path("/usr/share/fonts").rglob(name)]
+    if not latin:
+        pytest.skip("needs DejaVu Sans or Liberation Sans to stand in for a machine with Latin fonts only")
+    _only_these_fonts(monkeypatch, tmp_path, latin[0])
+    turkish = _spoken("Merhaba d\u00fcnya", "plain words")
+
+    assert drawable(turkish) is turkish
+    with pytest.raises(FontMissing) as refused:
+        drawable(_spoken("plain words", "\u3053\u3093\u306b\u3061\u306f \u4e16\u754c \U0001F3A7"))
+    assert str(refused.value).startswith("No installed font has these caption characters: ")
+    assert "\u3053 (U+3053)" in str(refused.value) and "\u754c (U+754C)" in str(refused.value)
+    assert "\U0001F3A7" not in str(refused.value)
+    assert drawable(_spoken("listen \U0001F3A7 now")) == Captions(Path("talk.srt"), ((0.0, 1.0, "listen now"),), "\U0001F3A7")
+
+
+def test_the_font_check_reads_the_frame_and_what_libass_reports(monkeypatch: pytest.MonkeyPatch) -> None:
+    lit, black = b"\x10" * 57599 + b"\xeb", b"\x10" * 57600
+    answers: list[subprocess.CompletedProcess] = []
+    monkeypatch.setattr(caption_files, "run_tool", lambda command, **options: answers.pop(0))
+
+    def ffmpeg_says(stdout: bytes, *codes: int, exit_code: int = 0) -> None:
+        report = "".join(
+            f"[Parsed_ass_0 @ 0x55d0] fontselect: failed to find any fallback with glyph 0x{code:X} for font: (Arial, 700, 0)\n"
+            for code in codes
+        )
+        answers.append(subprocess.CompletedProcess([], exit_code, stdout, report.encode()))
+
+    # A heart with its variation selector, a family joined by zero width joiners and a headphone.
+    captions = _spoken("listen \U0001F3A7 now", "\u2764\ufe0f", "a \U0001F468\u200d\U0001F469\u200d\U0001F467 b")
+    ffmpeg_says(lit, 0x1F3A7, 0x2764, 0x1F468, 0x1F469, 0x1F467)
+    assert drawable(captions) == Captions(
+        Path("talk.srt"), ((0.0, 1.0, "listen now"), (2.0, 3.0, "a b")), "\u2764 \U0001F3A7 \U0001F467 \U0001F468 \U0001F469"
+    )
+    # Fourteen characters of text are missing: twelve are shown and the rest are counted.
+    crowd = _spoken("".join(chr(code) for code in range(0x4E00, 0x4E0E)) + " \U0001F3A7")
+    ffmpeg_says(lit, 0x1F3A7, *range(0x4E00, 0x4E0E))
+    with pytest.raises(FontMissing) as refused:
+        drawable(crowd)
+    assert "\u4e00 (U+4E00), \u4e01 (U+4E01), " in str(refused.value)
+    assert "\u4e0b (U+4E0B) and 2 more. They would show as empty boxes" in str(refused.value)
+    # A character that draws nothing readable is named by its number alone.
+    ffmpeg_says(lit, 0x92)
+    with pytest.raises(FontMissing, match="characters: U\\+0092\\. "):
+        drawable(_spoken("odd \x92 byte"))
+    # libass also reports letters of the check's own sample. Only what the captions hold is blamed.
+    ffmpeg_says(lit, 0x41, 0x67, 0x4E16)
+    assert drawable(captions) is captions
+    ffmpeg_says(black, 0)
+    with pytest.raises(FontMissing, match="ffmpeg found no font on this machine"):
+        drawable(captions)
+    ffmpeg_says(black)
+    assert not has_font()
+    # A check that could not run stops nothing.
+    ffmpeg_says(b"", exit_code=1)
+    assert drawable(captions) is captions
+    for failure in (FileNotFoundError("ffmpeg"), subprocess.TimeoutExpired("ffmpeg", 120), PermissionError("temp folder")):
+        def broken(command: list[str], failure: Exception = failure, **options: Any) -> subprocess.CompletedProcess:
+            raise failure
+
+        monkeypatch.setattr(caption_files, "run_tool", broken)
+        assert has_font() and drawable(captions) is captions
+
+
+def test_left_out_symbols_are_reported_with_the_rendered_video(tmp_path: Path) -> None:
+    from engine.video.checks import check_video
+
+    info = _clip(tmp_path / "source.mp4")
+    target = Target("instagram_reel", 270, 480)
+    captions = Captions(tmp_path / "talk.srt", ((0.0, 2.0, "listen now"),), "\U0001F3A7")
+
+    plan = _full_frame_plan(info, target, captions, (0.0, 2.0))
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "w")
+
+    assert result.extra["captions"] == {"file": str(tmp_path / "talk.srt"), "shown": 1, "left_out": "\U0001F3A7"}
+    advisory = {check.id: check for check in check_video(result, target)}["captions.left_out"]
+    assert (advisory.status, advisory.hard) == ("advisory", False) and "\U0001F3A7" in advisory.message

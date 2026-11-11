@@ -140,7 +140,7 @@ Say which one you want. When you say nothing, Hermes shortens the text until it 
 
 postkitty draws the lines of an `.srt` or `.vtt` file into the video: white text with a dark outline, at most two lines at a time, at the bottom of the area the platform keeps clear of its buttons. The times follow your trim, and the cover frame stays free of captions.
 
-It does not transcribe speech, so you bring the subtitle file. Give its path and say which clips get captions. To take the captions off again, say so. Captions need an ffmpeg build with libass, and [Troubleshooting](troubleshooting.md#captions-cannot-be-burned-in) says how to get one.
+It does not transcribe speech, so you bring the subtitle file. Give its path and say which clips get captions. To take the captions off again, say so. Captions need an ffmpeg build with libass and one font on the machine, and [Troubleshooting](troubleshooting.md#captions-cannot-be-burned-in) says how to get both.
 
 ## Ask for a change
 

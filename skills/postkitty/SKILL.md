@@ -61,8 +61,11 @@ A focus the user asked for is kept even when it leaves someone outside the frame
 
 Captions: when the user wants captions burned into a video, ask for their `.srt` or `.vtt` file and pass its path
 as `captions` (in `postkitty_redo`, or per target in the `overrides` of `postkitty_make`). Never write a transcript
-yourself. The row then reports `captions` with the number of caption screens `shown`; `"none"` removes them again.
-Captions need an ffmpeg built with libass; when a `reason` says it is missing, point the user to `/postkitty doctor`.
+yourself. The row then reports `captions` with the number of caption screens `shown`, and `left_out` when a symbol
+such as an emoji has no font on the machine and was taken out; `"none"` removes them again.
+Captions need an ffmpeg built with libass and one font on the machine; when an error or a `reason` says one is
+missing, point the user to `/postkitty doctor`. When a `reason` names caption characters that no installed font
+has, tell the user which ones and let them choose: install a font or take those characters out of the file.
 
 ## Procedure
 

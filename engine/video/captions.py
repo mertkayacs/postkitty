@@ -4,22 +4,42 @@ from __future__ import annotations
 
 import html
 import re
+import subprocess
+import tempfile
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from ..probe import run_tool
 
 _TIME = re.compile(r"(?:(\d+):)?(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?")
 # SRT files carry HTML-like tags and ASS override blocks; WebVTT adds class and word-timing tags.
 _MARKUP = re.compile(r"<[^>]*>|\{\\[^}]*\}")
 _MAX_LINES = 2
 _MAX_COLUMNS = 42
+# libass says this each time it meets a character that none of the installed fonts has.
+_NO_GLYPH = re.compile(r"failed to find any fallback with glyph 0x([0-9A-Fa-f]+)")
+NO_FONT = (
+    "ffmpeg found no font on this machine, so captions would come out empty. Install a font and try again. "
+    "Debian or Ubuntu: sudo apt install fonts-dejavu-core."
+)
+_FONT_TEST_FRAME = (320, 180)
+# Unicode categories of pictures and decoration (emoji, dingbats, keycaps). A caption reads the same without one.
+_SYMBOLS = {"So", "Sk", "Me"}
+
+
+class FontMissing(ValueError):
+    """This machine has no font for the caption text. The message says what to install or take out."""
 
 
 @dataclass(frozen=True)
 class Captions:
     file: Path
     cues: tuple[tuple[float, float, str], ...]
+    # Symbols that no installed font has. ``drawable`` took them out of the cues.
+    left_out: str = ""
 
 
 def _seconds(raw: str, name: str) -> float:
@@ -41,7 +61,9 @@ def _parse(text: str, name: str) -> list[tuple[float, float, str]]:
         # WebVTT cue settings (line:0 position:50%) follow the end time.
         start, end = _seconds(start_raw, name), _seconds((rest.split() or [""])[0], name)
         words = html.unescape(_MARKUP.sub("", " ".join(lines[timing + 1:])))
-        words = " ".join(words.split())
+        # libass looks a font up for each code point. An accent kept apart from its letter, or a non-breaking
+        # hyphen, would count as missing where the composed letter and a plain hyphen draw fine.
+        words = unicodedata.normalize("NFC", " ".join(words.split())).replace("\u2011", "-")
         if words and end > start:
             cues.append((start, end, words))
     return _one_at_a_time(cues)
@@ -167,18 +189,96 @@ def ass_document(captions: Captions, target: Any, trim: tuple[float, float]) -> 
             if end > start:
                 text = "\\N".join(_escape_ass(line) for line in screen)
                 events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Default,,0,0,0,,{text}")
-    header = f"""[Script Info]
+    header = _header(target.width, target.height, font_size, outline, margin_left, margin_right, margin_y)
+    return header + "\n".join(events) + "\n", len(events)
+
+
+def _header(width: int, height: int, font_size: int, outline: int, left: int, right: int, bottom: int) -> str:
+    return f"""[Script Info]
 ScriptType: v4.00+
-PlayResX: {target.width}
-PlayResY: {target.height}
+PlayResX: {width}
+PlayResY: {height}
 WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,0,0,0,100,100,0,0,1,{outline},0,2,{margin_left},{margin_right},{margin_y},1
+Style: Default,Arial,{font_size},&H00FFFFFF,&H00FFFFFF,&HCC000000,&H80000000,-1,0,0,0,100,100,0,0,1,{outline},0,2,{left},{right},{bottom},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    return header + "\n".join(events) + "\n", len(events)
+
+
+def _without_font(texts: Iterable[str], seconds: float = 120.0) -> list[str] | None:
+    """The characters of ``texts`` that no installed font has, or ``None`` when ffmpeg finds no font at all.
+
+    libass draws an empty box for a character that no installed font has, and with no font at all it
+    draws nothing. ffmpeg exits cleanly both times, so the video would come out with broken captions
+    or with none. Here ffmpeg draws every text once on one black frame: what libass reports names the
+    characters, and a frame that stays black means no font. A check that cannot run names nothing
+    and stops nothing.
+    """
+    width, height = _FONT_TEST_FRAME
+    texts = list(dict.fromkeys(" ".join(text.split()) for text in texts))
+    # Two letters of our own at a fixed place: caption text can be pushed out of the frame.
+    lines = [*(_escape_ass(text) for text in texts), rf"{{\pos({width // 2},{height // 2})}}Ag"]
+    events = "\n".join(f"Dialogue: 0,{_ass_time(0)},{_ass_time(100)},Default,,0,0,0,,{line}" for line in lines)
+    try:
+        with tempfile.TemporaryDirectory(prefix="postkitty-", ignore_cleanup_errors=True) as folder:
+            Path(folder, "captions.ass").write_text(_header(width, height, 24, 2, 10, 10, 10) + events + "\n", encoding="utf-8")
+            drawn = run_tool(
+                [
+                    "ffmpeg", "-hide_banner", "-loglevel", "warning", "-nostdin", "-f", "lavfi",
+                    "-i", f"color=c=black:s={width}x{height}:r=1:d=1", "-vf", "ass=captions.ass",
+                    "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+                ],
+                capture_output=True, check=False, cwd=folder, timeout=seconds,
+            )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if drawn.returncode != 0 or len(drawn.stdout) != width * height:
+        return []
+    if max(drawn.stdout) < 128:
+        return None
+    # libass reports the letters of our own sample too when no font has them. Only the captions are answered for.
+    asked = {ord(char) for text in texts for char in text}
+    codes = {int(code, 16) for code in _NO_GLYPH.findall(drawn.stderr.decode(errors="replace"))} & asked
+    return [chr(code) for code in sorted(codes)]
+
+
+def has_font(seconds: float = 120.0) -> bool:
+    """Whether ffmpeg finds a font on this machine to draw captions with. The check gives up after ``seconds``."""
+    return _without_font((), seconds) is not None
+
+
+def _named(char: str) -> str:
+    """A character for an error message, with its code point. One that draws nothing readable is the number alone."""
+    code = f"U+{ord(char):04X}"
+    return code if unicodedata.category(char)[0] in "CMZ" else f"{char} ({code})"
+
+
+def drawable(captions: Captions) -> Captions:
+    """``captions`` as this machine can draw them. Raises ``FontMissing`` when it cannot.
+
+    A symbol that no installed font has (an emoji, mostly) is taken out of the cues and listed in
+    ``left_out``. Text that no font has is an error, and so is a machine without any font.
+    """
+    missing = _without_font(text for _, _, text in captions.cues)
+    if missing is None:
+        raise FontMissing(NO_FONT)
+    text = [char for char in missing if unicodedata.category(char) not in _SYMBOLS]
+    if text:
+        shown = ", ".join(_named(char) for char in text[:12]) + (f" and {len(text) - 12} more" if len(text) > 12 else "")
+        raise FontMissing(
+            f"No installed font has these caption characters: {shown}. They would show as empty boxes. "
+            "Install a font that has them, or take them out of the captions."
+        )
+    if not missing:
+        return captions
+    # An emoji can carry a variation selector or be joined to the next one. Those go with it.
+    gone = re.compile("(?:[" + re.escape("".join(missing)) + "][\ufe0e\ufe0f\u200d]*)+")
+    cues = tuple(
+        (start, end, words) for start, end, text in captions.cues if (words := " ".join(gone.sub(" ", text).split()))
+    )
+    return Captions(captions.file, cues, " ".join(missing))

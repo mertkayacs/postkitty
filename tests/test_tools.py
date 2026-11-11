@@ -922,6 +922,35 @@ def test_captions_take_an_existing_srt_or_vtt_file_and_only_on_video(out_dir, tm
     assert "has no captions" in call(tools.redo, job=job, target="x_image", captions=str(empty))["error"]
 
 
+def test_captions_this_machine_cannot_draw_are_refused_with_the_reason(out_dir, tmp_path, speaker_media, monkeypatch) -> None:
+    from postkitty.engine.video import captions as caption_files
+    from postkitty.engine.video import render as video_render
+
+    shared = Path(os.environ["POSTKITTY_FACES_CACHE"])
+    shared.mkdir(parents=True, exist_ok=True)
+    source = speaker_media.work / "faces" / f"{speaker_media.info.sha256}.json"
+    shutil.copyfile(source, shared / source.name)
+    subtitles = tmp_path / "talk.srt"
+    subtitles.write_text("1\n00:00:00,500 --> 00:00:02,500\nHello\n", encoding="utf-8")
+    job = call(tools.scan, inputs=[str(speaker_media.info.path)], platforms=["linkedin_video"])["job"]
+    asked = {"overrides": {"linkedin_video": {"captions": str(subtitles)}}}
+
+    # No font on the machine: a setup problem, so the whole call stops and points to the doctor.
+    monkeypatch.setattr(caption_files, "has_font", lambda seconds=120.0: False)
+    out = call(tools.make, job=job, **asked)
+    assert out["error"].startswith("ffmpeg found no font on this machine") and "/postkitty doctor" in out["hint"]
+
+    # Fonts, but none with these letters: that target fails with the reason, before anything is rendered.
+    def latin_only(captions):
+        raise caption_files.FontMissing("No installed font has these caption characters: \u4e16 (U+4E16).")
+
+    monkeypatch.setattr(caption_files, "has_font", lambda seconds=120.0: True)
+    monkeypatch.setattr(video_render, "drawable", latin_only)
+    row = call(tools.make, job=job, **asked)["targets"][0]
+    assert row["status"] == "failed" and "file" not in row
+    assert row["reason"] == "could not be rendered: No installed font has these caption characters: \u4e16 (U+4E16)."
+
+
 def test_a_full_frame_note_still_says_when_the_video_is_cut_to_the_cap():
     info = pipeline.probe.InputInfo("in1", Path("video.mp4"), "video", "0" * 64, 1920, 1080, 90.0, 30.0, True, 0, False)
     window = SimpleNamespace(x=0.0, y=0.0, w=1920.0, h=1080.0)

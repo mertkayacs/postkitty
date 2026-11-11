@@ -90,7 +90,7 @@ The override keys:
 | `focus` | `auto`, `person:N`, `left`, `center`, `right`, `x:0.0` to `x:1.0` | Photos and video. |
 | `trim` | `[start, end]` in seconds | Video. |
 | `cover_at` | a time in seconds, inside the trim | Video. |
-| `captions` | the path of an `.srt` or `.vtt` file, or `none` | Video. The subtitles are burned in, and the row reports `captions` with the `file` and the number of caption screens `shown`. `none` removes captions set earlier. When no caption falls inside the trim, the video is made without them and the row carries an advisory. |
+| `captions` | the path of an `.srt` or `.vtt` file, or `none` | Video. The subtitles are burned in, and the row reports `captions` with the `file`, the number of caption screens `shown` and, when a symbol such as an emoji has no font on the machine, the symbols that were `left_out`. `none` removes captions set earlier. When no caption falls inside the trim, the video is made without them and the row carries an advisory. |
 
 [Layouts](layouts.md) explains each layout and focus value.
 

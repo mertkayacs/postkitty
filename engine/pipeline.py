@@ -798,9 +798,13 @@ def _captions(value: Any) -> str:
         return "none"
     path = _resolve(value)
     # Read it now, so a missing, empty or badly timed file is an argument error and nothing is rendered.
-    importlib.import_module(".video.captions", __package__).load_captions(path)
+    caption_files = importlib.import_module(".video.captions", __package__)
+    caption_files.load_captions(path)
     if not _engine("video").render.has_filter("ass"):
         raise Unavailable("This ffmpeg build has no libass, so it cannot burn captions into a video.")
+    # Which captions are drawn depends on the trim, so their letters are checked when a target is planned.
+    if not caption_files.has_font():
+        raise Unavailable(caption_files.NO_FONT)
     return str(path)
 
 

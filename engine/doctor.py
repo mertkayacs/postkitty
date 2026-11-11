@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .detect import models
+from .video import captions as caption_files
 
 MIN_PYTHON = (3, 11)
 # ImageFont.load_default(size=...) on the contact sheet arrived in Pillow 10.1.
@@ -29,6 +30,8 @@ _LIBASS_FIX = (
     "Captions need an ffmpeg built with libass. macOS: brew install ffmpeg-full and put its bin folder first in "
     "PATH. Ubuntu or Debian: sudo apt install ffmpeg. Windows: winget install ffmpeg."
 )
+# A desktop always has fonts. A bare server or a container often has none.
+_FONT_FIX = "Captions need one font on this machine. Ubuntu or Debian: sudo apt install fonts-dejavu-core."
 _WORKS = ("text", "photos", "video", "captions")
 
 
@@ -128,9 +131,11 @@ def _captions(ffmpeg: dict) -> dict:
     if not ffmpeg["ok"]:
         return _item("captions", "Captions", False, "need ffmpeg", _FFMPEG_FIX)
     filters = _run([ffmpeg["path"], "-hide_banner", "-filters"])
-    libass = re.search(r"^\s*\S+\s+ass\s", filters, re.MULTILINE) is not None
-    detail = "ffmpeg has libass" if libass else "this ffmpeg was built without libass"
-    return _item("captions", "Captions", libass, detail, _LIBASS_FIX)
+    if re.search(r"^\s*\S+\s+ass\s", filters, re.MULTILINE) is None:
+        return _item("captions", "Captions", False, "this ffmpeg was built without libass", _LIBASS_FIX)
+    if not caption_files.has_font(seconds=15):
+        return _item("captions", "Captions", False, "ffmpeg has libass but found no font to draw the text with", _FONT_FIX)
+    return _item("captions", "Captions", True, "ffmpeg has libass", "")
 
 
 def _pip_fix(package: str) -> str:

@@ -342,6 +342,18 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 default_hard=False,
             )
         )
+    if captions is not None and captions.get("left_out"):
+        checks.append(
+            _check(
+                "captions.left_out",
+                target,
+                captions["left_out"],
+                "a font for every symbol",
+                False,
+                f"No installed font has these caption symbols, so they were left out: {captions['left_out']}.",
+                default_hard=False,
+            )
+        )
 
     if result.subjects_inside is None:
         checks.append(

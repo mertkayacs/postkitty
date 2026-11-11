@@ -89,6 +89,24 @@ Captions are drawn by ffmpeg's `ass` filter, which only exists in builds that in
 
 - **Windows:** pick a build whose feature list names libass.
 
+### No font on the machine
+
+```text
+ffmpeg found no font on this machine, so captions would come out empty. Install a font and try again.
+Debian or Ubuntu: sudo apt install fonts-dejavu-core.
+```
+
+ffmpeg draws captions with the fonts installed on the machine. A desktop has plenty. A bare server or a container can have none, and ffmpeg then writes the video without any caption text and reports no error. postkitty draws the caption text once before it renders and stops with this message when nothing comes out. One font package is enough, and you can ask again right after installing it.
+
+```text
+No installed font has these caption characters: 世 (U+4E16), 界 (U+754C). They would show as empty boxes.
+Install a font that has them, or take them out of the captions.
+```
+
+The fonts on the machine do not cover the text of the captions that fall inside the clip. That target fails with this reason, and the other targets are made. On Debian or Ubuntu, `fonts-noto-cjk` covers Chinese, Japanese and Korean and `fonts-noto-core` covers most other scripts.
+
+A symbol that no font has, an emoji for example, does not stop the captions. It is left out, and the result lists it under `left_out` and in the advice for that file.
+
 Messages about the subtitle file itself say what to change:
 
 | Message | What to do |

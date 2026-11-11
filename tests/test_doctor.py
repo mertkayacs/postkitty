@@ -32,6 +32,7 @@ def setup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> SimpleNamespace:
     state = SimpleNamespace(
         tools={"ffmpeg": "/usr/bin/ffmpeg", "ffprobe": "/usr/bin/ffprobe"},
         filters=FILTERS_WITH_LIBASS,
+        has_font=True,
         modules=dict(MODULES),
         cache=tmp_path / "models",
         out=tmp_path / "out",
@@ -60,6 +61,7 @@ def setup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> SimpleNamespace:
     monkeypatch.setattr(models.urllib.request, "urlopen", never)
     monkeypatch.setattr(doctor.shutil, "which", lambda name: state.tools.get(name))
     monkeypatch.setattr(doctor, "_run", run)
+    monkeypatch.setattr(doctor.caption_files, "has_font", lambda seconds: state.has_font)
     monkeypatch.setattr(doctor.importlib, "import_module", import_module)
     return state
 
@@ -108,6 +110,16 @@ def test_an_ffmpeg_without_libass_makes_video_but_no_captions(setup: SimpleNames
 
     assert report["works"] == {"text": True, "photos": True, "video": True, "captions": False}
     assert "ffmpeg-full" in _items(report)["captions"]["fix"]
+
+
+def test_captions_need_a_font_on_the_machine_too(setup: SimpleNamespace) -> None:
+    setup.has_font = False
+    report = doctor.report(setup.out)
+    captions = _items(report)["captions"]
+
+    assert report["works"] == {"text": True, "photos": True, "video": True, "captions": False}
+    assert captions["detail"] == "ffmpeg has libass but found no font to draw the text with"
+    assert "sudo apt install fonts-dejavu-core" in captions["fix"]
 
 
 def test_an_ffmpeg_that_does_not_start_counts_as_missing(setup: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:

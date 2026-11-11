@@ -16,7 +16,7 @@ import numpy as np
 
 from ..probe import run_tool, start_tool
 from .camera import build_camera_path
-from .captions import Captions, ass_document, load_captions
+from .captions import Captions, ass_document, drawable, load_captions
 from .scan import VideoScan, read_exact
 
 # Platforms take one or two audio channels, so surround sources are mixed down and mono stays mono.
@@ -223,6 +223,10 @@ def plan_video(
         enforced = cap is not None and getattr(cap, "enforcement", "hard") == "hard"
         trim = _best_trim(scan, info.duration, float(_limit(target, "duration_max")) if enforced else info.duration)
     cut = "trim" not in override and trim[1] - trim[0] < info.duration
+    if captions is not None:
+        # Only the captions inside the trim are drawn, so only they need a font.
+        cues = tuple(cue for cue in captions.cues if cue[0] < trim[1] and cue[1] > trim[0])
+        captions = drawable(Captions(captions.file, cues)) if cues else Captions(captions.file, ())
 
     camera = build_camera_path(
         info,
@@ -453,6 +457,8 @@ def _render_result(
     }
     if plan.captions is not None:
         extra["captions"] = {"file": str(plan.captions.file), "shown": captions_shown}
+        if plan.captions.left_out:
+            extra["captions"]["left_out"] = plan.captions.left_out
     return RenderResult(
         target=target.id,
         file=path,
