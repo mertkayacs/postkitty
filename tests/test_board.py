@@ -363,3 +363,13 @@ def test_the_board_loads_nothing_from_the_network(tmp_path):
         loads = re.findall(r"""(?:src|poster|srcset)=["']([^"']*)|url\(([^)]*)\)|@import\s+([^;]+)|<link[^>]*href=["']([^"']*)""", html)
         remote = [value for match in loads for value in match if value.strip("\"' ").startswith(("http", "//"))]
         assert remote == []
+
+
+def test_a_skipped_target_says_why(tmp_path):
+    job_dir = tmp_path / "job"
+    manifest = _manifest(job_dir)
+    manifest["targets"][-1] = {"id": "bluesky_image", "platform": "bluesky", "kind": "image", "input": "in1",
+                               "override": {}, "status": "skipped", "checks": [], "repairs": [],
+                               "reason": "The image engine needs the Python package 'cv2'."}
+    html = Path(write_board(job_dir, manifest)["board"]).read_text(encoding="utf-8")
+    assert "The image engine needs the Python package &#x27;cv2&#x27;." in html

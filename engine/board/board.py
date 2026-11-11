@@ -631,6 +631,8 @@ def build_card(target: dict, ctx: Ctx) -> str:
               'Show safe area</button>' if bands else "")
     note = layout_note(target.get("layout") or {})
     note_html = f'<p class="note">{esc(note)}</p>' if note else ""
+    reason = str(target.get("reason") or "").strip()
+    reason_html = f'<p class="note">{esc(reason)}</p>' if reason else ""
     alt_html = f'<p class="alt"><b>Alt text</b> {esc(alt)}</p>' if alt else ""
     actions = []
     if file_rel:
@@ -646,7 +648,7 @@ def build_card(target: dict, ctx: Ctx) -> str:
         '<div class="info">'
         f'{banner}'
         f'<div class="specs"><span class="dims">{esc(spec_line(target, ctx))}</span>{pill(status)}</div>'
-        f'{note_html}{repairs_html(target.get("repairs") or [])}{alt_html}{checks_html(checks)}'
+        f'{note_html}{reason_html}{repairs_html(target.get("repairs") or [])}{alt_html}{checks_html(checks)}'
         f'<div class="actions">{"".join(actions)}</div>'
         '</div></div></article>'
     )
