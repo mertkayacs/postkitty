@@ -66,7 +66,7 @@ These two belong to video targets.
 
 | Key | Value | When you leave it out |
 |---|---|---|
-| `trim` | `[start, end]` in seconds, inside the clip | The whole clip when it fits the platform's maximum length. A longer clip is cut to the maximum, at the window with the most faces on screen and the most sound. |
+| `trim` | `[start, end]` in seconds. An end past the clip stops at the clip's end. | The whole clip when it fits the platform's maximum length. A longer clip is cut to the maximum, at the window with the most faces on screen and the most sound. |
 | `cover_at` | A time in seconds, inside the trim | The sharpest frame that shows a face and sits away from a scene cut. |
 
 The cover is saved next to the video as `<name>_cover.jpg`.

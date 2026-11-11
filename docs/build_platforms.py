@@ -17,6 +17,7 @@ LABELS = {"limit": "Length", "hashtags_max": "Hashtags, at most", "mentions_max"
           "aspect_range": "Aspect ratio, from and to", "aspect_options": "Aspect ratio, one of",
           "aspect_min": "Aspect ratio, at least", "aspect_max": "Aspect ratio, at most",
           "dimension_min": "Shorter side, at least", "dimension_max": "Longer side, at most"}
+TEXT_LABELS = {"bytes_max": "Size, at most"}
 HEADER = "| Applies to | Limit | Value | Kind | Checked | Source |"
 KINDS = {"image": ("photo", ".jpg"), "video": ("video", ".mp4"), "image_or_video": ("photo or video", ".jpg or .mp4")}
 INTRO = """# Platforms and limits
@@ -43,7 +44,7 @@ def size(value: int) -> str:
 def show(key: str, spec: dict) -> str:
     value = spec["value"]
     if spec.get("unit"):
-        text = f"{value:,} {UNITS[spec['unit']]}"
+        text = f"{value:,} {UNITS.get(spec['unit'], spec['unit'].replace('_', ' '))}"
     elif key.startswith("bytes"):
         text = size(value)
     elif key.endswith("bps_max"):
@@ -69,7 +70,7 @@ def row(where: str, key: str, spec: dict) -> str:
     host = urlparse(spec["source_url"]).netloc.removeprefix("www.")
     source = f"[{host}]({spec['source_url']})" + (", secondary" if spec.get("source_scope") == "secondary" else "")
     enforced = "required" if spec.get("enforcement", "hard") == "hard" else "advised"
-    label = LABELS.get(key, key.replace("_", " "))
+    label = (TEXT_LABELS if where == "Text" else LABELS).get(key) or LABELS.get(key, key.replace("_", " "))
     return f"| {where} | {label} | {show(key, spec)} | {enforced} | {spec.get('checked_on', '')} | {source} |"
 
 

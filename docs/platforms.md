@@ -104,7 +104,7 @@ when the source has transparency and the platform takes PNG.
 | Applies to | Limit | Value | Kind | Checked | Source |
 |---|---|---|---|---|---|
 | Text | Length | 300 graphemes | required | 2026-11-08 | [github.com](https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json) |
-| Text | File size, at most | 3,000 UTF-8 bytes | required | 2026-11-08 | [github.com](https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json) |
+| Text | Size, at most | 3,000 UTF-8 bytes | required | 2026-11-08 | [github.com](https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json) |
 | `bluesky_video`, video, `ready/bluesky/video.mp4` | Output size | 1080×1920 | required | | |
 |  | File size, at most | 300 MB | required | 2026-11-07 | [github.com](https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/embed/video.json) |
 |  | Length, at most | 600 s (not specified in the app.bsky.embed.video lexicon; client constant) | advised | 2026-11-08 | [github.com](https://github.com/bluesky-social/social-app/blob/main/src/lib/constants.ts) |

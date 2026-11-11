@@ -38,7 +38,7 @@ tests/
 
 **The Hermes adapter** is `__init__.py`, `schemas.py`, `tools.py` and `command.py`. `register(ctx)` registers the tools in the `postkitty` toolset, the skill and the command. A handler takes `(args, **kwargs)`, returns a JSON string and never raises: an exception from the engine becomes `{"error": "...", "hint": "..."}`. The handlers also read the plugin settings from Hermes and pass them to the engine.
 
-**The engine** imports nothing from Hermes at module level. Two guarded imports ask Hermes for the session's working folder (`engine/job.py`) and for the plugin's data folder (`engine/detect/models.py`), and both fall back to plain paths when Hermes is absent. OpenCV, NumPy and Pillow are imported by the call that needs them, so loading the plugin stays cheap and a missing package switches off one kind of media while text keeps working.
+**The engine** imports nothing from Hermes. The adapter hands it the session's working folder and the plugin's data folder. Without them it uses the current directory and `~/.cache/postkitty`. OpenCV, NumPy and Pillow are imported by the call that needs them, so loading the plugin stays cheap and a missing package switches off one kind of media while text keeps working.
 
 `engine.pipeline` is the public Python API. Each step takes one dict and returns one dict, with the same keys the tools use ([Tools](tools.md)). Errors are raised.
 
@@ -97,7 +97,8 @@ Each job gets a folder named from the date, the time and the first file, for exa
     peek.jpg             the preview image the model looks at
     faces/               detections, one JSON file per input
     scenes/              shots and audio levels of each video
-    render/              intermediate renders
+    speakers/            who talks when, for the speaker layout
+    render/              renders in progress, emptied when a make finishes
     failed/              files that did not pass
 ```
 
@@ -152,8 +153,8 @@ postkitty uses YuNet, the face detector from the OpenCV Zoo (MIT license), throu
 
 - `engine/detect/models.py` holds the URL, pinned to one commit of the `opencv_zoo` repository, with the expected size and SHA-256 of the file.
 - The download goes to a temporary file in the cache folder. It is moved into place only after the size and the checksum match.
-- A timeout, a 429 or a 5xx answer is retried three times. Any other failure is reported at once.
-- A cached file that fails the check is never used: the call stops with a checksum error.
+- A timeout, a dropped transfer, a 429 or a 5xx answer is retried three times. With no route to the host the call fails at once, with a message that says where to put the file by hand.
+- A cached file that fails the check is never used. A fresh download replaces it.
 - The cache is `plugin-data/postkitty/models/` in the Hermes home, or `~/.cache/postkitty/models/` outside Hermes.
 
 In a photo, faces with a score of 0.75 or more count as people. In a video, a face becomes a tracked person once it has stayed on screen for more than half a second. The tests use a stand-in detector and never download the model. Tests marked `real_detector` run the real one in CI only.

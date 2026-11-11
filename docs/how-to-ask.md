@@ -88,7 +88,7 @@ When a video cannot support the layout you asked for, postkitty uses a crop and 
 |---|---|
 | "Use the good part." | "Use 0:12 to 0:48 of the clip and take the cover frame at 0:20." |
 
-Give times as minutes and seconds or as seconds. The cover frame has to sit inside the trim, and the trim inside the clip.
+Give times as minutes and seconds or as seconds. A trim that runs past the end of the clip stops at the end. The cover frame has to sit inside the trim.
 
 When you give no times, postkitty keeps the whole clip if it fits the platform's maximum length. A longer clip is cut to that maximum, and postkitty picks the window with the most faces on screen and the most sound. The cover is the sharpest frame that shows a face and sits away from a scene cut.
 
@@ -111,7 +111,7 @@ Say what you want changed in words a person would use: shorter, longer, more for
 | "This is too long for X." | "This is too long for one X post. Turn it into a thread." |
 | | "Keep it to one post on X, shorten it." |
 
-X, Threads and Bluesky text over the limit can be split into a numbered thread. postkitty splits at sentence ends, never inside a link, and numbers the posts (`1/3`, `2/3`, `3/3`). A thread is saved as `thread.txt`, a single post as `post.txt`.
+X, Threads and Bluesky text over the limit can be split into a numbered thread. postkitty splits at sentence ends, keeps every link whole, and numbers the posts (`1/3`, `2/3`, `3/3`). A thread is saved as `thread.txt`, a single post as `post.txt`.
 
 Say which one you want. When you say nothing, Hermes shortens the text until it fits one post. On the other platforms a long text is always shortened.
 
@@ -121,7 +121,9 @@ Say which one you want. When you say nothing, Hermes shortens the text until it 
 |---|---|
 | "Add subtitles." | "Burn the subtitles from /home/me/talk.srt into the TikTok clip." |
 
-postkitty draws the lines of an `.srt` or `.vtt` file into the video, inside the area the platform keeps clear of its buttons and text. It does not transcribe speech, so you bring the subtitle file. Give its full path and say which clips get captions.
+postkitty draws the lines of an `.srt` or `.vtt` file into the video: white text with a dark outline, at most two lines at a time, at the bottom of the area the platform keeps clear of its buttons. The times follow your trim, and the cover frame stays free of captions.
+
+It does not transcribe speech, so you bring the subtitle file. Give its full path and say which clips get captions. Captions need an ffmpeg build with libass, and [Troubleshooting](troubleshooting.md#captions-cannot-be-burned-in) says how to get one.
 
 ## Ask for a change
 

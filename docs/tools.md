@@ -87,7 +87,7 @@ The override keys:
 | `focus` | `auto`, `person:N`, `left`, `center`, `right`, `x:0.0` to `x:1.0` | Photos and video. |
 | `trim` | `[start, end]` in seconds | Video. |
 | `cover_at` | a time in seconds, inside the trim | Video. |
-| `captions` | the absolute path of an `.srt` or `.vtt` file | Video. |
+| `captions` | the absolute path of an `.srt` or `.vtt` file | Video. The subtitles are burned in. When none falls inside the trim, the video is made without them and the row carries an advisory. |
 
 [Layouts](layouts.md) explains each layout and focus value.
 
@@ -147,7 +147,7 @@ Type it in any Hermes chat. It answers from the plugin, without the model.
 |---|---|
 | `/postkitty` | What postkitty does, example requests, and every target with its size and main limits. |
 | `/postkitty tiktok` | The targets and limits of one platform. Several names work: `/postkitty x bluesky`. |
-| `/postkitty doctor` | A check of your setup: Python, ffmpeg and ffprobe, OpenCV, Pillow, the face model and the output folder, with one fix line for each problem. |
+| `/postkitty doctor` | A check of your setup: Python, ffmpeg and ffprobe, caption support, OpenCV, Pillow and the other Python packages, the face model and the output folder. Each problem gets one fix line, and the last line says what works now: text, photos, video, captions. |
 
 ## Settings
 

@@ -63,7 +63,7 @@ Answer yes when Hermes asks to install the Python packages and to turn the plugi
 
 - **Hermes Agent 0.22.7 or newer**, running on Python 3.11 or newer.
 - **Four Python packages:** OpenCV, NumPy, Pillow and regex. Hermes installs them during the install step.
-- **ffmpeg with ffprobe on your PATH, for video only.** Text and photos work without it.
+- **ffmpeg with ffprobe on your PATH, for video only.** Text and photos work without it. Burning in captions needs an ffmpeg build with libass.
 
 To check all of it, type this in a Hermes chat. It prints one fix line for each thing that is missing.
 
