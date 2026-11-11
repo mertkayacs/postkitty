@@ -51,7 +51,7 @@ def has_filter(name: str) -> bool:
     return name in _filters()
 
 
-def _run_ffmpeg(command: list[str], doing: str) -> None:
+def run_ffmpeg(command: list[str], doing: str) -> None:
     """Run an ffmpeg command. A failure says what was being made and quotes ffmpeg's last lines."""
     try:
         subprocess.run(command, check=True, capture_output=True)
@@ -562,7 +562,7 @@ def render_video(
             ]
         )
         try:
-            _run_ffmpeg(command, f"rendering {target.id}")
+            run_ffmpeg(command, f"rendering {target.id}")
             temporary.replace(master)
         except BaseException:
             temporary.unlink(missing_ok=True)
@@ -636,7 +636,7 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         str(temporary),
     ]
     try:
-        _run_ffmpeg(command, f"writing the cover of {target.id}")
+        run_ffmpeg(command, f"writing the cover of {target.id}")
         if not temporary.is_file():
             raise RuntimeError(f"ffmpeg decoded no cover frame at {seek_at:.3f} s")
         temporary.replace(out_path)

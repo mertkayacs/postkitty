@@ -10,6 +10,7 @@ from typing import Any
 
 from ..verify.checks import Check, RenderResult, register_checker
 from ..verify.repair import register
+from .render import run_ffmpeg
 
 
 def _spec(target: Any, key: str) -> Any | None:
@@ -449,7 +450,7 @@ def _transcode(
         ]
     )
     try:
-        subprocess.run(command, check=True, capture_output=True)
+        run_ffmpeg(command, f"repairing {result.file.name}")
         temporary.replace(result.file)
     except BaseException:
         temporary.unlink(missing_ok=True)

@@ -335,3 +335,17 @@ def test_quiet_audio_render_gets_an_advisory(tmp_path: Path) -> None:
     assert checks["audio.level"].status == "advisory"
     assert "nearly silent" in checks["audio.level"].message
     assert checks_mod.hard_pass(list(checks.values()))
+
+
+def test_failed_repair_names_ffmpeg_and_leaves_no_partial_file(tmp_path: Path) -> None:
+    import pytest
+
+    broken = tmp_path / "broken.mp4"
+    broken.write_bytes(b"this is not a video")
+    result = checks_mod.RenderResult("square_video", broken, 320, 180, 1.0, 19)
+    check = checks_mod.Check("video.fps_max", "square_video", "fail", True, 20.0, 10.0, "too fast")
+
+    with pytest.raises(RuntimeError, match="ffmpeg failed while repairing broken.mp4: .*broken.mp4"):
+        repair_fps(result, Target("square_video", 320, 180), check, {})
+
+    assert [path.name for path in tmp_path.iterdir()] == ["broken.mp4"]
