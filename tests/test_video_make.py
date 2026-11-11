@@ -442,7 +442,7 @@ def test_pad_layout_scales_only_to_even_sizes(tmp_path: Path) -> None:
     # ffmpeg 6.1 corrupts its heap scaling 4:2:0 frames to an odd size; 320x176 fits 270x480 at 270x148.5.
     import re
 
-    from engine.video_make import _pad_filter
+    from engine.video.render import _pad_filter
 
     source = tmp_path / "source.mp4"
     _run(
@@ -452,7 +452,7 @@ def test_pad_layout_scales_only_to_even_sizes(tmp_path: Path) -> None:
         ]
     )
     info = InputInfo(source, "even-proof", 320, 176, 0.5, 10.0)
-    graph = _pad_filter(info, Target("tall_video", 270, 480), 10.0)
+    graph = _pad_filter(info, Target("tall_video", 270, 480), 10.0) + "[v]"
 
     log = subprocess.run(
         ["ffmpeg", "-hide_banner", "-v", "verbose", "-i", str(source), "-filter_complex", graph,

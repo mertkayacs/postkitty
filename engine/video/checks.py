@@ -325,6 +325,20 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
             )
         )
 
+    captions = result.extra.get("captions")
+    if captions is not None and not captions["shown"]:
+        checks.append(
+            _check(
+                "captions.shown",
+                target,
+                0,
+                "at least 1",
+                False,
+                "No caption falls inside the trimmed part of the video, so none was burned in.",
+                default_hard=False,
+            )
+        )
+
     if result.subjects_inside is None:
         checks.append(
             _skipped(

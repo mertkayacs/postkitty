@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 
 from .camera import build_camera_path
+from .captions import ass_document, libass_available, load_captions
 from .scan import VideoScan
 
 
@@ -26,6 +27,7 @@ class VideoPlan:
     windows: list[Any]
     subjects_inside: float = 1.0
     normalize_audio: bool = True
+    captions: Any = None
 
 
 def _limit(target: Any, key: str, default: Any = None) -> Any:
@@ -149,6 +151,12 @@ def plan_video(
     if info.duration is None or info.duration <= 0:
         raise ValueError("video duration must be positive")
     override = override or {}
+    captions = load_captions(override["captions"]) if override.get("captions") else None
+    if captions is not None and not libass_available():
+        raise ValueError(
+            "this ffmpeg build has no libass, so it cannot burn captions in; "
+            "install an ffmpeg build with libass or leave out the captions override"
+        )
     if "trim" in override:
         trim = tuple(float(value) for value in override["trim"])
         if len(trim) != 2 or trim[0] < 0 or trim[1] <= trim[0] or trim[1] > info.duration:
@@ -182,6 +190,7 @@ def plan_video(
         windows=camera.windows,
         subjects_inside=camera.subjects_inside,
         normalize_audio=not levels or max(levels) >= -50.0,
+        captions=captions,
     )
 
 
@@ -264,13 +273,12 @@ def _crop_filter(
             f"scale={target.width}:{panel_height}:flags=lanczos[top];"
             f"[bottomin]crop@bottom={bottom[0]}:{bottom[1]}:{bottom[2]}:{bottom[3]},"
             f"scale={target.width}:{target.height - panel_height}:flags=lanczos[bottom];"
-            "[top][bottom]vstack=inputs=2,setsar=1,format=yuv420p[v]"
+            "[top][bottom]vstack=inputs=2,setsar=1"
         )
     window = _window_values(plan.windows[0], info.width, info.height)
     return (
         f"{prefix},crop@c={window[0]}:{window[1]}:{window[2]}:{window[3]},"
-        f"scale={target.width}:{target.height}:flags=lanczos,"
-        "setsar=1,format=yuv420p[v]"
+        f"scale={target.width}:{target.height}:flags=lanczos,setsar=1"
     )
 
 
@@ -283,8 +291,7 @@ def _pad_filter(info: Any, target: Any, fps: float | None) -> str:
         "eq=brightness=-0.25[fill];"
         f"[foreground]scale={target.width}:{target.height}:"
         "force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[front];"
-        "[fill][front]overlay=(W-w)/2:(H-h)/2:shortest=1,"
-        "setsar=1,format=yuv420p[v]"
+        "[fill][front]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1"
     )
 
 
@@ -299,7 +306,7 @@ def _audio_bitrate(info: Any, target: Any) -> str | None:
 
 
 def _plan_key(
-    info: Any, plan: VideoPlan, target: Any, loudness_lufs: float, audio_bitrate: str | None
+    info: Any, plan: VideoPlan, target: Any, loudness_lufs: float, audio_bitrate: str | None, subtitles: str
 ) -> str:
     windows = []
     for window in plan.windows:
@@ -317,6 +324,7 @@ def _plan_key(
             "loudness_lufs": loudness_lufs,
             "audio_bitrate": audio_bitrate,
             "normalize_audio": plan.normalize_audio,
+            "subtitles": subtitles,
         },
         separators=(",", ":"),
     )
@@ -348,13 +356,16 @@ def _probe_render(path: Path) -> dict[str, Any]:
 
 
 def _render_result(
-    plan: VideoPlan, target: Any, path: Path, probe: dict[str, Any]
+    plan: VideoPlan, target: Any, path: Path, probe: dict[str, Any], captions_shown: int
 ) -> Any:
     from ..verify.checks import RenderResult
 
     video = next(
         stream for stream in probe["streams"] if stream["codec_type"] == "video"
     )
+    extra = {"trim": list(plan.trim), "probe": probe, "quiet_audio": not plan.normalize_audio}
+    if plan.captions is not None:
+        extra["captions"] = {"file": str(plan.captions.file), "shown": captions_shown}
     return RenderResult(
         target=target.id,
         file=path,
@@ -364,7 +375,7 @@ def _render_result(
         bytes=int(probe["format"]["size"]),
         layout={"mode": plan.layout, "note": plan.note},
         subjects_inside=plan.subjects_inside,
-        extra={"trim": list(plan.trim), "probe": probe, "quiet_audio": not plan.normalize_audio},
+        extra=extra,
     )
 
 
@@ -382,7 +393,10 @@ def render_video(
     render_dir = work_dir / "render"
     render_dir.mkdir(parents=True, exist_ok=True)
     audio_bitrate = _audio_bitrate(info, target)
-    key = _plan_key(info, plan, target, loudness_lufs, audio_bitrate)
+    subtitles, captions_shown = "", 0
+    if plan.captions is not None:
+        subtitles, captions_shown = ass_document(plan.captions, target, plan.trim)
+    key = _plan_key(info, plan, target, loudness_lufs, audio_bitrate, subtitles if captions_shown else "")
     master = render_dir / f"reuse-{key}.mp4"
     commands_path = render_dir / f"reuse-{key}.commands"
     if not master.exists():
@@ -391,6 +405,11 @@ def render_video(
         else:
             _write_commands(plan, info, fps, commands_path)
             filter_graph = _crop_filter(info, plan, target, fps, commands_path)
+        if captions_shown:
+            subtitles_path = render_dir / f"reuse-{key}.ass"
+            subtitles_path.write_text(subtitles, encoding="utf-8")
+            filter_graph += f",ass=f='{_escape_filter_path(subtitles_path)}'"
+        filter_graph += ",format=yuv420p[v]"
 
         temporary = master.with_name(master.stem + ".tmp.mp4")
         command = [
@@ -482,12 +501,12 @@ def render_video(
     if out_path.resolve() != master.resolve():
         shutil.copy2(master, out_path)
     probe = _probe_render(out_path)
-    return _render_result(plan, target, out_path, probe)
+    return _render_result(plan, target, out_path, probe, captions_shown)
 
 
 def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
     if plan.layout == "pad":
-        return _pad_filter(info, target, None)
+        return _pad_filter(info, target, None) + "[v]"
     if plan.layout == "split":
         top = _window_values(plan.windows[index][0], info.width, info.height)
         bottom = _window_values(plan.windows[index][1], info.width, info.height)
