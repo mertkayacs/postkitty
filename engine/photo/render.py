@@ -239,9 +239,11 @@ def _srgb(image: Image.Image) -> Image.Image:
     rgb = image.convert("RGB")
     profile = image.info.get("icc_profile")
     if profile:
+        # A CMYK profile describes CMYK pixels, so that conversion has to start from them.
+        tagged = image if image.mode == "CMYK" else rgb
         try:
             rgb = ImageCms.profileToProfile(
-                rgb,
+                tagged,
                 ImageCms.ImageCmsProfile(io.BytesIO(profile)),
                 ImageCms.createProfile("sRGB"),
                 outputMode="RGB",

@@ -491,6 +491,26 @@ def test_sixteen_bit_grayscale_keeps_its_tones(tmp_path: Path) -> None:
     assert 110 < pixels[50, 100] < 145
 
 
+def test_cmyk_source_is_converted_from_cmyk_through_its_colour_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "print.tif"
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    Image.new("CMYK", (40, 40), (0, 255, 255, 0)).save(source, icc_profile=profile)
+    converted_from: list[str] = []
+
+    def convert(image: Image.Image, *args: object, **kwargs: object) -> Image.Image:
+        converted_from.append(image.mode)
+        return Image.new("RGB", image.size, (237, 39, 45))
+
+    monkeypatch.setattr(image_make.ImageCms, "profileToProfile", convert)
+
+    loaded = image_make.load_srgb(source)
+
+    assert converted_from == ["CMYK"]
+    assert loaded.getpixel((20, 20)) == (237, 39, 45)
+
+
 def test_seam_carves_height_when_the_source_is_taller_than_the_target(
     monkeypatch: object, tmp_path: Path
 ) -> None:
