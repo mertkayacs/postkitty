@@ -35,12 +35,17 @@ class ModelUnavailable(RuntimeError):
     """The face model is not cached and could not be downloaded. The message is written for the user."""
 
 
+_data_dir: Path | None = None
+
+
+def set_data_dir(path: str | Path) -> None:
+    """Name the folder postkitty keeps its downloads in. The host passes its per-plugin data folder."""
+    global _data_dir
+    _data_dir = Path(path).expanduser()
+
+
 def model_cache_dir() -> Path:
-    try:
-        from plugins.plugin_storage import plugin_data_dir
-    except ImportError:
-        return Path.home() / ".cache" / "postkitty" / "models"
-    return plugin_data_dir("postkitty") / "models"
+    return (_data_dir or Path.home() / ".cache" / "postkitty") / "models"
 
 
 def file_sha256(path: Path) -> str:

@@ -141,3 +141,13 @@ def test_a_damaged_cached_model_is_never_returned_when_the_download_fails(
 
     with pytest.raises(models.ModelUnavailable):
         models.get_yunet_model(tmp_path)
+
+
+def test_the_cache_sits_in_the_user_cache_folder_until_the_host_names_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(models, "_data_dir", None)
+    assert models.model_cache_dir() == Path.home() / ".cache" / "postkitty" / "models"
+
+    models.set_data_dir(tmp_path / "plugin-data" / "postkitty")
+    assert models.model_cache_dir() == tmp_path / "plugin-data" / "postkitty" / "models"
