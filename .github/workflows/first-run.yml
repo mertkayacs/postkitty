@@ -14,7 +14,9 @@ on:
     paths:
       - plugin.yaml
       - __init__.py
+      - schemas.py
       - tools.py
+      - command.py
       - engine/**
       - skills/**
       - data/**

@@ -7,7 +7,7 @@ same path the agent loop takes (model_tools.handle_function_call -> tools.regist
 Phases (one per invocation, so ffmpeg can be installed in between):
   text                 scan a draft, then fit drafts for x, linkedin, threads and bluesky
   novideo <clip>       scan a video while ffmpeg is missing; expect a message that says to install ffmpeg
-  photo <image>        scan, copy and make for instagram and x
+  photo <image>        scan, write and make for instagram and x
   video <clip>         scan, make for tiktok, youtube_shorts and instagram_reel, redo tiktok as speaker and pad
 Every tool result is written to $FIRST_RUN_LOG_DIR/<phase>-<step>.json.
 """
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 LOG_DIR = Path(os.environ.get("FIRST_RUN_LOG_DIR", "first-run-logs"))
-TOOLS = ("postkitty_scan", "postkitty_copy", "postkitty_make", "postkitty_redo", "postkitty_check")
+TOOLS = ("postkitty_scan", "postkitty_write", "postkitty_make", "postkitty_redo", "postkitty_check")
 SIZES = {
     "instagram_feed": (1080, 1350), "instagram_story": (1080, 1920), "x_image": (1600, 900),
     "tiktok": (1080, 1920), "youtube_shorts": (1080, 1920), "instagram_reel": (1080, 1920),
@@ -121,13 +121,13 @@ def phase_text(call) -> None:
     check(bool(scan.get("job")), "scan returned a job id")
     stats = scan.get("text") or {}
     check(bool(stats), "scan returned text stats for the draft")
-    copy = call("postkitty_copy", {"job": scan["job"], "drafts": DRAFTS, "advice": {
+    write = call("postkitty_write", {"job": scan["job"], "drafts": DRAFTS, "advice": {
         "topic": "Episode 42", "audience": "video makers", "tone": "plain", "key_message": "new episode"}},
-        "text-2-copy")
-    expect_no_error(copy, "copy")
-    platforms = copy.get("platforms", {})
+        "text-2-write")
+    expect_no_error(write, "write")
+    platforms = write.get("platforms", {})
     for name in DRAFTS:
-        check(name in platforms, f"copy reported {name}")
+        check(name in platforms, f"write reported {name}")
     x = platforms.get("x", {})
     check(x.get("split") is True and len(x.get("parts", [])) > 1,
           f"overlong X draft was split into a thread ({len(x.get('parts', []))} parts)")
@@ -137,12 +137,12 @@ def phase_text(call) -> None:
         row = platforms.get(name, {})
         check(row.get("ok") is True, f"{name} draft fits ({row.get('count')} {row.get('unit')} of {row.get('limit')})")
         check(any(f.endswith("post.txt") for f in row.get("files", [])), f"{name} post written to post.txt")
-    check(copy.get("all_ok") is True, "copy reports all_ok")
+    check(write.get("all_ok") is True, "write reports all_ok")
     job_dir = Path(scan["job_dir"])
     for name in DRAFTS:
         for file in platforms.get(name, {}).get("files", []):
             check((job_dir / file).is_file(), f"{file} exists on disk")
-    check((job_dir / "advice.md").is_file() or bool(copy.get("advice")), "advice file written")
+    check((job_dir / "advice.md").is_file() or bool(write.get("advice")), "advice file written")
 
 
 def phase_novideo(call, clip: Path) -> None:
@@ -168,11 +168,11 @@ def phase_photo(call, photo: Path) -> None:
     check(not scan.get("notes"), f"scan has no notes ({scan.get('notes')})")
     planned = {t["id"] for t in scan.get("plan", [])}
     check({"instagram_feed", "x_image"} <= planned, f"plan covers instagram_feed and x_image ({sorted(planned)})")
-    copy = call("postkitty_copy", {"job": scan["job"], "drafts": {"instagram": DRAFTS["threads"], "x": DRAFTS["threads"]},
+    write = call("postkitty_write", {"job": scan["job"], "drafts": {"instagram": DRAFTS["threads"], "x": DRAFTS["threads"]},
                                    "alt_text": {photo.name: "Five people standing in a row in a bright office."}},
-                "photo-2-copy")
-    expect_no_error(copy, "copy")
-    check(copy.get("alt_text_unmatched") is None, "alt text matched the input file")
+                "photo-2-write")
+    expect_no_error(write, "write")
+    check(write.get("alt_text_unmatched") is None, "alt text matched the input file")
     make = call("postkitty_make", {"job": scan["job"], "targets": ["instagram", "x"]}, "photo-3-make")
     expect_no_error(make, "make")
     job_dir = Path(make["job_dir"])

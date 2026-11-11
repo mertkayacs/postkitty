@@ -1,7 +1,7 @@
 """Record YuNet face detections for demo media in postkitty's faces.json format.
 
 Runs in GitHub Actions only (see .github/workflows/demo-detect.yml). Videos are sampled exactly like
-engine/video_scan.py does (ffmpeg, 5 fps, 640 px wide) so the output can be dropped into a job cache.
+engine/video/scan.py does (ffmpeg, 5 fps, 640 px wide) so the output can be dropped into a job cache.
 """
 
 import hashlib
