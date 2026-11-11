@@ -206,6 +206,9 @@ class TestSplit:
         for draft in (self._long(700), "a" * 600):
             report = c.fit("x", draft)
             assert report.parts == [draft] and not report.ok and not report.split and report.overflow > 0
+            assert any("thread of at most 50 posts" in note for note in report.notes)
+        assert not any("thread" in note for note in c.fit("x", self._long(), split_threads=False).notes)
+        assert not any("thread" in note for note in c.fit("linkedin", "a" * 3001).notes)
 
     def test_split_happens_on_sentence_boundaries(self):
         report = c.fit("x", self._long())

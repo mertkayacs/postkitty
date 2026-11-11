@@ -456,7 +456,10 @@ def _pack(units: list[tuple[str, str]], fits) -> list[str]:
     return parts
 
 
-def split_for_limit(text: str, rules: TextRules, max_parts: int = 50) -> list[str]:
+_MAX_THREAD_PARTS = 50
+
+
+def split_for_limit(text: str, rules: TextRules, max_parts: int = _MAX_THREAD_PARTS) -> list[str]:
     """Split ``text`` on sentence boundaries, never inside a URL, with ``1/n`` suffixes.
 
     Returns ``[text]`` unchanged when it fits, when the platform has no threads, or when no split of at most
@@ -534,7 +537,7 @@ def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> Co
     """Count one draft, splitting a thread platform's over-limit text when allowed."""
     rules = rules_for(platform)
     notes: list[str] = []
-    split = False
+    split = unsplittable = False
     if isinstance(draft, list):
         parts = [str(part) for part in draft]
         if not parts:
@@ -546,6 +549,7 @@ def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> Co
         elif split_threads and platform in THREAD_PLATFORMS:
             parts = split_for_limit(text, rules)
             split = len(parts) > 1
+            unsplittable = not split
         else:
             parts = [text]
 
@@ -568,6 +572,11 @@ def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> Co
         notes.append(f"{platform} allows {rules.mentions_max} mentions; the draft has {mentions}.")
     if split:
         notes.append(f"Split into {len(parts)} parts.")
+    if unsplittable:
+        notes.append(
+            f"The draft cannot be split into a thread of at most {_MAX_THREAD_PARTS} posts. "
+            "Shorten it, or break up a word that is longer than one post."
+        )
 
     ok = (
         all(_fits(part, rules) for part in parts)
