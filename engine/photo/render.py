@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import tempfile
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -49,9 +50,23 @@ def _subjects(info: Any, document: dict) -> tuple[list[Box], list[Box]]:
             face_boxes,
         )
 
-    bgr = cv2.cvtColor(np.asarray(load_srgb(info.path).convert("RGB")), cv2.COLOR_RGB2BGR)
-    salient = saliency_box(bgr)
+    salient = _salient_box(info.path, info.sha256)
     return ([salient] if salient is not None else [], [])
+
+
+@lru_cache(maxsize=32)
+def _salient_box(path: Path, sha256: str) -> Box | None:
+    """The region of a photo that draws the eye, in source pixels. Every target of a photo asks for it."""
+    del sha256  # only part of the cache key: the same path can hold another photo later
+    image = load_srgb(path).convert("RGB")
+    width, height = image.size
+    # The saliency model works on a 64 px copy, so a small image gives the same region with far less memory.
+    image.thumbnail((512, 512))
+    box = saliency_box(cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR))
+    if box is None:
+        return None
+    scale_x, scale_y = width / image.width, height / image.height
+    return Box(box.x * scale_x, box.y * scale_y, box.w * scale_x, box.h * scale_y)
 
 
 def _split_window(

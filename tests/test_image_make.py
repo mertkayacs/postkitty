@@ -150,6 +150,30 @@ def test_plan_uses_saliency_without_faces(tmp_path: Path) -> None:
     assert plan.boxes[0].cx > 150
 
 
+def test_a_large_photo_without_faces_is_searched_once_on_a_small_copy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "landscape.png"
+    image = Image.new("RGB", (2048, 1024), "black")
+    ImageDraw.Draw(image).rectangle((1500, 300, 1900, 700), fill="white")
+    image.save(source)
+    info = InputInfo(source, "landscape", 2048, 1024)
+    searched: list[tuple[int, int]] = []
+    find = image_make.saliency_box
+
+    def record(image_bgr: np.ndarray) -> Box | None:
+        searched.append(image_bgr.shape[:2])
+        return find(image_bgr)
+
+    monkeypatch.setattr(image_make, "saliency_box", record)
+
+    square = plan_image(info, _faces([]), Target("square", 400, 400))
+    plan_image(info, _faces([]), Target("feed", 400, 500))
+
+    assert searched == [(256, 512)]
+    assert square.boxes[0].contains(Box(1500, 300, 400, 400))
+
+
 def test_low_score_detection_uses_saliency_crop(
     monkeypatch: object, tmp_path: Path
 ) -> None:
