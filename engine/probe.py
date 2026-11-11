@@ -66,8 +66,8 @@ def _ratio(raw: str | None) -> float | None:
 def _square_pixel_size(video: dict) -> tuple[int, int]:
     """Frame size as shown on screen: anamorphic video (DV, HDV, some camera modes) stores non-square pixels.
 
-    The longer side is stretched so no stored detail is lost, and it is rounded to an even number
-    because the render resamples the frame to this size in 4:2:0.
+    The frame grows along the side its pixels are stretched on, so no stored detail is lost. That
+    side is rounded to an even number because the render resamples the frame to this size in 4:2:0.
     """
     width = int(video.get("width") or 0)
     height = int(video.get("height") or 0)
