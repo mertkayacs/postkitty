@@ -194,7 +194,12 @@ def _position(value: float, maximum: int) -> int:
 
 
 def _escape_filter_path(path: Path) -> str:
-    return str(path).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    """``path`` as a filter option value that the caller wraps in single quotes.
+
+    The option parser reads backslash, colon and quote as syntax. A quoted graph string cannot hold
+    a quote, so each one closes the string, adds an escaped quote and opens it again.
+    """
+    return str(path).replace("\\", "\\\\").replace(":", "\\:").replace("'", "'\\\\\\''")
 
 
 def _window_values(window: Any, width: int, height: int) -> tuple[int, int, int, int]:

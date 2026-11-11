@@ -464,3 +464,14 @@ def test_pad_layout_scales_only_to_even_sizes(tmp_path: Path) -> None:
     sizes = [(int(w), int(h)) for w, h in re.findall(r"Parsed_scale_\d+.*-> w:(\d+) h:(\d+)", log)]
     assert len(sizes) >= 2
     assert all(w % 2 == 0 and h % 2 == 0 for w, h in sizes), sizes
+
+
+
+def test_render_works_from_a_job_folder_with_quotes_and_filter_syntax_in_its_name(tmp_path: Path) -> None:
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    target = Target("square_video", 180, 180)
+    plan = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "", [_box(70.0, 0.0, 180.0, 180.0)] * 10)
+
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "it's a [job], 50%; x=1:2")
+
+    assert (result.width, result.height) == (180, 180)
