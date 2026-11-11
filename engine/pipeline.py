@@ -837,6 +837,13 @@ def check(args: dict) -> dict:
     return {"job": job.id, "targets": out, "all_pass": all(v["pass"] for v in out.values())}
 
 
+def check_targets(path: str) -> list[str]:
+    """The ids of the targets that take a file of this kind, for a caller that lets a person choose one."""
+    kind = probe.probe(_input_path(path), "check").kind
+    return [target.id for platform in platforms.load_platforms().values() for target in platform.targets.values()
+            if target.kind in (kind, "image_or_video")]
+
+
 def _job_for_ready_path(path: Path) -> jobs.Job | None:
     for parent in path.parents:
         if parent.name == "ready" and (parent.parent / "manifest.json").is_file():

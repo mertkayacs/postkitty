@@ -27,6 +27,9 @@ class FakeCtx:
     def register_command(self, name, handler, description="", args_hint=""):
         self.commands[name] = handler
 
+    def register_cli_command(self, name, help, setup_fn, handler_fn=None, description=""):
+        self.cli = {name: (setup_fn, handler_fn)}
+
     def get_config(self, key, default=None):
         return default
 
@@ -39,7 +42,29 @@ def test_register_wires_tools_skill_and_command():
         assert toolset == "postkitty" and schema["name"] == name and schema["parameters"]["type"] == "object"
         assert len(schema["description"]) > 80 and callable(handler)
     assert ctx.skills["postkitty"].is_file() and "postkitty" in ctx.commands
-    assert "tiktok" in ctx.commands["postkitty"]("")
+    assert "tiktok" in ctx.commands["postkitty"]("") and callable(ctx.cli["postkitty"][1])
+
+
+def test_register_works_on_a_hermes_without_cli_commands():
+    class OlderCtx:
+        def __init__(self):
+            self.tools, self.commands = {}, {}
+
+        def register_tool(self, name, **kwargs):
+            self.tools[name] = kwargs
+
+        def register_skill(self, *args, **kwargs):
+            pass
+
+        def register_command(self, name, handler, **kwargs):
+            self.commands[name] = handler
+
+        def get_config(self, key, default=None):
+            return default
+
+    older = OlderCtx()
+    register(older)
+    assert len(older.tools) == 5 and "postkitty" in older.commands
 
 
 def test_manifest_is_consistent():

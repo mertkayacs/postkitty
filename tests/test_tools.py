@@ -5,13 +5,12 @@ import os
 import shutil
 import sys
 import types
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from PIL import Image
-from postkitty import command, schemas, tools
+from postkitty import schemas, tools
 from postkitty.engine import pipeline
 from postkitty.engine.verify import checks, repair
 
@@ -277,46 +276,6 @@ def test_check_explains_skipped_framing_for_external_file(out_dir, tmp_path, stu
 
 # --- media flow with stub engines (no OpenCV, no models) ---------------------------------------------------
 
-@dataclass
-class FakeLayout:
-    mode: str
-    note: str = "stub"
-    boxes: tuple = ()
-
-
-@pytest.fixture
-def stub_image_engine(monkeypatch):
-    """Install fake detect.faces, photo.render and photo.checks modules under postkitty.engine."""
-    renders = []
-
-    faces = types.ModuleType("postkitty.engine.detect.faces")
-    faces.get_detector = lambda cache_dir: object()
-    faces.SUBJECT_MIN_SCORE = 0.75
-    faces.detect_image = lambda info, detector, cache_dir: {
-        "frames": [{"t": 0.0, "faces": [{"x": 1, "score": 0.9}, {"x": 2, "score": 0.9}]}]}
-
-    image_make = types.ModuleType("postkitty.engine.photo.render")
-    image_make.plan_image = lambda info, faces_doc, target, override=None: FakeLayout(
-        (override or {}).get("layout") or "crop")
-    image_make.load_srgb = lambda path: Image.open(path).convert("RGB")
-
-    def render_image(info, layout, target, out_path):
-        renders.append((target.id, layout.mode))
-        Image.new("RGB", (target.width, target.height), "green").save(out_path, quality=90)
-        return checks.RenderResult(target.id, out_path, target.width, target.height, None, out_path.stat().st_size,
-                                   {"mode": layout.mode, "note": layout.note}, 1.0, {})
-
-    image_make.render_image = render_image
-    checks_image = types.ModuleType("postkitty.engine.photo.checks")
-    for mod in (faces, image_make, checks_image):
-        parent, _, name = mod.__name__.rpartition(".")
-        monkeypatch.setitem(sys.modules, mod.__name__, mod)
-        monkeypatch.setattr(importlib.import_module(parent), name, mod, raising=False)
-    monkeypatch.setattr(checks, "_CHECKERS", {"image": [], "video": []})
-    monkeypatch.setattr(repair, "_STRATEGIES", {})
-    return renders
-
-
 def test_image_flow_make_redo_check(out_dir, tmp_path, stub_image_engine):
     photo = tmp_path / "me.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(photo)
@@ -572,24 +531,6 @@ def test_a_missing_package_skips_video_targets_and_names_it(out_dir, tmp_path, m
     made = call(tools.make, job=scan["job"])
     assert made["targets"][0]["status"] == "skipped"
     assert made["targets"][0]["reason"] == "Videos cannot be made here: the Python package 'numpy' is missing."
-
-
-def test_slash_command_text():
-    text = command.targets_overview("")
-    assert "tiktok: 1080x1920 video" in text and "X: text 280 x_weighted" in text
-    assert command.targets_overview("platforms x").count("X:") == 1 and "TikTok" not in command.targets_overview("x")
-    assert command.targets_overview("zzz") == "No matching platform."
-
-
-def test_slash_command_header_explains_postkitty_only_without_a_filter():
-    text = command.targets_overview("")
-    header, _, targets = text.partition("Targets")
-    assert header.startswith("postkitty: one post in, every platform out.")
-    assert "never posts, uploads or schedules" in header and "Try saying:" in header
-    assert header.count("\n  ") == 5 and "Will this file upload to TikTok?" in header
-    assert "tiktok: 1080x1920 video" in targets and "/postkitty tiktok" in targets
-    filtered = command.targets_overview("tiktok")
-    assert filtered.startswith("TikTok:") and "Try saying" not in filtered and "/postkitty" not in filtered
 
 
 def test_speaker_layout_is_exposed_by_the_tool_schema() -> None:

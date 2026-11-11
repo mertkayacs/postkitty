@@ -62,11 +62,20 @@ def apply_settings() -> None:
                        loudness_lufs=_config("loudness_lufs", -14), base_dir=_session_dir(), data_dir=_data_dir())
 
 
+def ask_choice(question: str, choices: list[str]) -> str | None:
+    """Let the user who ran a slash command pick one option. ``None`` when nothing can ask (older Hermes, cron)."""
+    ask = getattr(_CTX, "ask_choice", None)
+    try:
+        return ask(question, choices) if ask else None
+    except Exception:
+        return None
+
+
 def _json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, default=str)
 
 
-def _message(exc: Exception) -> str:
+def message(exc: Exception) -> str:
     # str() of a KeyError is the repr of its key, which wraps a message in quotes.
     if isinstance(exc, KeyError) and exc.args and isinstance(exc.args[0], str):
         return exc.args[0]
@@ -86,7 +95,7 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
         except pipeline.ScanNeeded as exc:
             return _json({"error": str(exc), "hint": "Run postkitty_scan again and continue with the job id it returns."})
         except (FileNotFoundError, KeyError, ValueError, probe.ProbeError) as exc:
-            return _json({"error": _message(exc), "hint": "Fix the argument and call the tool again."})
+            return _json({"error": message(exc), "hint": "Fix the argument and call the tool again."})
         except Exception as exc:
             return _json({"error": f"{type(exc).__name__}: {exc}", "hint": "Unexpected failure; report it with the job id."})
 

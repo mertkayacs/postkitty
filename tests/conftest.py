@@ -4,6 +4,7 @@ Engine modules use relative imports, so tests that touch ``tools`` or the plugin
 as ``postkitty.engine.*``. The repository root is also put on ``sys.path`` for tests that import ``engine.*``.
 """
 
+import importlib
 import importlib.util
 import os
 import subprocess
@@ -152,3 +153,49 @@ def _no_local_face_detector(monkeypatch, tmp_path):
         module = importlib.import_module(name)
         if hasattr(module, "get_detector"):
             monkeypatch.setattr(module, "get_detector", lambda cache_dir: _BlindDetector())
+
+
+@dataclass
+class FakeLayout:
+    mode: str
+    note: str = "stub"
+    boxes: tuple = ()
+
+
+@pytest.fixture
+def stub_image_engine(monkeypatch):
+    """Install fake detect.faces, photo.render and photo.checks modules under postkitty.engine."""
+    import types
+
+    from PIL import Image
+    from postkitty.engine.verify import checks as verify_checks
+    from postkitty.engine.verify import repair as verify_repair
+
+    renders = []
+
+    faces = types.ModuleType("postkitty.engine.detect.faces")
+    faces.get_detector = lambda cache_dir: object()
+    faces.SUBJECT_MIN_SCORE = 0.75
+    faces.detect_image = lambda info, detector, cache_dir: {
+        "frames": [{"t": 0.0, "faces": [{"x": 1, "score": 0.9}, {"x": 2, "score": 0.9}]}]}
+
+    image_make = types.ModuleType("postkitty.engine.photo.render")
+    image_make.plan_image = lambda info, faces_doc, target, override=None: FakeLayout(
+        (override or {}).get("layout") or "crop")
+    image_make.load_srgb = lambda path: Image.open(path).convert("RGB")
+
+    def render_image(info, layout, target, out_path):
+        renders.append((target.id, layout.mode))
+        Image.new("RGB", (target.width, target.height), "green").save(out_path, quality=90)
+        return verify_checks.RenderResult(target.id, out_path, target.width, target.height, None, out_path.stat().st_size,
+                                   {"mode": layout.mode, "note": layout.note}, 1.0, {})
+
+    image_make.render_image = render_image
+    checks_image = types.ModuleType("postkitty.engine.photo.checks")
+    for mod in (faces, image_make, checks_image):
+        parent, _, name = mod.__name__.rpartition(".")
+        monkeypatch.setitem(sys.modules, mod.__name__, mod)
+        monkeypatch.setattr(importlib.import_module(parent), name, mod, raising=False)
+    monkeypatch.setattr(verify_checks, "_CHECKERS", {"image": [], "video": []})
+    monkeypatch.setattr(verify_repair, "_STRATEGIES", {})
+    return renders
