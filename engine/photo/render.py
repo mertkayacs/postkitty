@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageCms, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
-from .faces import SUBJECT_MIN_SCORE, faces_at, saliency_box
+from ..detect.faces import SUBJECT_MIN_SCORE, faces_at, saliency_box
 from .framing import Box, Layout, choose_layout, fit_crop, subject_box
 from .seams import seam_engine, seam_resize
 
@@ -390,7 +390,7 @@ def _save(
 
 def _result_type() -> type:
     try:
-        from .checks import RenderResult
+        from ..verify.checks import RenderResult
     except ImportError:
         return _FallbackRenderResult
     return RenderResult

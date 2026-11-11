@@ -8,8 +8,8 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
-from .checks import Check, RenderResult, register_checker
-from .repair import register
+from ..verify.checks import Check, RenderResult, register_checker
+from ..verify.repair import register
 
 
 def _spec(target: Any, key: str) -> Any | None:

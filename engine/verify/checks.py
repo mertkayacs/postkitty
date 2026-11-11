@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from . import copyfit
-from .platforms import Spec, TargetSpec
+from ..platforms import Spec, TargetSpec
+from ..text import fit as copyfit
 
 Status = Literal["pass", "fail", "advisory", "skipped"]
 

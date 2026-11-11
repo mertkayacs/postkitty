@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from itertools import pairwise
 from typing import Any, Literal
 
-from .video_scan import Track, TrackPoint, VideoScan
+from .scan import Track, TrackPoint, VideoScan
 
 
 @dataclass(frozen=True)
@@ -17,7 +17,7 @@ class CameraPath:
 
 
 def _geometry() -> tuple[Any, Any, Any]:
-    from .framing import Box, fit_crop, subject_box
+    from ..photo.framing import Box, fit_crop, subject_box
 
     return Box, fit_crop, subject_box
 

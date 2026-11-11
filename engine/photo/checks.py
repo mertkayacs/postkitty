@@ -8,7 +8,7 @@ from typing import Any
 from PIL import Image
 
 try:
-    from .checks import Check
+    from ..verify.checks import Check
 except ImportError:
 
     @dataclass
@@ -265,7 +265,7 @@ def repair_image_subjects(
 
 def register_image_checker() -> bool:
     try:
-        from .checks import register_checker
+        from ..verify.checks import register_checker
     except ImportError:
         return False
     register_checker("image", check_image)
@@ -274,7 +274,7 @@ def register_image_checker() -> bool:
 
 def register_image_repairs() -> bool:
     try:
-        from .repair import register
+        from ..verify.repair import register
     except ImportError:
         return False
     register("image.bytes_max", repair_image_size)

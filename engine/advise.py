@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from . import copyfit, platforms
+from . import platforms
 from .probe import InputInfo
+from .text import fit as copyfit
 
 
 def source_for(infos: Iterable[InputInfo], target) -> InputInfo | None:

@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from .video_scan import Track, TrackPoint
+from .scan import Track, TrackPoint
 
 
 def _read_exact(stream: Any, size: int) -> bytes:

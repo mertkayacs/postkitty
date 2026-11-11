@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
-from .framing import Box
+from ..photo.framing import Box
 from .models import get_yunet_model
 
 SUBJECT_MIN_SCORE = 0.75
@@ -15,7 +15,7 @@ SUBJECT_MIN_SCORE = 0.75
 if TYPE_CHECKING:
     import numpy as np
 
-    from .probe import InputInfo
+    from ..probe import InputInfo
 
 
 @dataclass(frozen=True)
@@ -183,7 +183,7 @@ def detect_image(info: InputInfo, detector: Detector, cache_dir: Path) -> dict:
     import cv2
     import numpy as np
 
-    from .image_make import load_srgb
+    from ..photo.render import load_srgb
 
     image_bgr = cv2.cvtColor(np.asarray(load_srgb(info.path).convert("RGB")), cv2.COLOR_RGB2BGR)
     detected = detector.detect(image_bgr)

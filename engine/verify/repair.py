@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from ..platforms import TargetSpec
 from .checks import Check, RenderResult, failures, run_checks
-from .platforms import TargetSpec
 
 Strategy = Callable[[RenderResult, TargetSpec, Check, dict], "RenderResult | None"]
 

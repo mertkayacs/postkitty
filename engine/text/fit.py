@@ -12,7 +12,7 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from . import platforms
+from .. import platforms
 
 # twitter-text v3 config/v3.json, fetched 2026-11-08.
 _X_RANGES = (

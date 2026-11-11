@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from .camera import build_camera_path
-from .video_scan import VideoScan
+from .scan import VideoScan
 
 
 @dataclass(frozen=True)
@@ -335,7 +335,7 @@ def _probe_render(path: Path) -> dict[str, Any]:
 def _render_result(
     plan: VideoPlan, target: Any, path: Path, probe: dict[str, Any]
 ) -> Any:
-    from .checks import RenderResult
+    from ..verify.checks import RenderResult
 
     video = next(
         stream for stream in probe["streams"] if stream["codec_type"] == "video"
