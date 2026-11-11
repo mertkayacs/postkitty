@@ -34,7 +34,7 @@ postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousRes
 
 One of the best free and open source plugins for Hermes Agent on automatic multi social media content editing.
 
-[![Watch the postkitty video: one post in, every platform out, explained in about a minute](docs/explainer-poster.jpg)](https://postkitty.mertkayacs.com/media/explainer.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-poster)
+[![Watch the postkitty video: one film scene with a box around each face, and the Instagram Reel, TikTok and X files made from it](docs/explainer-poster.jpg)](https://postkitty.mertkayacs.com/media/explainer.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-poster)
 
 ---
 

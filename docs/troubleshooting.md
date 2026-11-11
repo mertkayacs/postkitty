@@ -49,7 +49,7 @@ The result of a scan has a `notes` list. A note names the input and the reason a
 
 | The reason says | What to do |
 |---|---|
-| `Photos cannot be made here: the Python package ... is missing` (or `Video cannot be made here`) | The install did not finish. Run `hermes plugins install postkitty --force` and answer yes to the Python packages. |
+| `Photos cannot be made here: the Python package ... is missing` (or `Videos cannot be made here`) | The install did not finish. Run `hermes plugins install postkitty --force` and answer yes to the Python packages. |
 | A download or network error | See the next section. |
 | ffprobe or ffmpeg | See the section above. |
 
