@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 
 from .camera import build_camera_path
-from .captions import ass_document, load_captions
+from .captions import Captions, ass_document, load_captions
 from .scan import VideoScan, read_exact
 
 # Platforms take one or two audio channels, so surround sources are mixed down and mono stays mono.
@@ -32,7 +32,7 @@ class VideoPlan:
     windows: list[Any]
     subjects_inside: float = 1.0
     normalize_audio: bool = True
-    captions: Any = None
+    captions: Captions | None = None
     cut_to_duration_max: bool = False
 
 
@@ -325,14 +325,21 @@ def _crop_filter(
     info: Any,
     plan: VideoPlan,
     target: Any,
-    fps: float,
-    commands_path: Path,
+    fps: float | None,
+    commands_path: Path | None,
+    index: int = 0,
 ) -> str:
-    command_file = _escape_filter_path(commands_path)
-    prefix = f"{_source(info, fps)},sendcmd=f='{command_file}'"
+    """Graph for the crop, speaker and split layouts.
+
+    A render moves the windows over time through the commands file. A cover has no commands and
+    holds the windows of frame ``index``.
+    """
+    prefix = _source(info, fps)
+    if commands_path is not None:
+        prefix += f",sendcmd=f='{_escape_filter_path(commands_path)}'"
     if plan.layout == "split":
-        top = _window_values(plan.windows[0][0], info.width, info.height)
-        bottom = _window_values(plan.windows[0][1], info.width, info.height)
+        top = _window_values(plan.windows[index][0], info.width, info.height)
+        bottom = _window_values(plan.windows[index][1], info.width, info.height)
         # 4:2:0 frames need even panel heights; ffmpeg 6.1 corrupts its heap scaling to an odd height (1350 / 2).
         panel_height = _even(target.height / 2)
         return (
@@ -343,7 +350,7 @@ def _crop_filter(
             f"scale={target.width}:{target.height - panel_height}:flags=lanczos[bottom];"
             "[top][bottom]vstack=inputs=2,setsar=1"
         )
-    window = _window_values(plan.windows[0], info.width, info.height)
+    window = _window_values(plan.windows[index], info.width, info.height)
     return (
         f"{prefix},crop@c={window[0]}:{window[1]}:{window[2]}:{window[3]},"
         f"scale={target.width}:{target.height}:flags=lanczos,setsar=1"
@@ -578,29 +585,6 @@ def render_video(
     return _render_result(plan, target, out_path, probe, captions_shown)
 
 
-def _cover_filter(info: Any, plan: VideoPlan, target: Any, index: int) -> str:
-    if plan.layout == "pad":
-        return _pad_filter(info, target, None)
-    if plan.layout == "split":
-        top = _window_values(plan.windows[index][0], info.width, info.height)
-        bottom = _window_values(plan.windows[index][1], info.width, info.height)
-        # 4:2:0 frames need even panel heights; ffmpeg 6.1 corrupts its heap scaling to an odd height (1350 / 2).
-        panel_height = _even(target.height / 2)
-        return (
-            f"{_source(info, None)},split=2[topin][bottomin];"
-            f"[topin]crop={top[0]}:{top[1]}:{top[2]}:{top[3]},"
-            f"scale={target.width}:{panel_height}:flags=lanczos[top];"
-            f"[bottomin]crop={bottom[0]}:{bottom[1]}:{bottom[2]}:{bottom[3]},"
-            f"scale={target.width}:{target.height - panel_height}:flags=lanczos[bottom];"
-            "[top][bottom]vstack=inputs=2,setsar=1"
-        )
-    window = _window_values(plan.windows[index], info.width, info.height)
-    return (
-        f"{_source(info, None)},crop={window[0]}:{window[1]}:{window[2]}:{window[3]},"
-        f"scale={target.width}:{target.height}:flags=lanczos,setsar=1"
-    )
-
-
 def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Path:
     fps = min(float(info.fps), 60.0)
     index = min(
@@ -629,7 +613,13 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
         "-i",
         str(info.path),
         "-filter_complex",
-        _cover_filter(info, plan, target, index) + _to_sdr(info) + "[v]",
+        (
+            _pad_filter(info, target, None)
+            if plan.layout == "pad"
+            else _crop_filter(info, plan, target, None, None, index)
+        )
+        + _to_sdr(info)
+        + "[v]",
         "-map",
         "[v]",
         "-frames:v",
