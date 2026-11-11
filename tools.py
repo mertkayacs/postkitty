@@ -1,8 +1,8 @@
 """Tool handlers. Every handler takes ``(args, **kwargs)``, returns a JSON string and never raises.
 
-The work happens in ``engine.pipeline``. This module adds what only Hermes needs: the plugin settings
-read from the plugin context, the JSON string and error wrapping, and the two lines Hermes acts on in a
-reply.
+The work happens in ``engine.pipeline``. This module adds what only Hermes needs: the plugin settings,
+the session working directory and the plugin data folder, read fresh for every call; the JSON string and
+the error with a hint that names the next tool; and the two lines Hermes acts on in a reply.
 """
 
 from __future__ import annotations

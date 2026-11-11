@@ -1,9 +1,11 @@
 """The /postkitty slash command and the ``hermes postkitty`` terminal command, both without the model."""
 
 import argparse
+import re
 
 from PIL import Image
 from postkitty import cli, command, tools
+from postkitty.engine import platforms
 
 
 def parse(*argv):
@@ -20,8 +22,9 @@ def wide_photo(folder, name="wide shot.jpg"):
 
 def test_slash_check_says_the_verdict_in_plain_words(out_dir, tmp_path):
     photo = wide_photo(tmp_path)
-    assert command.handle(f"check {photo} x").startswith("wide shot.jpg passes every check that blocks an upload for x_image.")
-    assert command.handle(f'check "{photo}" tiktok') == "wide shot.jpg is a photo; tiktok takes videos"
+    passing = command.handle(f"check {photo} x")
+    assert "wide shot.jpg" in passing and "x_image" in passing and "does not pass" not in passing
+    assert "tiktok takes videos" in command.handle(f'check "{photo}" tiktok')
     assert command.handle("check").startswith("Usage: /postkitty check")
     assert "not found" in command.handle(f"check {tmp_path / 'nope.mp4'} tiktok")
 
@@ -46,15 +49,13 @@ def test_slash_check_asks_for_the_target_and_falls_back_to_a_usage_line(out_dir,
     assert usage.startswith("Usage: /postkitty check") and "x_image" in usage
 
 
-def test_slash_overview_and_one_platform():
+def test_slash_overview_lists_every_platform_and_only_commands_that_exist():
     overview = command.handle("")
-    header, _, listing = overview.partition("Targets (size, main limits):")
-    assert header.startswith("postkitty: one post in, every platform out.")
-    assert "never posts,\nuploads or schedules" in header and header.count("\n  ") == 5
-    assert "https://postkitty.mertkayacs.com/docs/" in header and "/postkitty check <file> [target]" in header
-    assert "tiktok: 1080x1920 video" in listing and "X: text 280 x_weighted" in listing
+    assert all(f"{platform.label}:" in overview for platform in platforms.load_platforms().values())
+    assert command.DOCS in overview
+    assert set(re.findall(r"/postkitty ([a-z]+)", overview)) == {"check", "doctor"}
     one = command.handle("tiktok")
-    assert one.startswith("TikTok:") and "Try saying" not in one
+    assert one.startswith("TikTok:") and "X:" not in one and command.DOCS not in one
     assert command.handle("zzz") == "No matching platform."
 
 

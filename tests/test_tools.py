@@ -860,3 +860,10 @@ def test_alt_text_by_a_file_name_two_inputs_share_asks_for_an_id(out_dir, tmp_pa
     assert "several inputs (in1, in2)" in call(tools.write, job=job, alt_text={"IMG.jpg": "A team."})["error"]
     assert call(tools.write, job=job, alt_text={"in1": "A team."})["alt_text_unmatched"] is None
     assert "x_image:\nA team." in (out_dir / job / "ready/x/alt.txt").read_text()
+
+
+
+def test_a_job_id_cannot_leave_the_output_folder(out_dir):
+    out = call(tools.scan, text="hi", job="../../outside")
+    assert Path(out["job_dir"]).parent == out_dir
+    assert "does not exist" in call(tools.make, job="../../etc")["error"]
