@@ -333,21 +333,31 @@ def _entry(job: jobs.Job, info: probe.InputInfo, target: platforms.TargetSpec, o
         shutil.copy2(result.file, dest)
         entry["status"] = "failed"
         entry["failed_file"] = _rel(job, dest)
-        kept = (previous or {}).get("file")
-        if kept and (job.root / kept).is_file():
-            entry["kept"] = kept  # the earlier passing file stays in ready/ until a render succeeds
+        entry.update(_kept(job, previous or {}))
     entry["render_seconds"] = round(time.monotonic() - started, 2)
     return entry
 
 
+def _kept(job: jobs.Job, previous: dict) -> dict:
+    """The earlier passing file stays in ready/ until a render succeeds; name it in the failed row."""
+    kept = previous.get("file") or previous.get("kept")
+    return {"kept": kept} if kept and (job.root / kept).is_file() else {}
+
+
+def _why(exc: Exception) -> str:
+    text = str(exc).strip()
+    return text.splitlines()[0][:300] if text else type(exc).__name__
+
+
 def _write_board(job: jobs.Job, manifest: dict) -> dict:
+    """The board shows work that is already finished, so its failure is reported and never fails the call."""
     try:
         board = importlib.import_module(".board.board", __package__)
+        return {k: str(v) for k, v in board.write_board(job.root, manifest).items()}
     except ModuleNotFoundError as exc:
-        if (exc.name or "").endswith("engine.board.board"):
-            return {"board_note": "The review board is not available yet."}
-        raise
-    return {k: str(v) for k, v in board.write_board(job.root, manifest).items()}
+        return {"board_note": f"The review board needs the Python package {exc.name!r}."}
+    except Exception as exc:
+        return {"board_note": f"The review board could not be written: {_why(exc)}"}
 
 
 def _table(entries: list[dict]) -> list[dict]:
@@ -382,15 +392,22 @@ def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
     for info in {planned[tid] for tid in ids if tid in planned}:
         _verify_unchanged(by_id[info])
     old = {t["id"]: t for t in manifest.get("targets", [])}
-    media, masters, built = _Media(job), {}, []
-    for tid in ids:
+    media, masters, built, merged_overrides = _Media(job), {}, [], {}
+    for tid in ids:  # every argument is checked before the first render
         if tid not in planned:
             raise ValueError(f"target {tid!r} is not planned in this job; planned: {sorted(planned)}")
-        override = {**old.get(tid, {}).get("override", {}), **(overrides.get(tid) or {})}
-        if by_id[planned[tid]].kind == "image" and {"trim", "cover_at"} & set(override):
+        merged_overrides[tid] = {**old.get(tid, {}).get("override", {}), **(overrides.get(tid) or {})}
+        if by_id[planned[tid]].kind == "image" and {"trim", "cover_at"} & set(merged_overrides[tid]):
             raise ValueError(f"{tid} is made from a photo; trim and cover_at apply to video only")
-        built.append(_entry(job, by_id[planned[tid]], platforms.get_target(tid), override, media, masters,
-                            old.get(tid)))
+    for tid in ids:
+        info, target, previous = by_id[planned[tid]], platforms.get_target(tid), old.get(tid, {})
+        try:
+            built.append(_entry(job, info, target, merged_overrides[tid], media, masters, previous))
+        except Exception as exc:  # one target's failure must not lose the finished files of the others
+            row = {"id": tid, "platform": target.platform, "kind": info.kind, "input": info.id,
+                   "override": previous.get("override", {}), "status": "failed", "checks": [], "repairs": [],
+                   "reason": f"could not be rendered: {_why(exc)}"}
+            built.append({**row, **_kept(job, previous)})
     merged = {**old, **{e["id"]: e for e in built}}
     manifest["targets"] = [merged[t["id"]] for t in scan["targets"] if t["id"] in merged]
     jobs.save_manifest(job, manifest)

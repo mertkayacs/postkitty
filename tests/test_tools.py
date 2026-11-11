@@ -637,7 +637,10 @@ def test_people_count_matches_the_persons_focus_can_select(out_dir, tmp_path):
 
     assert people == 1
     assert last["targets"][0]["status"] in {"ready", "repaired"}, last
-    assert "not present" in beyond["error"]
+    row = beyond["targets"][0]
+    assert row["status"] == "failed" and "not present" in row["reason"] and row["kept"] == "ready/x/image.jpg"
+    again = call(tools.make, job=scan["job"], overrides={"x_image": {"focus": f"person:{people + 1}"}})
+    assert again["targets"][0]["kept"] == "ready/x/image.jpg"
 
 
 def test_image_peek_keeps_16_bit_tones(tmp_path):
@@ -726,3 +729,37 @@ def test_check_takes_a_platform_name_and_picks_its_target_for_the_file(out_dir, 
     assert "instagram_feed" in several and "instagram_story" in several
     assert "tiktok takes videos" in call(tools.check, path=str(photo), target="tiktok")["error"]
     assert "'target' is required" in call(tools.check, path=str(photo))["error"]
+
+
+def test_one_failing_target_keeps_the_files_of_the_others(out_dir, tmp_path, stub_image_engine, monkeypatch):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x", "instagram"])["job"]
+    render = sys.modules["postkitty.engine.photo.render"]
+    real = render.render_image
+
+    def flaky(info, layout, target, out_path):
+        if target.id == "instagram_story":
+            raise RuntimeError("encoder crashed")
+        return real(info, layout, target, out_path)
+
+    monkeypatch.setattr(render, "render_image", flaky)
+    made = call(tools.make, job=job)
+    rows = {row["target"]: row for row in made["targets"]}
+    assert rows["instagram_story"]["status"] == "failed" and "encoder crashed" in rows["instagram_story"]["reason"]
+    assert rows["x_image"]["status"] == "ready" and (out_dir / job / rows["x_image"]["file"]).is_file()
+    manifest = json.loads((out_dir / job / "manifest.json").read_text())
+    assert {entry["id"]: entry["status"] for entry in manifest["targets"]}["x_image"] == "ready"
+
+
+def test_a_board_failure_still_returns_the_finished_files(out_dir, tmp_path, stub_image_engine, monkeypatch):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+
+    def broken(root, manifest):
+        raise RuntimeError("font missing")
+
+    monkeypatch.setattr(importlib.import_module("postkitty.engine.board.board"), "write_board", broken)
+    made = call(tools.make, job=job)
+    assert made["targets"][0]["status"] == "ready" and "font missing" in made["board_note"]
