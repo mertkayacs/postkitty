@@ -116,9 +116,15 @@ def test_instagram_hashtag_cap_blocks_ready(out_dir, text_job):
 
 
 def test_recommendation_only_limit_still_writes_file(out_dir, text_job):
-    out = call(tools.write, job=text_job, drafts={"youtube": "T" * 120})
+    out = call(tools.write, job=text_job, drafts={"facebook": "T" * 63207})
+    fb = out["platforms"]["facebook"]
+    assert fb["ok"] is False and fb["enforcement"] == "recommendation" and fb["files"] and out["all_ok"] is True
+
+
+def test_youtube_title_over_the_limit_writes_no_file(out_dir, text_job):
+    out = call(tools.write, job=text_job, drafts={"youtube": "T" * 101})
     yt = out["platforms"]["youtube"]
-    assert yt["ok"] is False and yt["enforcement"] == "recommendation" and yt["files"] and out["all_ok"] is True
+    assert yt["ok"] is False and yt["enforcement"] == "hard" and yt["files"] == [] and out["all_ok"] is False
 
 
 def test_platform_aliases_map_to_the_canonical_name(out_dir, text_job):

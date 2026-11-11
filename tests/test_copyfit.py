@@ -169,8 +169,14 @@ class TestRules:
         assert c.rules_for("threads").limit == 500
 
     def test_recommendation_limits_are_not_hard(self):
-        assert c.rules_for("youtube").hard is False
+        assert c.rules_for("facebook").hard is False
         assert c.rules_for("x").hard is True
+
+    def test_youtube_title_limit_is_hard(self):
+        assert c.rules_for("youtube").hard is True
+        assert c.fit("youtube", "a" * 100).ok
+        over = c.fit("youtube", "a" * 101)
+        assert not over.ok and over.overflow == 1
 
 
 class TestSplit:

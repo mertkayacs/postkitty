@@ -110,7 +110,7 @@ platforms:
   youtube:
     label: YouTube Shorts
     text:
-      limit: {value: 100, unit: codepoints, enforcement: recommendation, source_scope: official, checked_on: "2026-11-11",
+      limit: {value: 100, unit: codepoints, enforcement: hard, source_scope: official, checked_on: "2026-11-11",
               source_url: "https://support.google.com/youtube/answer/57407"}
     playbook:
       - {text: "Shorts are square or vertical videos up to three minutes (180 seconds); postkitty renders 9:16 (1080x1920). Video titles are limited to 100 characters.",
