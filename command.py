@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import shlex
+import re
 from pathlib import Path
 
 from . import tools
@@ -37,10 +37,8 @@ Targets (size, main limits):
 
 def handle(raw_args: str = "", **kwargs) -> str:
     """``/postkitty``, ``/postkitty <platform>``, ``/postkitty doctor`` or ``/postkitty check <file> [target]``."""
-    try:
-        words = shlex.split(raw_args or "")
-    except ValueError:  # an unbalanced quote
-        words = (raw_args or "").split()
+    # Quotes keep a part together and backslashes stay as typed, so a Windows path survives.
+    words = [a or b or c for a, b, c in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', raw_args or "")]
     try:
         with tools.session():  # relative paths start at the session folder
             if words and words[0].lower() == "check":

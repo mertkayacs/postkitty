@@ -109,3 +109,9 @@ def test_cli_make_gives_captions_to_video_targets_only(out_dir, capsys, monkeypa
     monkeypatch.setattr(pipeline, "make", lambda args: seen.update(args) or {"targets": []})
     assert cli.run(parse("make", "a.jpg", "b.mp4", "--captions", "talk.srt", "--layout", "pad")) == 0
     assert seen["overrides"] == {"x_image": {"layout": "pad"}, "tiktok": {"layout": "pad", "captions": "talk.srt"}}
+
+
+def test_slash_check_keeps_the_backslashes_of_a_windows_path(out_dir):
+    reply = command.handle(r"check C:\Users\me\clip.mp4 tiktok")
+    assert r"C:\Users\me\clip.mp4" in reply
+    assert r"C:\My Clips\a b.mp4" in command.handle(r'check "C:\My Clips\a b.mp4" tiktok')
