@@ -232,8 +232,8 @@ def copy_checks(platform: str, parts: list[str], rules: copyfit.TextRules) -> li
             Check(
                 id="copy.limit",
                 target=target,
-                status=_status(failed, True),
-                hard=True,
+                status=_status(failed, rules.hard),
+                hard=rules.hard,
                 measured=count,
                 expected=rules.limit,
                 message=(

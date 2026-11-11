@@ -126,3 +126,11 @@ def test_copy_bytes_cap_is_checked_per_post():
     assert all(c.status == "pass" for c in checks.copy_checks("bluesky", thread, rules))
     found = {c.id: c for c in checks.copy_checks("bluesky", ["👨‍👩‍👧‍👦" * 121], rules)}
     assert found["copy.bytes_max"].status == "fail" and found["copy.bytes_max"].measured == 3025
+
+
+def test_copy_limit_that_is_a_recommendation_is_advisory():
+    copyfit = __import__("engine.text.fit", fromlist=["x"])
+    found = checks.copy_checks("facebook", ["a" * 63207], copyfit.rules_for("facebook"))
+    assert [(c.id, c.status, c.hard) for c in found] == [("copy.limit", "advisory", False)] and checks.hard_pass(found)
+    hard = checks.copy_checks("x", ["a" * 281], copyfit.rules_for("x"))
+    assert (hard[0].status, hard[0].hard) == ("fail", True) and "weighted characters" in hard[0].message
