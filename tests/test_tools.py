@@ -533,11 +533,11 @@ def test_a_missing_package_skips_video_targets_and_names_it(out_dir, tmp_path, m
     assert made["targets"][0]["reason"] == "Videos cannot be made here: the Python package 'numpy' is missing."
 
 
-def test_speaker_layout_is_exposed_by_the_tool_schema() -> None:
-    layout = schemas.SCHEMAS["postkitty_redo"]["parameters"]["properties"]["layout"]
-
-    assert "speaker" in layout["enum"]
-    assert "speaker cuts to whoever is talking" in layout["description"]
+def test_the_schemas_offer_exactly_the_layouts_and_override_keys_the_pipeline_takes() -> None:
+    redo = schemas.SCHEMAS["postkitty_redo"]["parameters"]["properties"]
+    per_target = schemas.SCHEMAS["postkitty_make"]["parameters"]["properties"]["overrides"]["additionalProperties"]
+    assert redo["layout"]["enum"] == list(pipeline.LAYOUTS)
+    assert set(redo) - {"job", "target"} == set(per_target["properties"]) == set(pipeline.OVERRIDE_KEYS)
 
 
 def test_speaker_layout_make_returns_ready(out_dir, speaker_media) -> None:

@@ -172,17 +172,9 @@ def test_tool_results_are_json_strings():
     assert isinstance(tools.scan({}), str) and isinstance(json.loads(tools.check({})), dict)
 
 
-def test_copy_schema_documents_accepted_key_types():
-    properties = schemas.SCHEMAS["postkitty_write"]["parameters"]["properties"]
-
-    assert "target id" in properties["drafts"]["description"]
-    assert "input file name or ready file path" in properties["alt_text"]["description"]
-
-
-def test_tool_descriptions_tell_the_agent_when_to_use_each_tool():
-    describe = {name: schema["description"] for name, schema in schemas.SCHEMAS.items()}
-
-    assert "only wants a draft fixed" in describe["postkitty_scan"]
-    assert "every later copy change" in describe["postkitty_write"]
-    assert "For copy changes call postkitty_write instead." in describe["postkitty_redo"]
-    assert "already checked" in describe["postkitty_check"]
+def test_every_schema_parameter_is_described_and_every_required_one_exists():
+    for name, schema in schemas.SCHEMAS.items():
+        properties = schema["parameters"]["properties"]
+        assert set(schema["parameters"].get("required", [])) <= set(properties), name
+        for key, prop in properties.items():
+            assert prop.get("description"), (name, key)
