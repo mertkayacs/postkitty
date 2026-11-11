@@ -134,7 +134,7 @@ def test_an_opencv_without_the_face_detector_is_not_enough(setup: SimpleNamespac
     assert not opencv["ok"] and opencv["face_detector"] is False and "4.5.1 has no face detector" in opencv["detail"]
 
 
-def test_a_library_that_fails_to_load_is_reported_not_raised(setup: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_library_that_fails_to_load_is_reported(setup: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
     def broken(name: str) -> SimpleNamespace:
         if name == "numpy":
             raise RuntimeError("module compiled against ABI version 0x1000009")
@@ -153,13 +153,13 @@ def test_a_pillow_too_old_for_the_contact_sheet_is_flagged(setup: SimpleNamespac
     assert not pillow["ok"] and pillow["detail"] == "10.0.1 is older than 10.1"
 
 
-def test_a_missing_face_model_is_reported_and_never_downloaded(setup: SimpleNamespace) -> None:
+def test_a_face_model_not_fetched_yet_is_no_fault_and_is_never_downloaded(setup: SimpleNamespace) -> None:
     (setup.cache / models.YUNET_FILENAME).unlink()
     report = doctor.report(setup.out)
     model = _items(report)["face_model"]
 
-    assert not model["ok"] and model["cached"] is False and "not downloaded yet" in model["detail"]
-    assert report["works"]["photos"] is True
+    assert model["ok"] and model["cached"] is False and "not downloaded yet" in model["detail"]
+    assert report["ok"] and report["works"]["photos"] is True
     assert doctor.render_text(report).splitlines()[-1] == (
         "Works now: text, photos, video, captions. The first photo or video needs internet once for the face model."
     )
@@ -168,8 +168,9 @@ def test_a_missing_face_model_is_reported_and_never_downloaded(setup: SimpleName
 
 def test_a_damaged_face_model_is_told_apart_from_a_missing_one(setup: SimpleNamespace) -> None:
     (setup.cache / models.YUNET_FILENAME).write_bytes(b"cut short")
+    model = _items(doctor.report(setup.out))["face_model"]
 
-    assert "damaged" in _items(doctor.report(setup.out))["face_model"]["detail"]
+    assert model["cached"] is False and "damaged" in model["detail"]
 
 
 def test_an_output_folder_that_does_not_exist_yet_is_fine_and_stays_absent(setup: SimpleNamespace) -> None:

@@ -72,7 +72,7 @@ def render_text(report: dict) -> str:
     if waiting:
         summary += f" Not yet: {', '.join(waiting)}."
     model = next(item for item in items if item["id"] == "face_model")
-    if report["works"]["photos"] and not model["ok"]:
+    if report["works"]["photos"] and not model["cached"]:
         summary += " The first photo or video needs internet once for the face model."
     return "\n".join([*lines, "", summary])
 
@@ -180,13 +180,13 @@ def _face_model() -> dict:
     except OSError:
         cached = False
     if cached:
-        return _item("face_model", "Face model", True, f"cached at {path}", "", path=str(path), cached=True)
-    state = "the cached copy is damaged" if path.is_file() else "not downloaded yet"
-    return _item(
-        "face_model", "Face model", False, f"{state} ({path})",
-        "Nothing to install: be online for the first photo or video and postkitty downloads it (about 230 KB).",
-        path=str(path), cached=False,
-    )
+        detail = f"cached at {path}"
+    elif path.is_file():
+        detail = f"the cached copy is damaged, the next photo or video downloads it again ({path})"
+    else:
+        detail = f"not downloaded yet, the first photo or video fetches it ({path})"
+    # Never a fault: postkitty fetches the model itself, so there is nothing for the user to install.
+    return _item("face_model", "Face model", True, detail, "", path=str(path), cached=cached)
 
 
 def _output_dir(path: Path) -> dict:
