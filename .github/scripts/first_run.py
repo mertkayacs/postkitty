@@ -284,6 +284,9 @@ def phase_photo(call, slash, photo: Path) -> None:
 def check_captions(call, job: str, job_dir: Path, max_duration: float) -> None:
     """Burn an .srt into the finished YouTube Short and compare frames with the render that had no captions."""
     shorts = job_dir / "ready" / "youtube" / "shorts.mp4"
+    check(shorts.is_file(), "the YouTube Short is there to add captions to")
+    if not shorts.is_file():
+        return
     plain = {t: frame_at(shorts, t, LOG_DIR / f"video-shorts-plain-{t}.png") for t in (CAPTION_AT, NO_CAPTION_AT)}
     srt = (LOG_DIR / "first-run.srt").resolve()
     srt.write_text(CAPTIONS, encoding="utf-8")
