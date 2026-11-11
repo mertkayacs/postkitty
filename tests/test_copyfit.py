@@ -221,6 +221,13 @@ class TestFit:
         report = c.fit("bluesky", "€" * 300)
         assert report.ok and report.bytes_count == 900
 
+    def test_bluesky_bytes_cap_applies_to_each_post_of_a_thread(self):
+        report = c.fit("bluesky", " ".join("ğüşiöç" * 6 + "." for _ in range(120)))
+        assert report.split and report.ok and report.bytes_count > 3000
+        assert not any("bytes" in note for note in report.notes)
+        over = c.fit("bluesky", ["👨‍👩‍👧‍👦" * 121, "ok"])
+        assert not over.ok and any("3000 UTF-8 bytes" in note and "3025" in note for note in over.notes)
+
     def test_tiktok_utf16_overflow(self):
         report = c.fit("tiktok", "😀" * 1101)
         assert not report.ok and report.counts == [2202] and report.overflow == 2

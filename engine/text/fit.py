@@ -540,8 +540,9 @@ def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> Co
         notes.append(
             f"{platform} allows {rules.limit} {rules.unit}; the draft is {max(counts)}."
         )
-    if rules.bytes_max is not None and bytes_count > rules.bytes_max:
-        notes.append(f"{platform} allows {rules.bytes_max} UTF-8 bytes; the draft uses {bytes_count}.")
+    largest = max(len(part.encode("utf-8")) for part in parts)
+    if rules.bytes_max is not None and largest > rules.bytes_max:
+        notes.append(f"{platform} allows {rules.bytes_max} UTF-8 bytes in one post; the draft uses {largest}.")
     if rules.hashtags_max is not None and hashtags > rules.hashtags_max:
         notes.append(f"{platform} allows {rules.hashtags_max} hashtags; the draft has {hashtags}.")
     if rules.mentions_max is not None and mentions > rules.mentions_max:

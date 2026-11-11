@@ -271,7 +271,7 @@ def copy_checks(platform: str, parts: list[str], rules: copyfit.TextRules) -> li
             )
         )
     if rules.bytes_max is not None:
-        count = len(joined.encode("utf-8"))
+        count = max(len(part.encode("utf-8")) for part in parts)
         checks.append(
             Check(
                 id="copy.bytes_max",
@@ -280,7 +280,7 @@ def copy_checks(platform: str, parts: list[str], rules: copyfit.TextRules) -> li
                 hard=True,
                 measured=count,
                 expected=rules.bytes_max,
-                message=f"{platform} allows {rules.bytes_max} UTF-8 bytes; this draft uses {count}.",
+                message=f"{platform} allows {rules.bytes_max} UTF-8 bytes in one post; the longest post uses {count}.",
             )
         )
     return checks

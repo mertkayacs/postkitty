@@ -117,3 +117,12 @@ def test_copy_checks_report_overflow_and_caps():
     failing = {c.id for c in found if c.status == "fail"}
     assert failing == {"copy.limit", "copy.hashtags_max"}
     assert all(c.target == "copy:instagram" for c in found)
+
+
+def test_copy_bytes_cap_is_checked_per_post():
+    copyfit = __import__("engine.copyfit", fromlist=["x"])
+    rules = copyfit.rules_for("bluesky")
+    thread = ["é" * 300] * 6  # 600 bytes each, 3,600 in total
+    assert all(c.status == "pass" for c in checks.copy_checks("bluesky", thread, rules))
+    found = {c.id: c for c in checks.copy_checks("bluesky", ["👨‍👩‍👧‍👦" * 121], rules)}
+    assert found["copy.bytes_max"].status == "fail" and found["copy.bytes_max"].measured == 3025
