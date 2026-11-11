@@ -233,6 +233,8 @@ def _srgb(image: Image.Image) -> Image.Image:
             pass
     if alpha is not None:
         rgb.putalpha(alpha)
+    # Pillow writes parts of info (JPEG comment, ICC profile, XMP on some versions) into saved files.
+    rgb.info = {}
     return rgb
 
 

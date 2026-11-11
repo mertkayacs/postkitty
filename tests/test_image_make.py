@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageCms, ImageDraw, PngImagePlugin
 
 from engine.photo import render as image_make
 from engine.photo import seams
@@ -160,6 +160,64 @@ def test_render_crop_is_exact_jpeg_and_strips_metadata(tmp_path: Path) -> None:
         assert rendered.size == (200, 250)
         assert rendered.format == "JPEG"
         assert not rendered.getexif()
+    assert result.extra["metadata_stripped"]
+
+
+_JFIF_KEYS = {"jfif", "jfif_version", "jfif_unit", "jfif_density"}
+
+
+def _gps_exif() -> Image.Exif:
+    exif = Image.Exif()
+    exif[0x010F] = "Camera Maker"
+    gps = exif.get_ifd(0x8825)
+    gps[1], gps[2] = "N", (40.0, 26.0, 46.0)
+    gps[3], gps[4] = "W", (79.0, 58.0, 56.0)
+    return exif
+
+
+def test_jpeg_output_carries_no_gps_comment_or_xmp_from_the_source(tmp_path: Path) -> None:
+    source = tmp_path / "phone.jpg"
+    Image.new("RGB", (400, 300), "navy").save(
+        source,
+        exif=_gps_exif(),
+        comment=b"shot at home",
+        xmp=b'<x:xmpmeta xmlns:x="adobe:ns:meta/" exif:GPSLatitude="40,26.76N"/>',
+        dpi=(300, 300),
+    )
+    with Image.open(source) as opened:
+        assert opened.getexif().get_ifd(0x8825) and {"comment", "xmp"} <= set(opened.info)
+    info = InputInfo(source, "phone", 400, 300)
+
+    result = render_image(
+        info, Layout("crop", [Box(0, 0, 400, 300)], "full"), Target("x_image", 400, 300), tmp_path / "out.jpg"
+    )
+
+    with Image.open(result.file) as rendered:
+        assert not rendered.getexif()
+        assert set(rendered.info) <= _JFIF_KEYS
+    data = result.file.read_bytes()
+    assert b"shot at home" not in data and b"GPSLatitude" not in data and b"Exif" not in data
+    assert result.extra["metadata_stripped"]
+
+
+def test_png_output_carries_no_profile_gps_or_text_from_the_source(tmp_path: Path) -> None:
+    source = tmp_path / "screenshot.png"
+    text = PngImagePlugin.PngInfo()
+    text.add_text("Author", "A. Person")
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    Image.new("RGBA", (200, 200), (10, 120, 200, 128)).save(
+        source, icc_profile=profile, exif=_gps_exif(), pnginfo=text
+    )
+    info = InputInfo(source, "screenshot", 200, 200, has_alpha=True)
+
+    result = render_image(
+        info, Layout("crop", [Box(0, 0, 200, 200)], "full"), Target("x_image", 200, 200), tmp_path / "out.png"
+    )
+
+    with Image.open(result.file) as rendered:
+        assert rendered.format == "PNG"
+        assert not rendered.getexif()
+        assert not rendered.info
     assert result.extra["metadata_stripped"]
 
 
