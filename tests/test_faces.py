@@ -168,6 +168,13 @@ def test_saliency_finds_bright_object() -> None:
     assert salient.intersect(Box(190, 60, 70, 90)).area > 0
 
 
+def test_saliency_is_skipped_on_an_opencv_build_without_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Only the contrib builds of OpenCV ship cv2.saliency; a photo with no face must still get made.
+    monkeypatch.delattr(cv2, "saliency")
+
+    assert saliency_box(np.zeros((200, 300, 3), dtype=np.uint8)) is None
+
+
 def test_get_detector_uses_recording(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     path = tmp_path / "faces.json"
     path.write_text(json.dumps(_document()), encoding="utf-8")

@@ -136,6 +136,8 @@ def _face_dict(face: Face) -> dict:
 def saliency_box(image_bgr: np.ndarray) -> Box | None:
     import cv2
 
+    if not hasattr(cv2, "saliency"):  # only the contrib builds of OpenCV have it
+        return None
     algorithm = cv2.saliency.StaticSaliencySpectralResidual_create()
     success, saliency = algorithm.computeSaliency(image_bgr)
     if not success:
