@@ -793,7 +793,7 @@ def test_session_folder_comes_from_hermes_and_falls_back_to_the_process_folder(t
     runtime.resolve_agent_cwd = lambda: Path("/srv/session")
     monkeypatch.setitem(sys.modules, "agent", types.ModuleType("agent"))
     monkeypatch.setitem(sys.modules, "agent.runtime_cwd", runtime)
-    assert tools._session_dir() == "/srv/session"
+    assert tools._session_dir() == str(Path("/srv/session"))
 
 
 def test_a_zero_setting_is_kept_and_a_bad_loudness_fails_video_with_the_reason(monkeypatch):

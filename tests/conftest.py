@@ -81,17 +81,19 @@ def make_speaker_clip(root: Path) -> Path:
     import cv2
     import numpy as np
 
+    from engine.probe import run_tool, start_tool  # low priority on every system; Windows has no nice
+
     root.mkdir(parents=True, exist_ok=True)
     video_only = root / "speaker-video-only.mp4"
     output = root / "speaker.mp4"
     command = [
-        "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
         "-nostdin", "-threads", "4", "-y", "-f", "rawvideo", "-pix_fmt",
         "bgr24", "-s", "1280x720", "-r", "15", "-i", "pipe:0", "-an",
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
         str(video_only),
     ]
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = start_tool(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     assert process.stdin is not None
     for index in range(9 * 15):
         t = index / 15
@@ -116,9 +118,9 @@ def make_speaker_clip(root: Path) -> Path:
     stderr = process.stderr.read() if process.stderr is not None else b""
     assert process.wait() == 0, stderr.decode(errors="replace")
 
-    subprocess.run(
+    run_tool(
         [
-            "nice", "-n", "10", "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-nostdin", "-threads", "4", "-y", "-i", str(video_only), "-f",
             "lavfi", "-i", "sine=frequency=220:sample_rate=16000:duration=8",
             "-filter_complex", "[1:a]apad=pad_dur=1[a]", "-map", "0:v", "-map",
