@@ -316,3 +316,50 @@ def test_write_board_handles_empty_job(tmp_path):
     for key in ("board", "board_inline", "contact"):
         assert Path(paths[key]).is_file()
     assert Path(paths["contact"]).stat().st_size > 0
+
+
+HOSTILE = '<script>alert("x")</script> & "quotes" \'single\' <img src=x onerror=alert(1)> Üç 写真'
+
+
+def _hostile_manifest(job_dir: Path) -> dict:
+    """Every string a user or the model controls carries markup, quotes, an ampersand and non-ASCII letters."""
+    manifest = _manifest(job_dir)
+    manifest["job"] = f"job {HOSTILE}"
+    manifest["inputs"][0]["path"] = f"/photos/{HOSTILE}.jpg"
+    manifest["advice"] = {"topic": "", "audience": HOSTILE, "tone": HOSTILE, "key_message": HOSTILE,
+                          "ranking": [{"platform": HOSTILE, "reason": HOSTILE}], "tips": [HOSTILE]}
+    manifest["copy"]["instagram"] = {"parts": [HOSTILE, HOSTILE], "counts": [9, 9], "unit": HOSTILE, "limit": 2200,
+                                     "ok": True}
+    manifest["alt_text"] = {"instagram_feed": HOSTILE}
+    for target in manifest["targets"]:
+        target["layout"] = {"mode": "crop", "note": HOSTILE}
+        target["repairs"] = [{"check": HOSTILE, "action": HOSTILE, "ok": False}]
+        target["checks"] = [{"id": HOSTILE, "status": "fail", "hard": True, "measured": HOSTILE, "expected": HOSTILE,
+                             "message": HOSTILE, "source_url": f"https://example.com/?q={HOSTILE}",
+                             "checked_on": HOSTILE}]
+    manifest["targets"][-1].update(status=HOSTILE, reason=HOSTILE)
+    return manifest
+
+
+def test_every_user_controlled_string_is_escaped(tmp_path):
+    job_dir = tmp_path / "job"
+    paths = write_board(job_dir, _hostile_manifest(job_dir))
+    for key in ("board", "board_inline"):
+        html = Path(paths[key]).read_text(encoding="utf-8")
+        body = html[html.index("<body>"):html.rindex("<script>")]
+        assert "<script" not in body and "<img src=x" not in body and "onerror=alert(1)>" not in body
+        assert 'alert("x")' not in body and "'single'" not in body
+        assert "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &quot;quotes&quot; &#x27;single&#x27;" in body
+        assert "Üç 写真" in body
+
+
+def test_the_board_loads_nothing_from_the_network(tmp_path):
+    import re
+
+    job_dir = tmp_path / "job"
+    paths = write_board(job_dir, _manifest(job_dir))
+    for key in ("board", "board_inline"):
+        html = Path(paths[key]).read_text(encoding="utf-8")
+        loads = re.findall(r"""(?:src|poster|srcset)=["']([^"']*)|url\(([^)]*)\)|@import\s+([^;]+)|<link[^>]*href=["']([^"']*)""", html)
+        remote = [value for match in loads for value in match if value.strip("\"' ").startswith(("http", "//"))]
+        assert remote == []
