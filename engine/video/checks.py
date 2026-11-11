@@ -353,6 +353,19 @@ def check_video(result: RenderResult, target: Any) -> list[Check]:
                 None,
             )
         )
+    elif (result.layout or {}).get("advisory"):
+        # The user set a focus position that leaves these people out: the window is theirs to keep, so tell them.
+        checks.append(
+            _check(
+                "frame.subjects_inside",
+                target,
+                round(result.subjects_inside, 2),
+                0.98,
+                False,
+                result.layout["advisory"],
+                default_hard=False,
+            )
+        )
     else:
         checks.append(
             _check(

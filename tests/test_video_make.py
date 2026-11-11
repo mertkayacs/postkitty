@@ -636,3 +636,23 @@ def test_no_video_step_needs_the_nice_binary(tmp_path: Path, monkeypatch: Any) -
     assert len(started) >= 8
     assert {Path(name).name for name in started} == {"ffmpeg", "ffprobe"}
 
+
+def test_render_result_carries_the_advisory_of_a_chosen_focus(tmp_path: Path) -> None:
+    info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    points = tuple(TrackPoint(index / 5, 10.0, 40.0, 30.0, 40.0, 0.99) for index in range(5))
+    scan = VideoScan(
+        scenes=[(0.0, 1.0)], tracks=[Track(1, 1, points)], faces={"sample_fps": 5.0, "frames": []}, audio_rms=[]
+    )
+    target = Target("tiktok", 90, 160)
+
+    chosen = plan_video(info, scan, target, {"focus": "right", "cover_at": 0.5})
+    result = render_video(info, chosen, target, tmp_path / "right.mp4", tmp_path / "work")
+    followed = plan_video(info, scan, target, {"cover_at": 0.5})
+
+    assert result.layout["mode"] == "crop"
+    assert result.layout["advisory"] == (
+        "1 person is outside the frame for most of the clip because the focus is set to right."
+    )
+    assert result.subjects_inside == 0.0
+    assert followed.advisory == "" and followed.subjects_inside == 1.0
+

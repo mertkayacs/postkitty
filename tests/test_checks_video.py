@@ -407,3 +407,21 @@ def test_user_trim_longer_than_a_hard_cap_is_repaired_to_fit(tmp_path: Path) -> 
     assert repaired.duration <= 1.05
     assert checks_mod.hard_pass(found)
 
+
+def test_people_outside_a_chosen_focus_are_an_advisory_and_nothing_is_repaired(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    result, target = _render(tmp_path)
+    sentence = "1 person is outside the frame for most of the clip because the focus is set to right."
+    chosen = replace(result, subjects_inside=0.0, layout={**result.layout, "advisory": sentence})
+    calls: list[dict[str, Any]] = []
+
+    kept, found, repairs = repair_mod.check_and_repair(chosen, target, {"render": calls.append})
+
+    check = {item.id: item for item in found}["frame.subjects_inside"]
+    assert (check.status, check.hard, check.message) == ("advisory", False, sentence)
+    assert checks_mod.hard_pass(found)
+    assert repairs == [] and calls == [] and kept.file == chosen.file
+    cut_by_auto = {item.id: item for item in check_video(replace(result, subjects_inside=0.0), target)}
+    assert cut_by_auto["frame.subjects_inside"].status == "fail"
+

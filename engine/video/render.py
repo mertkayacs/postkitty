@@ -35,6 +35,7 @@ class VideoPlan:
     normalize_audio: bool = True
     captions: Captions | None = None
     cut_to_duration_max: bool = False
+    advisory: str = ""
 
 
 @cache
@@ -257,6 +258,7 @@ def plan_video(
         normalize_audio=not levels or max(levels) >= -50.0,
         captions=captions,
         cut_to_duration_max=cut,
+        advisory=camera.advisory,
     )
 
 
@@ -458,7 +460,7 @@ def _render_result(
         height=int(video["height"]),
         duration=float(probe["format"]["duration"]),
         bytes=int(probe["format"]["size"]),
-        layout={"mode": plan.layout, "note": plan.note},
+        layout={"mode": plan.layout, "note": plan.note} | ({"advisory": plan.advisory} if plan.advisory else {}),
         subjects_inside=plan.subjects_inside,
         extra=extra,
     )

@@ -361,3 +361,43 @@ def test_split_panels_keep_one_size_across_scenes() -> None:
     assert len({(round(top.w, 3), round(top.h, 3)) for top, _ in path.windows}) == 1
     assert len({(round(bottom.w, 3), round(bottom.h, 3)) for _, bottom in path.windows}) == 1
     assert path.subjects_inside == 1.0
+
+
+def test_focus_position_is_kept_and_the_person_left_outside_is_reported() -> None:
+    # focus: right on a clip whose one person stands at the left edge used to be replaced by a pad render.
+    scan = _scan([_track(1, [(index / 5, 40.0) for index in range(10)])], [(0.0, 2.0)])
+
+    path = build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), focus="right")
+
+    assert path.layout == "crop"
+    assert {round(box.x) for box in path.windows} == {875}
+    assert path.subjects_inside == 0.0
+    assert path.advisory == "1 person is outside the frame for most of the clip because the focus is set to right."
+
+
+def test_focus_position_counts_every_person_and_other_focus_values_report_nothing() -> None:
+    near = _track(1, [(index / 5, 100.0) for index in range(10)])
+    far = _track(2, [(index / 5, 1100.0) for index in range(10)])
+    scan = _scan([near, far], [(0.0, 2.0)])
+    args = (InputInfo(), scan, Target(1080, 1920), (0.0, 2.0))
+
+    kept = build_camera_path(*args, focus="x:0.1", layout_override="crop")
+    fits = build_camera_path(*args, focus="left", layout_override="pad")
+
+    assert kept.subjects_inside == 0.5
+    assert kept.advisory == "1 person is outside the frame for most of the clip because the focus is set to x:0.1."
+    assert (fits.subjects_inside, fits.advisory) == (1.0, "")
+    assert build_camera_path(*args, layout_override="crop").advisory == ""
+    assert build_camera_path(*args, focus="person:2", layout_override="crop").advisory == ""
+
+
+def test_focus_position_reports_nobody_in_a_split_which_frames_people_its_own_way() -> None:
+    people = [_track(person, [(index / 5, x) for index in range(10)]) for person, x in ((1, 100.0), (2, 1100.0))]
+    passer_by = Track(3, 3, tuple(TrackPoint(index / 5, 600.0, 600.0, 40.0, 50.0, 0.99) for index in range(10)))
+    scan = _scan([*people, passer_by], [(0.0, 2.0)])
+
+    path = build_camera_path(InputInfo(), scan, Target(1080, 1920), (0.0, 2.0), focus="left")
+
+    assert path.layout == "split"
+    assert (path.subjects_inside, path.advisory) == (1.0, "")
+

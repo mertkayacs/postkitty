@@ -14,6 +14,7 @@ class CameraPath:
     windows: list[Any]
     note: str
     subjects_inside: float
+    advisory: str = ""
 
 
 def _geometry() -> tuple[Any, Any, Any]:
@@ -442,6 +443,24 @@ def _rendered_window(box: Any, width: int, height: int) -> Any:
     return Box(float(x), float(y), float(crop_width), float(crop_height))
 
 
+def _left_outside(
+    scan: VideoScan, windows: list[Any], trim: tuple[float, float], fps: float, width: int, height: int
+) -> tuple[int, int]:
+    """How many people the scan tracked inside the trim, and how many a one-window layout leaves
+    out of frame for most of it."""
+    samples: dict[int, list[int]] = {}
+    for track in scan.tracks:
+        for point in _points_in_scene(track, *trim):
+            index = math.floor((point.t - trim[0]) * fps + 1e-9)
+            if not 0 <= index < len(windows):
+                continue
+            shown = _inside(_rendered_window(windows[index], width, height), _face_box(point))
+            seen = samples.setdefault(track.person, [0, 0])
+            seen[0] += 1
+            seen[1] += int(not shown)
+    return len(samples), sum(1 for total, missed in samples.values() if missed * 2 > total)
+
+
 def _on_frame(value: float, scene: tuple[float, float], start: float, fps: float) -> float:
     # Cuts land on rendered frames, so a face sample at a cut is judged against its own shot.
     if value <= scene[0] or value >= scene[1]:
@@ -689,9 +708,22 @@ def build_camera_path(
         note = "full source retained over a blurred fill"
     else:
         note = "single-subject camera path"
+    subjects_inside = inside_count / subject_count if subject_count else 1.0
+    advisory = ""
+    if anchor_x is not None and layout in ("crop", "speaker"):
+        # A focus position is the user's choice: the window stays where they put it, and the people it
+        # leaves out are reported instead of failing the check. Split and pad frame people their own way.
+        people, outside = _left_outside(scan, windows, trim, fps, info.width, info.height)
+        subjects_inside = (people - outside) / people if people else 1.0
+        if outside:
+            advisory = (
+                f"{outside} {'person is' if outside == 1 else 'people are'} outside the frame "
+                f"for most of the clip because the focus is set to {focus}."
+            )
     return CameraPath(
         layout=layout,
         windows=windows,
         note=note,
-        subjects_inside=inside_count / subject_count if subject_count else 1.0,
+        subjects_inside=subjects_inside,
+        advisory=advisory,
     )
