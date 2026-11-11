@@ -1,9 +1,9 @@
 name: first-run
 
 # What a new user does on a clean machine: install Hermes with the official installer, install the plugin
-# with the README command, run the text, photo and video flows through Hermes' own plugin manager and tool
-# registry, then remove the plugin. Push and manual runs pin the commit under test; the weekly run installs
-# the plugin exactly as a user would.
+# with the README command, run the text, photo, video and captions flows and the /postkitty commands through
+# Hermes' own plugin manager, tool registry and command dispatcher, then remove the plugin. Push and manual
+# runs pin the commit under test; the weekly run installs the plugin exactly as a user would.
 
 on:
   workflow_dispatch:
@@ -13,6 +13,7 @@ on:
     branches: [main]
     paths:
       - plugin.yaml
+      - pyproject.toml
       - __init__.py
       - schemas.py
       - tools.py
@@ -146,7 +147,7 @@ jobs:
           set -o pipefail
           "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" text 2>&1 | tee "$LOG_DIR/phase-text.log"
 
-      - name: A video without ffmpeg gives a clear install message
+      - name: A video without ffmpeg gives a clear install message, and so does /postkitty doctor
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
         working-directory: ${{ runner.temp }}
         run: |
@@ -156,6 +157,13 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg && ffmpeg -version | head -1
 
+      - name: /postkitty doctor finds a complete setup
+        # Run from a neutral folder, as a user would, not from inside the plugin checkout.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -o pipefail
+          "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" doctor 2>&1 | tee "$LOG_DIR/phase-doctor.log"
+
       - name: Photo flow
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
         working-directory: ${{ runner.temp }}
@@ -163,7 +171,7 @@ jobs:
           set -o pipefail
           "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" photo "$MEDIA_DIR/$PHOTO" 2>&1 | tee "$LOG_DIR/phase-photo.log"
 
-      - name: Video flow
+      - name: Video and captions flow
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
         working-directory: ${{ runner.temp }}
         run: |
