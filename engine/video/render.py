@@ -221,8 +221,11 @@ def plan_video(
         )
     if "trim" in override:
         trim = tuple(float(value) for value in override["trim"])
-        if len(trim) != 2 or trim[0] < 0 or trim[1] <= trim[0] or trim[1] > info.duration:
-            raise ValueError("trim must be inside the source duration")
+        if len(trim) != 2 or trim[0] < 0 or trim[1] <= trim[0]:
+            raise ValueError(f"trim must be [start, end] in seconds with 0 <= start < end, got {list(trim)}")
+        if trim[0] >= info.duration:
+            raise ValueError(f"trim starts at {trim[0]:g} s but the video is {info.duration:g} s long")
+        trim = (trim[0], min(trim[1], info.duration))
     else:
         maximum = float(_limit(target, "duration_max", info.duration))
         trim = _best_trim(scan, info.duration, maximum)
@@ -238,7 +241,9 @@ def plan_video(
     if "cover_at" in override:
         cover_at = float(override["cover_at"])
         if not trim[0] <= cover_at <= trim[1]:
-            raise ValueError("cover_at must be inside the trim")
+            raise ValueError(
+                f"cover_at {cover_at:g} s is outside the trim ({trim[0]:g} s to {trim[1]:g} s)"
+            )
     else:
         cover_at = _sharpest_cover(info, scan, trim)
     # Room tone at -70 dBFS must not be boosted 55 dB to the platform loudness.

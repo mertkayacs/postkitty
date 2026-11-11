@@ -533,3 +533,19 @@ def test_failed_render_and_cover_name_ffmpeg_and_leave_no_partial_file(tmp_path:
     assert not list(ready.glob("*"))
     assert not list((tmp_path / "work" / "render").glob("*.mp4"))
 
+
+def _flat_scan(duration: float) -> VideoScan:
+    return VideoScan(scenes=[(0.0, duration)], tracks=[], faces={"sample_fps": 5.0, "frames": []}, audio_rms=[])
+
+
+def test_trim_past_the_end_stops_at_the_end_of_the_video(tmp_path: Path) -> None:
+    info = InputInfo(tmp_path / "unused.mp4", "ten-seconds", 320, 180, 9.96, 10.0)
+    target = Target("x_video", 320, 180)
+
+    plan = plan_video(info, _flat_scan(9.96), target, {"trim": [4, 10], "cover_at": 5.0})
+
+    assert plan.trim == (4.0, 9.96)
+    with pytest.raises(ValueError, match=r"trim starts at 12 s but the video is 9.96 s long"):
+        plan_video(info, _flat_scan(9.96), target, {"trim": [12, 15], "cover_at": 13.0})
+    with pytest.raises(ValueError, match=r"cover_at 9.5 s is outside the trim \(1 s to 3 s\)"):
+        plan_video(info, _flat_scan(9.96), target, {"trim": [1, 3], "cover_at": 9.5})
