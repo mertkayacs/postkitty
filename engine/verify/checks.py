@@ -1,4 +1,4 @@
-"""Check records, the checker registry and shared copy checks.
+"""Check records, the checker registry and the file checks every target shares.
 
 Media lanes register their own image and video checkers with ``register_checker``. This module
 also contributes the generic file checks every target needs (existence, byte size, exact
@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ..platforms import Spec, TargetSpec
-from ..text import fit as copyfit
 
 Status = Literal["pass", "fail", "advisory", "skipped"]
 
@@ -218,69 +217,3 @@ def hard_pass(checks: list[Check]) -> bool:
 
 def failures(checks: list[Check]) -> list[Check]:
     return [check for check in checks if check.hard and check.status == "fail"]
-
-
-def copy_checks(platform: str, parts: list[str], rules: copyfit.TextRules) -> list[Check]:
-    """Shared copy checks: limit per part, hashtag and mention caps, and UTF-8 bytes."""
-    target = f"copy:{platform}"
-    checks: list[Check] = []
-    for index, part in enumerate(parts):
-        count = copyfit.count_text(part, rules.unit)
-        failed = count > rules.limit
-        suffix = f" in post {index + 1}" if len(parts) > 1 else ""
-        checks.append(
-            Check(
-                id="copy.limit",
-                target=target,
-                status=_status(failed, rules.hard),
-                hard=rules.hard,
-                measured=count,
-                expected=rules.limit,
-                message=(
-                    f"{platform} allows {rules.limit} {copyfit.unit_words(rules.unit)}{suffix}; "
-                    f"this draft uses {count}."
-                ),
-            )
-        )
-
-    joined = "\n\n".join(parts)
-    if rules.hashtags_max is not None:
-        count = copyfit.count_hashtags(joined)
-        checks.append(
-            Check(
-                id="copy.hashtags_max",
-                target=target,
-                status=_status(count > rules.hashtags_max, True),
-                hard=True,
-                measured=count,
-                expected=rules.hashtags_max,
-                message=f"{platform} allows {rules.hashtags_max} hashtags; this draft has {count}.",
-            )
-        )
-    if rules.mentions_max is not None:
-        count = copyfit.count_mentions(joined)
-        checks.append(
-            Check(
-                id="copy.mentions_max",
-                target=target,
-                status=_status(count > rules.mentions_max, True),
-                hard=True,
-                measured=count,
-                expected=rules.mentions_max,
-                message=f"{platform} allows {rules.mentions_max} mentions; this draft has {count}.",
-            )
-        )
-    if rules.bytes_max is not None:
-        count = max(len(part.encode("utf-8")) for part in parts)
-        checks.append(
-            Check(
-                id="copy.bytes_max",
-                target=target,
-                status=_status(count > rules.bytes_max, True),
-                hard=True,
-                measured=count,
-                expected=rules.bytes_max,
-                message=f"{platform} allows {rules.bytes_max} UTF-8 bytes in one post; the longest post uses {count}.",
-            )
-        )
-    return checks

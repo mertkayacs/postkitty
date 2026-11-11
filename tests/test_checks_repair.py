@@ -109,28 +109,3 @@ def test_strategy_exception_is_recorded_not_raised(tmp_path):
     repair.register("image.x", boom)
     _, _, repairs = repair.check_and_repair(result(tmp_path), target, {})
     assert repairs[0]["ok"] is False and "no luck" in repairs[0]["error"]
-
-
-def test_copy_checks_report_overflow_and_caps():
-    rules = __import__("engine.text.fit", fromlist=["x"]).rules_for("instagram")
-    found = checks.copy_checks("instagram", ["a" * 2201, "#t " * 31], rules)
-    failing = {c.id for c in found if c.status == "fail"}
-    assert failing == {"copy.limit", "copy.hashtags_max"}
-    assert all(c.target == "copy:instagram" for c in found)
-
-
-def test_copy_bytes_cap_is_checked_per_post():
-    copyfit = __import__("engine.text.fit", fromlist=["x"])
-    rules = copyfit.rules_for("bluesky")
-    thread = ["é" * 300] * 6  # 600 bytes each, 3,600 in total
-    assert all(c.status == "pass" for c in checks.copy_checks("bluesky", thread, rules))
-    found = {c.id: c for c in checks.copy_checks("bluesky", ["👨‍👩‍👧‍👦" * 121], rules)}
-    assert found["copy.bytes_max"].status == "fail" and found["copy.bytes_max"].measured == 3025
-
-
-def test_copy_limit_that_is_a_recommendation_is_advisory():
-    copyfit = __import__("engine.text.fit", fromlist=["x"])
-    found = checks.copy_checks("facebook", ["a" * 63207], copyfit.rules_for("facebook"))
-    assert [(c.id, c.status, c.hard) for c in found] == [("copy.limit", "advisory", False)] and checks.hard_pass(found)
-    hard = checks.copy_checks("x", ["a" * 281], copyfit.rules_for("x"))
-    assert (hard[0].status, hard[0].hard) == ("fail", True) and "weighted characters" in hard[0].message
