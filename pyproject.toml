@@ -1,4 +1,20 @@
-# Dev tooling only. Runtime dependencies live in plugin.yaml.
+# Hermes reads the dependencies from here and prefers this file over plugin.yaml; older Hermes reads the
+# python_dependencies list in plugin.yaml. Keep both lists identical (tests/test_plugin.py checks it).
+# There is no build system on purpose: postkitty is installed as a Hermes plugin folder.
+[project]
+name = "postkitty"
+version = "1.0.0"
+description = "One post in, every platform out. A Hermes Agent plugin."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "opencv-contrib-python-headless>=4.10,<5",
+    "numpy>=2.0,<3",
+    "Pillow>=10.0,<14",
+    "regex>=2024.1.1,<2027",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -m 'not real_detector'"
@@ -7,7 +23,6 @@ markers = ["real_detector: runs the real face detector (CI only, needs POSTKITTY
 [tool.ruff]
 line-length = 130
 target-version = "py311"
-extend-exclude = ["lane-a.log"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

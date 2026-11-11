@@ -3,6 +3,7 @@ import re
 import subprocess
 import sys
 import textwrap
+import tomllib
 from pathlib import Path
 
 from postkitty import register, schemas, tools
@@ -43,12 +44,20 @@ def test_register_wires_tools_skill_and_command():
 
 def test_manifest_is_consistent():
     assert MANIFEST["name"] == "postkitty" and MANIFEST["manifest_version"] == 2 and MANIFEST["api_version"] == 1
-    assert MANIFEST["version"] == __version__ and MANIFEST["license"] == "MIT"
+    assert MANIFEST["license"] == "MIT"
     assert re.fullmatch(r">=\d+\.\d+\.\d+", MANIFEST["requires_hermes"])
     for dep in MANIFEST["python_dependencies"]:
         assert re.search(r">=[\d.]+,<[\d.]+", dep), dep
     assert not any("ruamel" in dep for dep in MANIFEST["python_dependencies"])
     assert set(MANIFEST["config_schema"]) == {"output_dir", "default_platforms", "loudness_lufs"}
+
+
+def test_version_and_dependencies_agree_everywhere():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    skill = YAML(typ="safe").load((ROOT / "skills/postkitty/SKILL.md").read_text().split("---")[1])
+    assert MANIFEST["version"] == __version__ == project["version"] == str(skill["version"])
+    assert project["dependencies"] == MANIFEST["python_dependencies"]
+    assert re.fullmatch(r">=3\.\d+", project["requires-python"])
 
 
 def test_skill_frontmatter_and_size():
