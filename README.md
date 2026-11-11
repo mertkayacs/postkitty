@@ -40,14 +40,12 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 
 ## What the plugin does on your machine
 
-| | The plugin | You get |
-|---|---|---|
-| <img src="docs/assets/readme/icons/scan-face.svg" width="18" height="18" alt=""> | Finds the faces in a photo and tracks them through a video | Crops and vertical clips that keep those people in frame |
-| <img src="docs/assets/readme/icons/video.svg" width="18" height="18" alt=""> | Renders with ffmpeg | Upload files at each platform's size, trimmed to its length, with a cover frame |
-| <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> | Counts text with each platform's own rule | Posts that fit: weighted characters on X, graphemes on Bluesky, UTF-16 units on TikTok |
-| <img src="docs/assets/readme/icons/list-checks.svg" width="18" height="18" alt=""> | Checks every file against the platform's published limits and repairs what fails | Only passing files in `ready/` |
-| <img src="docs/assets/readme/icons/layout-grid.svg" width="18" height="18" alt=""> | Builds a review board | One page that shows every file with its text, alt text and checks |
-| <img src="docs/assets/readme/icons/square-terminal.svg" width="18" height="18" alt=""> | Answers the `/postkitty` command without the model | Every size and limit, and a check of your setup |
+- <img src="docs/assets/readme/icons/scan-face.svg" width="18" height="18" alt=""> **Finds the faces in a photo and tracks them through a video.** Crops and vertical clips are built around those people, so they stay in frame.
+- <img src="docs/assets/readme/icons/video.svg" width="18" height="18" alt=""> **Renders with ffmpeg.** You get upload files at each platform's size, trimmed to its length, and every video comes with a cover frame.
+- <img src="docs/assets/readme/icons/type.svg" width="18" height="18" alt=""> **Counts text the way each platform does:** weighted characters on X, graphemes on Bluesky, UTF-16 units on TikTok.
+- <img src="docs/assets/readme/icons/list-checks.svg" width="18" height="18" alt=""> **Checks every file against the platform's published limits and repairs what fails.** Only passing files reach `ready/`.
+- <img src="docs/assets/readme/icons/layout-grid.svg" width="18" height="18" alt=""> **Builds a review board,** one page that shows every file with its text, alt text and checks.
+- <img src="docs/assets/readme/icons/square-terminal.svg" width="18" height="18" alt=""> **Answers `/postkitty` without the model:** every size and limit, plus a check of your setup.
 
 The words come from the model your Hermes uses: the rewritten drafts, the advice on where to post, and the alt text. The rest is code in this repository.
 
@@ -87,13 +85,13 @@ Use postkitty to turn this into posts for X, LinkedIn and Instagram and fix my w
 
 ## What it can do
 
-| You have | Say this | You get |
-|---|---|---|
-| **Text** | "Fix my wording and write this for X, LinkedIn and Threads: [your draft]" | Your draft with the spelling and grammar fixed, one version per platform, each counted to fit. A long post can become a thread. |
-| **Photos** | "Make team.jpg ready for Instagram and Bluesky, and keep everyone in the picture." | One image per feed, framed around the people in it, with location and camera metadata removed. |
-| **Video** | "Turn talk.mp4 into vertical clips for TikTok, Reels and Shorts." | Vertical clips that follow the person on screen. Two people get a split screen, a cut to whoever is talking, or the whole wide shot. |
-| **Captions** | "Burn the subtitles from talk.srt into the TikTok clip." | Your `.srt` or `.vtt` subtitles drawn into the video, clear of the platform's buttons. |
-| **Checks** | "Will this file upload to TikTok? [path to the file]" | A pass or a fail against TikTok's limits, with every failing check named. It works for files postkitty did not make. |
+| Say this | You get |
+|---|---|
+| **Text**<br>"Fix my wording and write this for X, LinkedIn and Threads: [your draft]" | Your draft with the spelling and grammar fixed, one version per platform, each counted to fit. A long post can become a thread. |
+| **Photos**<br>"Make team.jpg ready for Instagram and Bluesky, and keep everyone in the picture." | One image per feed, framed around the people in it, with location and camera metadata removed. |
+| **Video**<br>"Turn talk.mp4 into vertical clips for TikTok, Reels and Shorts." | Vertical clips that follow the person on screen. Two people get a split screen, a cut to whoever is talking, or the whole wide shot. |
+| **Captions**<br>"Burn the subtitles from talk.srt into the TikTok clip." | Your `.srt` or `.vtt` subtitles drawn into the video, clear of the platform's buttons. |
+| **Checks**<br>"Will this file upload to TikTok? [path to the file]" | A pass or a fail against TikTok's limits, with every failing check named. It works for files postkitty did not make. |
 
 postkitty never posts, uploads or schedules anything. You upload the files in `ready/` yourself.
 
@@ -310,14 +308,12 @@ ruff check .
 
 The tests use synthetic clips and a stand-in face detector, so they download nothing.
 
-```text
-plugin.yaml, __init__.py    the manifest and register(ctx)
-schemas.py, tools.py        what Hermes sees, and the handlers behind it
-command.py                  the /postkitty command
-engine/                     the library: pipeline, photo, video, text, verify, board
-data/platforms.yaml         every size and limit, with its source
-skills/postkitty/SKILL.md   the workflow Hermes follows
-```
+- `plugin.yaml`, `__init__.py`: the manifest and `register(ctx)`
+- `schemas.py`, `tools.py`: what Hermes sees, and the handlers behind it
+- `command.py`: the `/postkitty` command
+- `engine/`: the library, with `pipeline`, `photo`, `video`, `text`, `verify` and `board`
+- `data/platforms.yaml`: every size and limit, with its source
+- `skills/postkitty/SKILL.md`: the workflow Hermes follows
 
 [docs/architecture.md](docs/architecture.md) explains the layers and the life of a job. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, style and how to add a platform, and [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 

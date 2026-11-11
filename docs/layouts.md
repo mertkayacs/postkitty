@@ -8,13 +8,13 @@ In each pair the center crop is on the left and the postkitty result is on the r
 
 ## The five layouts
 
-| Layout | What you get | Use it when | Photos | Video |
-|---|---|---|---|---|
-| `crop` | One window around the subject. In a video the window follows the person as they move. | One person, or a group that fits the target's shape. | yes | yes |
-| `split` | Two panels stacked in a vertical frame, one person in each. | Two people sit too far apart for one vertical window. | yes | yes |
-| `speaker` | A full-height crop that cuts to the person who is talking. | A conversation where the listener can leave the frame. | no | yes |
-| `seam` | The full scene with background removed from between the people, so they move closer. | Two people stand a little too far apart for a crop. | yes | no |
-| `pad` | The whole frame, centred on a blurred and darkened copy of itself. | Everyone has to stay in, and no crop can hold them. | yes | yes |
+| Layout | What you get | Use it when | Works on |
+|---|---|---|---|
+| `crop` | One window around the subject. In a video the window follows the person as they move. | One person, or a group that fits the target's shape. | Photos, video |
+| `split` | Two panels stacked in a vertical frame, one person in each. | Two people sit too far apart for one vertical window. | Photos, video |
+| `speaker` | A full-height crop that cuts to the person who is talking. | A conversation where the listener can leave the frame. | Video |
+| `seam` | The full scene with background removed from between the people, so they move closer. | Two people stand a little too far apart for a crop. | Photos |
+| `pad` | The whole frame, centred on a blurred and darkened copy of itself. | Everyone has to stay in, and no crop can hold them. | Photos, video |
 
 `auto` hands the choice back to postkitty.
 
