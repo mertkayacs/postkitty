@@ -1,3 +1,9 @@
+"""Box geometry and the crop window that keeps a set of boxes inside a target aspect ratio.
+
+Photos and video share this module: ``fit_crop`` places the largest window of the target shape around the
+subjects, and ``choose_layout`` falls back to split, seam or pad when one window cannot hold them all.
+"""
+
 from __future__ import annotations
 
 import math

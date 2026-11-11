@@ -1,3 +1,9 @@
+"""Plan and render one photo for one platform target.
+
+``plan_image`` picks the layout (crop, split, seam or pad) and the source windows that keep every face.
+``render_image`` draws that plan at the target size and saves a JPEG or PNG with no metadata.
+"""
+
 from __future__ import annotations
 
 import io

@@ -1,3 +1,9 @@
+"""Seam carving: reshape a photo by removing the paths of pixels that carry the least detail.
+
+Protected boxes (the people) keep their shape while the background between them shrinks. The ``caire``
+binary does the work when it is on PATH; otherwise a forward-energy carver in NumPy runs.
+"""
+
 from __future__ import annotations
 
 import shutil

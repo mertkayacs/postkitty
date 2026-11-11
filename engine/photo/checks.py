@@ -1,3 +1,10 @@
+"""Checks and repairs for a rendered photo.
+
+``check_image`` measures a file against its target: exact size, allowed format, byte cap, kept subjects,
+upscaling and leftover metadata. The two repairs lower the JPEG quality of a file over the byte cap and
+re-render a crop that cuts a person as a pad. Importing this module registers all three.
+"""
+
 from __future__ import annotations
 
 from dataclasses import replace
