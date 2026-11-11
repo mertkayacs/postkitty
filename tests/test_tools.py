@@ -463,7 +463,7 @@ def test_make_refuses_an_input_that_changed_since_the_scan(out_dir, tmp_path, st
     Image.new("RGB", (900, 900), "blue").save(photo)
 
     out = call(tools.make, job=job)
-    assert "changed since the scan" in out["error"] and "postkitty_scan" in out["error"]
+    assert "changed since the scan" in out["error"] and "postkitty_scan" in out["hint"]
     assert "changed since the scan" in call(tools.redo, job=job, target="x_image", layout="pad")["error"]
     photo.unlink()
     assert "missing" in call(tools.make, job=job)["error"]
@@ -700,3 +700,19 @@ def test_error_messages_keep_their_closing_quote(out_dir, text_job, monkeypatch)
     monkeypatch.setattr(pipeline, "scan", unknown)
     assert call(tools.scan, text="hi")["error"] == "unknown target 'x'"
 
+
+def test_only_errors_a_new_scan_fixes_point_to_postkitty_scan(out_dir, tmp_path, text_job, stub_image_engine):
+    assert "postkitty_scan" in call(tools.make, job="nope")["hint"]
+    assert "postkitty_scan" in call(tools.make)["hint"]
+    bad_value = call(tools.redo, job=text_job, target="x_image", layout="sideways")
+    assert "postkitty_scan" not in bad_value["hint"] and "layout must be one of" in bad_value["error"]
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    photo.unlink()
+    gone = call(tools.make, job=job)
+    assert "is missing" in gone["error"] and "postkitty_scan" in gone["hint"]
+
+
+def test_pipeline_messages_do_not_name_hermes_tools():
+    assert "postkitty_" not in Path(pipeline.__file__).read_text(encoding="utf-8")

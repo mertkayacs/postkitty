@@ -55,8 +55,10 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
             return _json(fn(args))
         except pipeline.Unavailable as exc:
             return _json({"error": str(exc), "hint": "Text copy still works; this media kind is not available."})
+        except pipeline.ScanNeeded as exc:
+            return _json({"error": str(exc), "hint": "Run postkitty_scan again and continue with the job id it returns."})
         except (FileNotFoundError, KeyError, ValueError, probe.ProbeError) as exc:
-            return _json({"error": _message(exc), "hint": "Check the arguments; run postkitty_scan first for a new job."})
+            return _json({"error": _message(exc), "hint": "Fix the argument and call the tool again."})
         except Exception as exc:
             return _json({"error": f"{type(exc).__name__}: {exc}", "hint": "Unexpected failure; report it with the job id."})
 

@@ -1,8 +1,9 @@
 """The postkitty pipeline: scan, write, make, redo and check as plain functions, a dict in and a dict out.
 
 This is the public Python API and it needs no Hermes. Call ``configure`` once, then the steps in order.
-Bad arguments raise ``ValueError``, ``KeyError``, ``FileNotFoundError`` or ``probe.ProbeError``. A media
-kind whose modules or packages are missing raises ``Unavailable``.
+Bad arguments raise ``ValueError``, ``KeyError``, ``FileNotFoundError`` or ``probe.ProbeError``. A call
+that only a new scan can fix raises ``ScanNeeded``, and a media kind whose packages are missing raises
+``Unavailable``. Messages are plain sentences for any caller, so they never name a Hermes tool.
 
 Media engines (photo, video, board) are imported inside the steps, so importing this module loads
 neither OpenCV, NumPy nor Pillow, and a missing engine module only disables its own media kind.
@@ -39,6 +40,10 @@ _SETTINGS: dict[str, Any] = {}
 
 class Unavailable(Exception):
     """A media engine module is missing or lacks a dependency."""
+
+
+class ScanNeeded(ValueError):
+    """The call needs a job that a new scan has to produce: no job, an unknown job, or inputs that changed."""
 
 
 def configure(*, output_dir: str | os.PathLike[str] | None = None, default_platforms: list[str] | None = None,
@@ -134,8 +139,11 @@ def _input_path(raw: Any) -> Path:
 
 def _open_job(args: dict) -> jobs.Job:
     if not args.get("job"):
-        raise ValueError("'job' is required; run postkitty_scan first")
-    return jobs.open_job(_out_dir(), str(args["job"]))
+        raise ScanNeeded("'job' is required: the job id a scan returned")
+    try:
+        return jobs.open_job(_out_dir(), str(args["job"]))
+    except FileNotFoundError:
+        raise ScanNeeded(f"job {str(args['job'])!r} does not exist in {_out_dir()}") from None
 
 
 def _infos(manifest: dict) -> list[probe.InputInfo]:
@@ -359,9 +367,9 @@ def _table(entries: list[dict]) -> list[dict]:
 def _verify_unchanged(info: probe.InputInfo) -> None:
     """Cached detections are keyed by content hash, so a rewritten or missing input must not be rendered."""
     if not info.path.is_file():
-        raise FileNotFoundError(f"input {info.id} is missing ({info.path}); run postkitty_scan again")
+        raise ScanNeeded(f"input {info.id} is missing ({info.path})")
     if probe.sha256_file(info.path) != info.sha256:
-        raise ValueError(f"input {info.id} ({info.path.name}) changed since the scan; run postkitty_scan again")
+        raise ScanNeeded(f"input {info.id} ({info.path.name}) changed since the scan")
 
 
 def _build(job: jobs.Job, ids: list[str], overrides: dict) -> dict:
@@ -657,7 +665,7 @@ def _override(args: dict) -> dict:
 
 
 def _overrides(raw: dict, planned: list[str]) -> dict:
-    """Validate ``postkitty_make`` overrides: planned target ids (aliases allowed) mapped to known keys."""
+    """Validate the ``overrides`` of make: planned target ids (aliases allowed) mapped to known keys."""
     out = {}
     for key, value in raw.items():
         (tid,) = _platform_names([key])
@@ -680,12 +688,12 @@ def make(args: dict) -> dict:
     planned = [t["id"] for t in scan_doc.get("targets", [])]
     if not planned and jobs.load_manifest(job).get("inputs"):
         why = "; ".join(scan_doc.get("notes", [])) or "no requested platform fits the input kinds"
-        raise ValueError(f"no media targets were planned ({why}); run postkitty_scan again with other platforms")
+        raise ScanNeeded(f"no media targets were planned ({why}); other platforms may fit these inputs")
     if not planned:
         files = sorted(_rel(job, p) for p in job.ready.rglob("*.txt")) if job.ready.is_dir() else []
         return {"job": job.id, "job_dir": str(job.root), "targets": [], "files": files,
-                "note": "This job is text only, so there is nothing to render; the copy files listed are already "
-                        "in ready/. Run postkitty_scan with input files to get media targets."}
+                "note": "This job is text only, so there is nothing to render; the text files listed are already "
+                        "in ready/. Scan photos or a video to get media targets."}
     ids = planned
     if targets:
         wanted = _platform_names(targets)
@@ -725,7 +733,7 @@ def check(args: dict) -> dict:
             )
     if not out:
         return {"job": job.id, "targets": {}, "all_pass": False,
-                "note": "This job has no ready media to check; run postkitty_make first."}
+                "note": "This job has no ready media to check; nothing has been made yet."}
     return {"job": job.id, "targets": out, "all_pass": all(v["pass"] for v in out.values())}
 
 
