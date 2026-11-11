@@ -716,3 +716,13 @@ def test_only_errors_a_new_scan_fixes_point_to_postkitty_scan(out_dir, tmp_path,
 
 def test_pipeline_messages_do_not_name_hermes_tools():
     assert "postkitty_" not in Path(pipeline.__file__).read_text(encoding="utf-8")
+
+
+def test_check_takes_a_platform_name_and_picks_its_target_for_the_file(out_dir, tmp_path):
+    photo = tmp_path / "wide.jpg"
+    Image.new("RGB", (1600, 900), "teal").save(photo)
+    assert call(tools.check, path=str(photo), target="x")["target"] == "x_image"
+    several = call(tools.check, path=str(photo), target="instagram")["error"]
+    assert "instagram_feed" in several and "instagram_story" in several
+    assert "tiktok takes videos" in call(tools.check, path=str(photo), target="tiktok")["error"]
+    assert "'target' is required" in call(tools.check, path=str(photo))["error"]

@@ -762,15 +762,29 @@ def _subjects_inside(entry: dict | None) -> float | None:
     return None
 
 
-def _check_file(path: Path, target_id: Any, layout: dict | None, subjects_inside: float | None = None) -> dict:
-    if not target_id:
-        raise ValueError("'target' is required with 'path'")
-    (tid,) = _platform_names([target_id])
+def _check_target(name: Any, info: probe.InputInfo) -> platforms.TargetSpec:
+    """The target to check against. A platform name stands for its one target that takes the file's kind."""
+    if not name:
+        raise ValueError("'target' is required with 'path': a target id such as tiktok or x_image")
+    (tid,) = _platform_names([name])
+    this = "a video" if info.kind == "video" else "a photo"
+    if tid in platforms.platform_names():
+        fits = [t for t in platforms.get_platform(tid).targets.values() if t.kind in (info.kind, "image_or_video")]
+        if len(fits) > 1:
+            raise ValueError(f"{tid} has {len(fits)} targets for {this}; name one: {', '.join(t.id for t in fits)}")
+        if not fits:
+            raise ValueError(f"{info.path.name} is {this}; {tid} takes {'videos' if info.kind == 'image' else 'photos'}")
+        return fits[0]
     target = platforms.get_target(tid)
-    info = probe.probe(path, "check")
     if target.kind in {"image", "video"} and info.kind != target.kind:
-        this = "a video" if info.kind == "video" else "a photo"
-        raise ValueError(f"{path.name} is {this}; {tid} takes {'videos' if target.kind == 'video' else 'photos'}")
+        raise ValueError(f"{info.path.name} is {this}; {tid} takes {'videos' if target.kind == 'video' else 'photos'}")
+    return target
+
+
+def _check_file(path: Path, target_id: Any, layout: dict | None, subjects_inside: float | None = None) -> dict:
+    info = probe.probe(path, "check")
+    target = _check_target(target_id, info)
+    tid = target.id
     try:
         _engine(info.kind)  # registers the media checkers when the engine exists
     except Unavailable:
