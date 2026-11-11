@@ -436,3 +436,31 @@ def test_anamorphic_source_is_not_stretched_in_crop_pad_or_cover(tmp_path: Path)
         box_width, box_height = _white_box_size(path, *size)
         assert abs(box_width - side) <= 6
         assert abs(box_height - side) <= 6
+
+
+def test_pad_layout_scales_only_to_even_sizes(tmp_path: Path) -> None:
+    # ffmpeg 6.1 corrupts its heap scaling 4:2:0 frames to an odd size; 320x176 fits 270x480 at 270x148.5.
+    import re
+
+    from engine.video_make import _pad_filter
+
+    source = tmp_path / "source.mp4"
+    _run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+            "-i", "color=c=blue:s=320x176:r=10:d=0.5", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(source),
+        ]
+    )
+    info = InputInfo(source, "even-proof", 320, 176, 0.5, 10.0)
+    graph = _pad_filter(info, Target("tall_video", 270, 480), 10.0)
+
+    log = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-v", "verbose", "-i", str(source), "-filter_complex", graph,
+         "-map", "[v]", "-frames:v", "1", "-f", "null", "-"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stderr
+    sizes = [(int(w), int(h)) for w, h in re.findall(r"Parsed_scale_\d+.*-> w:(\d+) h:(\d+)", log)]
+    assert len(sizes) >= 2
+    assert all(w % 2 == 0 and h % 2 == 0 for w, h in sizes), sizes

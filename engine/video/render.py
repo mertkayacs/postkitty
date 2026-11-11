@@ -273,11 +273,11 @@ def _pad_filter(info: Any, target: Any, fps: float | None) -> str:
     return (
         f"{_source(info, fps)},split=2[background][foreground];"
         f"[background]scale={target.width}:{target.height}:"
-        "force_original_aspect_ratio=increase:flags=lanczos,"
+        "force_original_aspect_ratio=increase:force_divisible_by=2:flags=lanczos,"
         f"crop={target.width}:{target.height},boxblur=20:10,"
         "eq=brightness=-0.25[fill];"
         f"[foreground]scale={target.width}:{target.height}:"
-        "force_original_aspect_ratio=decrease:flags=lanczos[front];"
+        "force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[front];"
         "[fill][front]overlay=(W-w)/2:(H-h)/2:shortest=1,"
         "setsar=1,format=yuv420p[v]"
     )
