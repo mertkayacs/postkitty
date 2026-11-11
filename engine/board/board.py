@@ -20,6 +20,8 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from ..text.fit import unit_words
+
 CREAM = "#F7F1E5"
 NAVY = "#1E2A44"
 MUTED = "#5B6478"
@@ -52,13 +54,6 @@ PLATFORM_NAMES = {
     "facebook": "Facebook",
 }
 PLATFORM_COPY_NAMES = {**PLATFORM_NAMES, "youtube": "YouTube Shorts"}
-
-UNIT_NAMES = {
-    "codepoints": "characters",
-    "x_weighted": "weighted characters",
-    "utf16": "UTF-16 units",
-    "graphemes": "characters",
-}
 
 # Where each platform cuts a post behind a "more" link. Approximate. A
 # manifest copy entry may carry its own "fold" to override these.
@@ -739,8 +734,16 @@ def split_at_fold(text: str, fold: int) -> tuple[str, str]:
     return cut, text[len(cut):].lstrip(" ")
 
 
+def unit_name(unit: str) -> str:
+    """The counting unit in the text engine's words; a unit it does not know is shown as it is."""
+    try:
+        return unit_words(unit)
+    except KeyError:
+        return unit
+
+
 def count_line(count: Any, limit: Any, unit: str) -> str:
-    name = UNIT_NAMES.get(unit, unit)
+    name = unit_name(unit)
     if limit is None:
         return f"{count} {name}"
     return f"{count} of {limit} {name}"
@@ -770,7 +773,7 @@ def build_copy_card(platform: str, info: dict, ctx: Ctx) -> str:
     total = max((int(c) for c in counts if isinstance(c, (int, float))), default=0)
     over = not ok or (isinstance(limit, (int, float)) and total > limit)
     if len(parts) > 1:
-        summary = f"{len(parts)} parts, limit {limit} {UNIT_NAMES.get(unit, unit)} each" \
+        summary = f"{len(parts)} parts, limit {limit} {unit_name(unit)} each" \
             if limit is not None else f"{len(parts)} parts"
     else:
         summary = count_line(total, limit, unit)
