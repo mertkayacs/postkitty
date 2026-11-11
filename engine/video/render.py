@@ -16,7 +16,7 @@ import numpy as np
 
 from .camera import build_camera_path
 from .captions import ass_document, load_captions
-from .scan import VideoScan
+from .scan import VideoScan, read_exact
 
 # Platforms take one or two audio channels, so surround sources are mixed down and mono stays mono.
 _STEREO_AT_MOST = "aformat=channel_layouts=mono|stereo"
@@ -43,7 +43,7 @@ def _filters() -> frozenset[str]:
         ).stdout
     except OSError:
         return frozenset()
-    return frozenset(re.findall(r"^ [T.][S.][C.] (\S+)", listing, re.MULTILINE))
+    return frozenset(re.findall(r"^\s*\S+\s+(\S+)\s+\S*->", listing, re.MULTILINE))
 
 
 def has_filter(name: str) -> bool:
@@ -128,18 +128,6 @@ def _best_trim(scan: VideoScan, duration: float, maximum: float) -> tuple[float,
     return best_start, best_start + maximum
 
 
-def _read_exact(stream: Any, size: int) -> bytes:
-    chunks: list[bytes] = []
-    remaining = size
-    while remaining:
-        chunk = stream.read(remaining)
-        if not chunk:
-            break
-        chunks.append(chunk)
-        remaining -= len(chunk)
-    return b"".join(chunks)
-
-
 def _sharpest_cover(info: Any, scan: VideoScan, trim: tuple[float, float]) -> float:
     sample_fps = float(scan.faces["sample_fps"])
     cuts = [start for start, _ in scan.scenes[1:]]
@@ -189,7 +177,7 @@ def _sharpest_cover(info: Any, scan: VideoScan, trim: tuple[float, float]) -> fl
     index = 0
     try:
         while True:
-            raw = _read_exact(process.stdout, frame_size)
+            raw = read_exact(process.stdout, frame_size)
             if len(raw) != frame_size:
                 break
             if index in candidates:

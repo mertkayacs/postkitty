@@ -6,23 +6,10 @@ import math
 import subprocess
 from itertools import pairwise
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
-from .scan import Track, TrackPoint
-
-
-def _read_exact(stream: Any, size: int) -> bytes:
-    chunks: list[bytes] = []
-    remaining = size
-    while remaining:
-        chunk = stream.read(remaining)
-        if not chunk:
-            break
-        chunks.append(chunk)
-        remaining -= len(chunk)
-    return b"".join(chunks)
+from .scan import Track, TrackPoint, read_exact
 
 
 def _interpolate(track: Track, t: float) -> TrackPoint:
@@ -155,7 +142,7 @@ def mouth_activity(
     frames: list[np.ndarray] = []
     try:
         while True:
-            raw = _read_exact(process.stdout, frame_size)
+            raw = read_exact(process.stdout, frame_size)
             if len(raw) != frame_size:
                 break
             frames.append(

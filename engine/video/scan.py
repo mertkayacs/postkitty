@@ -145,7 +145,8 @@ def _scan_audio(path: Path, has_audio: bool) -> list[tuple[float, float]]:
     return points
 
 
-def _read_exact(stream: Any, size: int) -> bytes:
+def read_exact(stream: Any, size: int) -> bytes:
+    """Read ``size`` bytes from a pipe, which may hand over a frame in several pieces."""
     chunks: list[bytes] = []
     remaining = size
     while remaining:
@@ -191,7 +192,7 @@ def _face_document(info: Any, detector: Any, sample_fps: float) -> dict[str, Any
     index = 0
     try:
         while True:
-            raw = _read_exact(process.stdout, frame_size)
+            raw = read_exact(process.stdout, frame_size)
             if len(raw) != frame_size:
                 break
             image = np.frombuffer(raw, dtype=np.uint8).reshape(
