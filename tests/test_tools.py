@@ -555,7 +555,7 @@ def test_same_size_targets_share_one_master_render(out_dir, tmp_path, stub_image
     assert (out_dir / job / "ready/threads/image.jpg").is_file()
 
 
-def test_missing_video_engine_skips_video_targets(out_dir, tmp_path, monkeypatch):
+def test_a_missing_package_skips_video_targets_and_names_it(out_dir, tmp_path, monkeypatch):
     import shutil
     import subprocess
 
@@ -565,11 +565,13 @@ def test_missing_video_engine_skips_video_targets(out_dir, tmp_path, monkeypatch
     clip = tmp_path / "c.mp4"
     subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=10:d=1", "-pix_fmt",
                     "yuv420p", str(clip)], check=True)
-    monkeypatch.setitem(sys.modules, "postkitty.engine.video.scan", None)  # simulate a missing module
+    monkeypatch.delitem(sys.modules, "postkitty.engine.video.scan", raising=False)
+    monkeypatch.setitem(sys.modules, "numpy", None)  # a dependency that was never installed
     scan = call(tools.scan, inputs=[str(clip)], platforms=["tiktok"])
     assert scan["inputs"][0]["kind"] == "video" and scan["notes"] and scan["plan"][0]["id"] == "tiktok"
     made = call(tools.make, job=scan["job"])
-    assert made["targets"][0]["status"] == "skipped" and "video engine" in made["targets"][0]["reason"]
+    assert made["targets"][0]["status"] == "skipped"
+    assert made["targets"][0]["reason"] == "Videos cannot be made here: the Python package 'numpy' is missing."
 
 
 def test_slash_command_text():

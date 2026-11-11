@@ -95,10 +95,8 @@ def _engine(kind: str) -> SimpleNamespace:
         try:
             mods[name.rpartition(".")[2]] = importlib.import_module(f".{name}", __package__)
         except ModuleNotFoundError as exc:
-            missing = exc.name or name
-            if missing.endswith(f"engine.{name}"):
-                raise Unavailable(f"The {kind} engine is not available yet ({name} is missing).") from exc
-            raise Unavailable(f"The {kind} engine needs the Python package {missing!r}.") from exc
+            what = "Photos" if kind == "image" else "Videos"
+            raise Unavailable(f"{what} cannot be made here: the Python package {exc.name!r} is missing.") from exc
     return SimpleNamespace(**mods)
 
 
