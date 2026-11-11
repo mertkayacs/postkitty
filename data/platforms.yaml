@@ -106,6 +106,10 @@ platforms:
                        note: "the API maximum; every creator can post 3 minutes, some accounts 5 or 10"}
         bytes_max: {value: 4000000000, enforcement: hard, source_scope: api, checked_on: "2026-11-11",
                     source_url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide"}
+        safe_area: {value: {top: 0.125, bottom: 0.344, side: 0.278}, enforcement: recommendation, source_scope: ad,
+                    checked_on: "2026-11-11",
+                    source_url: "https://ads.tiktok.com/resources/help/article/tiktok-auction-in-feed-ads",
+                    note: "TikTok's in-feed template (720x1280): top 160, bottom 440, sides 80, and an icon column 120 wide on the right of the lower 720, so side is 200 of 720"}
 
   youtube:
     label: YouTube Shorts
@@ -126,6 +130,10 @@ platforms:
         video_bps_max: {value: 8000000, enforcement: recommendation, source_scope: official, checked_on: "2026-11-11",
                         source_url: "https://support.google.com/youtube/answer/1722171",
                         note: "1080p SDR at 24 to 30 fps; YouTube recommends 12 Mbps at 48 to 60 fps"}
+        safe_area: {value: {top: 0.15, bottom: 0.35, side: 0.178}, enforcement: recommendation, source_scope: ad,
+                    checked_on: "2026-11-11",
+                    source_url: "https://support.google.com/google-ads/answer/13547298",
+                    note: "Google's drawing for vertical video ads (1080x1920): top 288, bottom 672, left 48, right 192; side uses the wider margin"}
 
   x:
     label: X
@@ -275,6 +283,9 @@ platforms:
         aspect_options: {value: ["9:16"], enforcement: recommendation, source_scope: api, checked_on: "2026-11-11",
                          source_url: "https://developers.facebook.com/docs/video-api/guides/reels-publishing",
                          note: "1080 x 1920 recommended, 540 x 960 minimum"}
+        safe_area: {value: {top: 0.14, bottom: 0.35, side: 0.06}, enforcement: recommendation, source_scope: ad,
+                    checked_on: "2026-11-11",
+                    source_url: "https://www.facebook.com/business/ads-guide/update/video/facebook-facebook-reels"}
       facebook_feed:
         kind: image
         width: 1080
