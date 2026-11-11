@@ -17,8 +17,9 @@ provides_tools:
 python_dependencies:
   - "opencv-contrib-python-headless>=4.10,<5"
   - "numpy>=2.0,<3"
-  - "Pillow>=10.0,<14"
+  - "Pillow>=10.1,<14"
   - "regex>=2024.1.1,<2027"
+  - "ruamel.yaml>=0.18,<0.19"
 config_schema:
   output_dir:
     type: str

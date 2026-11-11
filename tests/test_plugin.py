@@ -1,3 +1,4 @@
+import ast
 import json
 import re
 import subprocess
@@ -73,8 +74,23 @@ def test_manifest_is_consistent():
     assert re.fullmatch(r">=\d+\.\d+\.\d+", MANIFEST["requires_hermes"])
     for dep in MANIFEST["python_dependencies"]:
         assert re.search(r">=[\d.]+,<[\d.]+", dep), dep
-    assert not any("ruamel" in dep for dep in MANIFEST["python_dependencies"])
     assert set(MANIFEST["config_schema"]) == {"output_dir", "default_platforms", "loudness_lufs"}
+
+
+def test_the_declared_dependencies_are_exactly_the_packages_the_code_imports():
+    packages = {"cv2": "opencv-contrib-python-headless", "numpy": "numpy", "PIL": "pillow", "regex": "regex",
+                "ruamel": "ruamel.yaml"}
+    imported = set()
+    for path in [*ROOT.glob("*.py"), *ROOT.glob("engine/**/*.py")]:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                imported |= {alias.name.split(".")[0] for alias in node.names}
+            elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                imported.add((node.module or "").split(".")[0])
+    hermes = {"agent", "plugins"}  # the two guarded imports of the Hermes adapter
+    third_party = imported - set(sys.stdlib_module_names) - hermes
+    declared = {re.split(r"[<>=!~ ]", dep, maxsplit=1)[0].lower() for dep in MANIFEST["python_dependencies"]}
+    assert {packages[name] for name in third_party} == declared
 
 
 def test_version_and_dependencies_agree_everywhere():
