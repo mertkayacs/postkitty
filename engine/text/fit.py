@@ -280,6 +280,21 @@ def _utf16_units(text: str) -> int:
     return sum(2 if ord(char) > 0xFFFF else 1 for char in text)
 
 
+_UNIT_WORDS = {
+    "codepoints": "characters",
+    "graphemes": "characters",
+    "utf16": "UTF-16 units",
+    "utf8_bytes": "UTF-8 bytes",
+    "x_weighted": "weighted characters",
+    "threads": "characters (an emoji counts as its UTF-8 bytes)",
+}
+
+
+def unit_words(unit: str) -> str:
+    """The counting unit in words a person reads, for messages."""
+    return _UNIT_WORDS[unit]
+
+
 def count_text(text: str, unit: str) -> int:
     """Count ``text`` in one of the platform units."""
     if unit == "x_weighted":
@@ -536,6 +551,7 @@ class CopyReport:
     urls: int
     bytes_count: int
     notes: list[str] = field(default_factory=list)
+    hard: bool = True
 
 
 def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> CopyReport:
@@ -566,9 +582,7 @@ def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> Co
     bytes_count = len(joined.encode("utf-8"))
 
     if overflow:
-        notes.append(
-            f"{platform} allows {rules.limit} {rules.unit}; the draft is {max(counts)}."
-        )
+        notes.append(f"{platform} allows {rules.limit} {unit_words(rules.unit)}; the draft is {max(counts)}, {overflow} over.")
     largest = max(len(part.encode("utf-8")) for part in parts)
     if rules.bytes_max is not None and largest > rules.bytes_max:
         notes.append(f"{platform} allows {rules.bytes_max} UTF-8 bytes in one post; the draft uses {largest}.")
@@ -602,7 +616,43 @@ def fit(platform: str, draft: str | list[str], split_threads: bool = True) -> Co
         urls=urls,
         bytes_count=bytes_count,
         notes=notes,
+        hard=rules.hard,
     )
+
+
+def check_text(text: str, platform_names: list[str] | None = None, split_threads: bool = True) -> dict[str, dict]:
+    """Count ``text`` for each platform and report limit, fit, fold and thread parts. Needs no job folder.
+
+    ``platform_names`` defaults to every platform in the platform file. Raises ``ValueError`` for a text that
+    cannot be a post (empty, whitespace only, or holding half of a surrogate pair) and ``KeyError`` for an
+    unknown platform name.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("text must be a non-empty string")
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError("text holds half of a surrogate pair, which is no valid character") from None
+    result: dict[str, dict] = {}
+    for name in platform_names or platforms.platform_names():
+        report = fit(name, text, split_threads=split_threads)
+        result[name] = {
+            "unit": report.unit,
+            "limit": report.limit,
+            "count": max(report.counts),
+            "ok": report.ok,
+            "hard": report.hard,
+            "overflow": report.overflow,
+            "split": report.split,
+            "parts": [{"text": part, "count": count} for part, count in zip(report.parts, report.counts, strict=True)],
+            "fold": report.fold,
+            "fold_limit": report.fold_limit,
+            "hashtags": report.hashtags,
+            "mentions": report.mentions,
+            "urls": report.urls,
+            "notes": report.notes,
+        }
+    return result
 
 
 def rules_dict(rules: TextRules) -> dict:

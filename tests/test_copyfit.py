@@ -282,6 +282,46 @@ class TestFit:
         assert (report.fold_limit, report.fold_chars) == (100, 100)
 
 
+class TestCheckText:
+    _KEYS = {"unit", "limit", "count", "ok", "hard", "overflow", "split", "parts", "fold", "fold_limit",
+             "hashtags", "mentions", "urls", "notes"}
+
+    def test_every_platform_by_default_with_the_same_keys(self):
+        result = c.check_text("Hello #world https://example.com/a")
+        assert set(result) == {"instagram", "tiktok", "youtube", "x", "linkedin", "threads", "bluesky", "facebook"}
+        assert all(set(entry) == self._KEYS for entry in result.values())
+        x = result["x"]
+        assert (x["unit"], x["limit"], x["count"], x["ok"], x["overflow"], x["split"]) == ("x_weighted", 280, 36, True, 0, False)
+        assert x["parts"] == [{"text": "Hello #world https://example.com/a", "count": 36}]
+        assert (x["hashtags"], x["mentions"], x["urls"], x["notes"]) == (1, 0, 1, [])
+
+    def test_chosen_platforms_keep_their_order(self):
+        assert list(c.check_text("hi", ["bluesky", "x"])) == ["bluesky", "x"]
+
+    def test_over_limit_text_splits_into_a_thread_or_reports_the_overflow(self):
+        text = " ".join(f"Sentence number {i} is here." for i in range(40))
+        thread = c.check_text(text, ["x", "linkedin"])
+        assert thread["x"]["ok"] and thread["x"]["split"] and len(thread["x"]["parts"]) > 1
+        assert all(part["count"] <= 280 for part in thread["x"]["parts"])
+        assert thread["linkedin"]["ok"] and not thread["linkedin"]["split"]
+        whole = c.check_text(text, ["x"], split_threads=False)["x"]
+        assert not whole["ok"] and whole["hard"] and whole["overflow"] == whole["count"] - 280 > 0
+        assert whole["notes"] == [f"x allows 280 weighted characters; the draft is {whole['count']}, {whole['overflow']} over."]
+
+    def test_fold_is_the_text_shown_before_more(self):
+        entry = c.check_text("word " * 100, ["instagram"])["instagram"]
+        assert entry["fold_limit"] == 125 and len(entry["fold"]) <= 125 and entry["fold"].endswith("word")
+
+    @pytest.mark.parametrize("text", ["", "  \n\t ", "\ud83d", None, 5])
+    def test_text_that_cannot_be_a_post_is_refused(self, text):
+        with pytest.raises(ValueError):
+            c.check_text(text)
+
+    def test_unknown_platform_is_a_key_error(self):
+        with pytest.raises(KeyError):
+            c.check_text("hi", ["myspace"])
+
+
 from hypothesis import given, settings  # noqa: E402
 from hypothesis import strategies as st  # noqa: E402
 
@@ -301,3 +341,28 @@ def test_split_property_every_part_fits_and_urls_stay_whole(sentences):
             assert sum(part.count(url) for part in report.parts) == text.count(url)
         if report.split:
             assert all(part.rsplit(" ", 1)[1] == f"{i}/{len(report.parts)}" for i, part in enumerate(report.parts, 1))
+
+
+_PIECE = st.sampled_from([
+    "word", "Çay", "größer", "日本語", "e\u0301", "👍🏽", "👨‍👩‍👧‍👦", "🇹🇷", "#tag", "@name",
+    "https://example.com/a_(b)", "README.md", "done.", "why?", "x", "1️⃣",
+])
+
+
+@settings(max_examples=60, deadline=None)
+@given(st.lists(_PIECE, min_size=1, max_size=120), st.sampled_from(["x", "threads", "bluesky"]))
+def test_split_property_no_text_is_lost_and_every_part_fits(pieces, platform):
+    text = " ".join(pieces)
+    report = c.fit(platform, text)
+    assert report.ok and all(count <= report.limit for count in report.counts)
+    bodies = [part.rsplit(" ", 1)[0] for part in report.parts] if report.split else report.parts
+    assert " ".join(bodies).split() == pieces
+
+
+@settings(max_examples=60, deadline=None)
+@given(st.lists(_PIECE, min_size=1, max_size=30))
+def test_x_count_is_the_same_for_composed_and_decomposed_text(pieces):
+    import unicodedata
+
+    text = " ".join(pieces)
+    assert c.x_weighted_length(unicodedata.normalize("NFD", text)) == c.x_weighted_length(unicodedata.normalize("NFC", text))

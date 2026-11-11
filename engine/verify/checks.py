@@ -227,7 +227,7 @@ def copy_checks(platform: str, parts: list[str], rules: copyfit.TextRules) -> li
     for index, part in enumerate(parts):
         count = copyfit.count_text(part, rules.unit)
         failed = count > rules.limit
-        suffix = f" part {index + 1}" if len(parts) > 1 else ""
+        suffix = f" in post {index + 1}" if len(parts) > 1 else ""
         checks.append(
             Check(
                 id="copy.limit",
@@ -237,7 +237,7 @@ def copy_checks(platform: str, parts: list[str], rules: copyfit.TextRules) -> li
                 measured=count,
                 expected=rules.limit,
                 message=(
-                    f"{platform} allows {rules.limit} {rules.unit}{suffix}; "
+                    f"{platform} allows {rules.limit} {copyfit.unit_words(rules.unit)}{suffix}; "
                     f"this draft uses {count}."
                 ),
             )

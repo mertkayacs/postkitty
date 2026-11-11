@@ -65,6 +65,7 @@ def _text_facts(platform: str, text: str) -> dict:
     report = copyfit.fit(platform, text, split_threads=True)
     facts = {
         "unit": report.unit,
+        "unit_words": copyfit.unit_words(report.unit),
         "limit": report.limit,
         "count": max(report.counts) if report.counts else 0,
         "ok": report.ok,
@@ -133,16 +134,16 @@ def fit_facts(
             entry_text = text_facts
             if text_facts["split"]:
                 facts.append(
-                    f"Copy is over the {text_facts['limit']} {text_facts['unit']} limit and splits into a "
+                    f"Copy is over the limit of {text_facts['limit']} {text_facts['unit_words']} and splits into a "
                     f"thread of {text_facts['parts']} posts (longest {text_facts['count']})."
                 )
             elif text_facts["ok"]:
                 facts.append(
-                    f"Copy fits: {text_facts['count']} of {text_facts['limit']} {text_facts['unit']}."
+                    f"Copy fits: {text_facts['count']} of {text_facts['limit']} {text_facts['unit_words']}."
                 )
             else:
                 facts.append(
-                    f"Copy is over the {text_facts['limit']} {text_facts['unit']} limit by "
+                    f"Copy is over the limit of {text_facts['limit']} {text_facts['unit_words']} by "
                     f"{text_facts['overflow']}."
                 )
         else:
