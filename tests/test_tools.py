@@ -688,3 +688,15 @@ def test_render_reuse_never_puts_jpeg_data_under_a_png_name(out_dir, tmp_path):
     for path in files:
         with Image.open(path) as image:
             assert image.format == {".png": "PNG", ".jpg": "JPEG"}[path.suffix], path
+
+
+def test_error_messages_keep_their_closing_quote(out_dir, text_job, monkeypatch):
+    out = call(tools.redo, job=text_job, target="x_image", cover_at="soon")
+    assert out["error"].endswith("got 'soon'")
+
+    def unknown(args):
+        raise KeyError("unknown target 'x'")
+
+    monkeypatch.setattr(pipeline, "scan", unknown)
+    assert call(tools.scan, text="hi")["error"] == "unknown target 'x'"
+

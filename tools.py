@@ -35,6 +35,13 @@ def _json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, default=str)
 
 
+def _message(exc: Exception) -> str:
+    # str() of a KeyError is the repr of its key, which wraps a message in quotes.
+    if isinstance(exc, KeyError) and exc.args and isinstance(exc.args[0], str):
+        return exc.args[0]
+    return str(exc)
+
+
 def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
     @wraps(fn)
     def handler(args: dict | None = None, **kwargs: Any) -> str:
@@ -49,7 +56,7 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
         except pipeline.Unavailable as exc:
             return _json({"error": str(exc), "hint": "Text copy still works; this media kind is not available."})
         except (FileNotFoundError, KeyError, ValueError, probe.ProbeError) as exc:
-            return _json({"error": str(exc).strip("'\""), "hint": "Check the arguments; run postkitty_scan first for a new job."})
+            return _json({"error": _message(exc), "hint": "Check the arguments; run postkitty_scan first for a new job."})
         except Exception as exc:
             return _json({"error": f"{type(exc).__name__}: {exc}", "hint": "Unexpected failure; report it with the job id."})
 
