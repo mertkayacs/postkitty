@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..probe import run_tool, start_tool
 from .scan import Track, TrackPoint, read_exact
 
 
@@ -111,9 +112,6 @@ def mouth_activity(
     scaled_width = min(640, width)
     scaled_height = max(2, round(height * scaled_width / width / 2) * 2)
     command = [
-        "nice",
-        "-n",
-        "10",
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
@@ -136,7 +134,7 @@ def mouth_activity(
         "gray",
         "pipe:1",
     ]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process = start_tool(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     assert process.stdout is not None
     frame_size = scaled_width * scaled_height
     frames: list[np.ndarray] = []
@@ -187,9 +185,6 @@ def speech_activity(
         raise ValueError("activity range must be increasing")
     frame_count = max(1, round((end - start) * analysis_fps))
     command = [
-        "nice",
-        "-n",
-        "10",
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
@@ -214,7 +209,7 @@ def speech_activity(
         "s16le",
         "pipe:1",
     ]
-    completed = subprocess.run(command, capture_output=True, check=False)
+    completed = run_tool(command, capture_output=True, check=False)
     if completed.returncode != 0 or not completed.stdout:
         return np.ones(frame_count, dtype=bool)
 

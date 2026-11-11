@@ -11,6 +11,8 @@ from typing import Any
 
 import numpy as np
 
+from ..probe import run_tool, start_tool
+
 
 @dataclass(frozen=True)
 class TrackPoint:
@@ -56,12 +58,7 @@ class VideoScan:
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["nice", "-n", "10", *command],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    return run_tool(command, check=True, capture_output=True, text=True)
 
 
 def _scan_scenes(path: Path, duration: float) -> list[tuple[float, float]]:
@@ -162,9 +159,6 @@ def _face_document(info: Any, detector: Any, sample_fps: float) -> dict[str, Any
     scaled_width = min(640, info.width)
     scaled_height = max(2, round(info.height * scaled_width / info.width / 2) * 2)
     command = [
-        "nice",
-        "-n",
-        "10",
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
@@ -183,7 +177,7 @@ def _face_document(info: Any, detector: Any, sample_fps: float) -> dict[str, Any
         "bgr24",
         "pipe:1",
     ]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process = start_tool(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     assert process.stdout is not None
     frame_size = scaled_width * scaled_height * 3
     x_scale = info.width / scaled_width

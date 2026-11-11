@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".avif"}
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi", ".mts", ".m2ts"}
 _ALPHA_PIX_FMTS = {"rgba", "argb", "abgr", "bgra", "ya8", "ya16le", "ya16be"}
 _INSTALL_HINT = "Install ffmpeg (which provides ffprobe) and retry."
+_WINDOWS = os.name == "nt"
+# The CreateProcess flag for below-normal priority. ``subprocess`` only names it on Windows.
+_BELOW_NORMAL_PRIORITY = 0x00004000
 
 
 class ProbeError(RuntimeError):
@@ -33,6 +37,36 @@ class InputInfo:
     has_audio: bool = False
     rotation: int = 0
     has_alpha: bool = False
+
+
+def low_priority(command: list[str]) -> tuple[list[str], dict[str, Any]]:
+    """``command`` and the ``subprocess`` options that run it below normal priority.
+
+    A long ffmpeg run must not starve the agent that waits for it. ``nice`` does that where it is
+    installed. Windows has no ``nice`` and takes a process creation flag.
+    """
+    if _WINDOWS:
+        return command, {"creationflags": _BELOW_NORMAL_PRIORITY}
+    nice = shutil.which("nice")
+    return ([nice, "-n", "10", *command] if nice else command), {}
+
+
+def run_tool(command: list[str], **options: Any) -> subprocess.CompletedProcess:
+    """``subprocess.run`` for ffmpeg and ffprobe, at low priority.
+
+    Both tools write UTF-8, so text is decoded as UTF-8 and a file name the system code page
+    cannot decode never fails the call.
+    """
+    command, priority = low_priority(command)
+    if options.get("text"):
+        options = {"encoding": "utf-8", "errors": "replace", **options}
+    return subprocess.run(command, **priority, **options)
+
+
+def start_tool(command: list[str], **options: Any) -> subprocess.Popen:
+    """``subprocess.Popen`` for an ffmpeg whose pipe the caller reads, at low priority."""
+    command, priority = low_priority(command)
+    return subprocess.Popen(command, **priority, **options)
 
 
 def sha256_file(path: Path) -> str:
@@ -153,9 +187,7 @@ def _video_info(path: Path, input_id: str, sha: str) -> InputInfo:
         str(path),
     ]
     try:
-        result = subprocess.run(
-            command, capture_output=True, text=True, timeout=180, check=False
-        )
+        result = run_tool(command, capture_output=True, text=True, timeout=180, check=False)
     except subprocess.TimeoutExpired as exc:
         raise ProbeError(f"ffprobe timed out on {path.name}.") from exc
     except OSError as exc:

@@ -14,6 +14,7 @@ from typing import Any, Literal
 import cv2
 import numpy as np
 
+from ..probe import run_tool, start_tool
 from .camera import build_camera_path
 from .captions import Captions, ass_document, load_captions
 from .scan import VideoScan, read_exact
@@ -39,7 +40,7 @@ class VideoPlan:
 @cache
 def _filters() -> frozenset[str]:
     try:
-        listing = subprocess.run(
+        listing = run_tool(
             ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, check=False
         ).stdout
     except OSError:
@@ -55,7 +56,7 @@ def has_filter(name: str) -> bool:
 def run_ffmpeg(command: list[str], doing: str) -> None:
     """Run an ffmpeg command. A failure says what was being made and quotes ffmpeg's last lines."""
     try:
-        subprocess.run(command, check=True, capture_output=True)
+        run_tool(command, check=True, capture_output=True)
     except FileNotFoundError as exc:
         raise RuntimeError(f"could not start ffmpeg while {doing}: {exc}; install ffmpeg and retry") from exc
     except subprocess.CalledProcessError as exc:
@@ -67,7 +68,7 @@ def run_ffmpeg(command: list[str], doing: str) -> None:
 @cache
 def _hdr_transfer(path: Path, sha256: str) -> str | None:
     """The transfer curve of an HDR source (PQ or HLG), else ``None``. Cached by content hash."""
-    probed = subprocess.run(
+    probed = run_tool(
         ["ffprobe", "-v", "error", "-select_streams", "V:0", "-show_entries", "stream=color_transfer",
          "-of", "default=nw=1:nk=1", str(path)],
         capture_output=True,
@@ -145,9 +146,6 @@ def _sharpest_cover(info: Any, scan: VideoScan, trim: tuple[float, float]) -> fl
     width = min(640, info.width)
     height = max(2, round(info.height * width / info.width / 2) * 2)
     command = [
-        "nice",
-        "-n",
-        "10",
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
@@ -170,7 +168,7 @@ def _sharpest_cover(info: Any, scan: VideoScan, trim: tuple[float, float]) -> fl
         "gray",
         "pipe:1",
     ]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process = start_tool(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     assert process.stdout is not None
     frame_size = width * height
     best_index = min(candidates)
@@ -414,7 +412,7 @@ def _plan_key(
 
 
 def _probe_render(path: Path) -> dict[str, Any]:
-    completed = subprocess.run(
+    completed = run_tool(
         [
             "ffprobe",
             "-v",
@@ -501,9 +499,6 @@ def render_video(
 
         temporary = master.with_name(master.stem + ".tmp.mp4")
         command = [
-            "nice",
-            "-n",
-            "10",
             "ffmpeg",
             "-hide_banner",
             "-loglevel",
@@ -604,9 +599,6 @@ def export_cover(info: Any, plan: VideoPlan, target: Any, out_path: Path) -> Pat
     # The cover is written into ready/, so a failed export must not leave a partial image there.
     temporary = out_path.with_name(f"{out_path.stem}.tmp{out_path.suffix}")
     command = [
-        "nice",
-        "-n",
-        "10",
         "ffmpeg",
         "-hide_banner",
         "-loglevel",

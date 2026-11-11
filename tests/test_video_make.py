@@ -472,12 +472,14 @@ def test_pad_layout_scales_only_to_even_sizes(tmp_path: Path) -> None:
 
 
 
-def test_render_works_from_a_job_folder_with_quotes_and_filter_syntax_in_its_name(tmp_path: Path) -> None:
+@pytest.mark.parametrize("folder", ["it's a [job], 50%; x=1:2", "C:\\Users\\me\\jobs"])
+def test_render_works_from_a_job_folder_with_quotes_and_filter_syntax_in_its_name(tmp_path: Path, folder: str) -> None:
+    # The second name is one POSIX folder holding the drive colon and backslashes of a Windows path.
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
     target = Target("square_video", 180, 180)
     plan = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "", [_box(70.0, 0.0, 180.0, 180.0)] * 10)
 
-    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "it's a [job], 50%; x=1:2")
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / folder)
 
     assert (result.width, result.height) == (180, 180)
 
@@ -597,3 +599,40 @@ def test_only_a_hard_duration_cap_cuts_the_video(tmp_path: Path) -> None:
     assert "cut" not in kept.note
     assert cut.trim == (0.0, 140.0)
     assert cut.note.endswith("The video is cut to the 140 s x_video allows, from 0 s to 140 s.")
+
+
+def test_no_video_step_needs_the_nice_binary(tmp_path: Path, monkeypatch: Any) -> None:
+    import shutil
+
+    from engine import probe as probe_module
+    from engine.video.checks import check_video
+    from engine.video.scan import make_peek, scan_video
+
+    class NoFaces:
+        name = "no-faces"
+
+        def detect(self, image: Any) -> list[Any]:
+            return []
+
+    real_which, real_popen, started = shutil.which, subprocess.Popen, []
+
+    def spy(command: list[str], *args: Any, **options: Any) -> Any:
+        started.append(command[0])
+        return real_popen(command, *args, **options)
+
+    source = _moving_video(tmp_path / "moving.mp4", duration=1.0)
+    monkeypatch.setattr(shutil, "which", lambda name, *args, **kwargs: None if name == "nice" else real_which(name))
+    monkeypatch.setattr(subprocess, "Popen", spy)
+
+    info = probe_module.probe(source.path, "v1")
+    scan = scan_video(info, NoFaces(), tmp_path / "work")
+    make_peek(info, scan, tmp_path / "peek.jpg", n=2)
+    target = Target("square_video", 180, 180)
+    plan = plan_video(info, scan, target)
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "work")
+    export_cover(info, plan, target, tmp_path / "cover.jpg")
+    check_video(result, target)
+
+    assert len(started) >= 8
+    assert {Path(name).name for name in started} == {"ffmpeg", "ffprobe"}
+

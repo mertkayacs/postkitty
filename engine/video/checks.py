@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from collections.abc import Callable
 from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from ..probe import run_tool
 from ..verify.checks import Check, RenderResult, register_checker
 from ..verify.repair import register
 from .render import run_ffmpeg
@@ -67,7 +67,7 @@ def _skipped(check_id: str, target: Any, expected: Any, message: str, spec: Any)
 
 
 def _probe(path: Path) -> dict[str, Any]:
-    completed = subprocess.run(
+    completed = run_tool(
         [
             "ffprobe",
             "-v",
@@ -400,9 +400,6 @@ def _transcode(
 ) -> RenderResult:
     temporary = result.file.with_name(result.file.stem + ".repair.mp4")
     command = [
-        "nice",
-        "-n",
-        "10",
         "ffmpeg",
         "-hide_banner",
         "-loglevel",

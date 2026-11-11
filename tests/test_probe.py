@@ -132,3 +132,28 @@ def test_anamorphic_clip_reports_display_size(tmp_path, sar, shown):
                     "-vf", f"setsar={sar}", "-pix_fmt", "yuv420p", str(path)], check=True)
     info = probe.probe(path, "in1")
     assert (info.width, info.height) == shown
+
+
+def test_tools_run_at_low_priority_without_needing_the_nice_binary(monkeypatch):
+    # nice is a POSIX binary. A Windows machine has none, so every video step failed there with "file not found".
+    command = ["ffmpeg", "-version"]
+    monkeypatch.setattr(probe, "_WINDOWS", False)
+    monkeypatch.setattr(probe.shutil, "which", lambda name: "/usr/bin/nice")
+    assert probe.low_priority(command) == (["/usr/bin/nice", "-n", "10", "ffmpeg", "-version"], {})
+    monkeypatch.setattr(probe.shutil, "which", lambda name: None)
+    assert probe.low_priority(command) == (command, {})
+    monkeypatch.setattr(probe, "_WINDOWS", True)
+    assert probe.low_priority(command) == (command, {"creationflags": 0x4000})
+
+
+def test_tool_output_is_read_as_utf8_whatever_the_locale(monkeypatch):
+    # ffprobe prints file names as UTF-8; a Windows code page cannot decode every one of them.
+    seen = {}
+    monkeypatch.setattr(probe, "_WINDOWS", True)
+    monkeypatch.setattr(probe.subprocess, "run", lambda command, **options: seen.update(command=command, **options))
+
+    probe.run_tool(["ffprobe", "clip.mp4"], capture_output=True, text=True)
+
+    assert seen == {"command": ["ffprobe", "clip.mp4"], "creationflags": 0x4000, "capture_output": True,
+                    "text": True, "encoding": "utf-8", "errors": "replace"}
+
