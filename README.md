@@ -34,7 +34,7 @@ postkitty by Mert Kaya is a plugin for [Hermes Agent](https://github.com/NousRes
 
 One of the best free and open source plugins for Hermes Agent on automatic multi social media content editing.
 
-<p align="center"><a href="https://postkitty.mertkayacs.com/media/postkitty-launch.mp4?utm_source=github&amp;utm_medium=readme&amp;utm_campaign=postkitty-repo&amp;utm_content=video-poster"><img src="docs/launch-poster.jpg" width="720" alt="Watch the postkitty video"></a></p>
+[![Watch the postkitty video](docs/launch-poster.jpg)](https://postkitty.mertkayacs.com/media/postkitty-launch.mp4?utm_source=github&utm_medium=readme&utm_campaign=postkitty-repo&utm_content=video-poster)
 
 ---
 
@@ -49,7 +49,7 @@ One of the best free and open source plugins for Hermes Agent on automatic multi
 
 The words come from the model your Hermes uses: the rewritten drafts, the advice on where to post, and the alt text. The rest is code in this repository.
 
-<p align="center"><img src="docs/assets/readme/split-screen.jpg" alt="A landscape podcast frame with a box around each of the two hosts, and the vertical clip made from it: one host in the top half, the other in the bottom half." width="720"></p>
+![A landscape podcast frame with a box around each of the two hosts, and the vertical clip made from it: one host in the top half, the other in the bottom half.](docs/assets/readme/split-screen.jpg)
 
 ## Install
 
@@ -85,19 +85,33 @@ Use postkitty to turn this into posts for X, LinkedIn and Instagram and fix my w
 
 ## What it can do
 
-| Say this | You get |
-|---|---|
-| **Text**<br>"Fix my wording and write this for X, LinkedIn and Threads: [your draft]" | Your draft with the spelling and grammar fixed, one version per platform, each counted to fit. A long post can become a thread. |
-| **Photos**<br>"Make team.jpg ready for Instagram and Bluesky, and keep everyone in the picture." | One image per feed, framed around the people in it, with location and camera metadata removed. |
-| **Video**<br>"Turn talk.mp4 into vertical clips for TikTok, Reels and Shorts." | Vertical clips that follow the person on screen. Two people get a split screen, a cut to whoever is talking, or the whole wide shot. |
-| **Captions**<br>"Burn the subtitles from talk.srt into the TikTok clip." | Your `.srt` or `.vtt` subtitles drawn into the video, clear of the platform's buttons. |
-| **Checks**<br>"Will this file upload to TikTok? [path to the file]" | A pass or a fail against TikTok's limits, with every failing check named. It works for files postkitty did not make. |
+Each line starts with a request you can paste, followed by what comes back.
+
+- **Text.** "Fix my wording and write this for X, LinkedIn and Threads: [your draft]"
+
+  Your draft comes back with the spelling and grammar fixed, in one version per platform, each counted to fit. A long post can become a thread.
+
+- **Photos.** "Make team.jpg ready for Instagram and Bluesky, and keep everyone in the picture."
+
+  One image per feed, framed around the people in it, with location and camera metadata removed.
+
+- **Video.** "Turn talk.mp4 into vertical clips for TikTok, Reels and Shorts."
+
+  Vertical clips that follow the person on screen. Two people get a split screen, a cut to whoever is talking, or the whole wide shot.
+
+- **Captions.** "Burn the subtitles from talk.srt into the TikTok clip."
+
+  The lines of your `.srt` or `.vtt` file are drawn into the video, clear of the platform's buttons.
+
+- **Checks.** "Will this file upload to TikTok? [path to the file]"
+
+  A pass or a fail against TikTok's limits, with every failing check named. This works for files postkitty did not make.
 
 postkitty never posts, uploads or schedules anything. You upload the files in `ready/` yourself.
 
-<p align="center"><img src="docs/assets/readme/hero.jpg" alt="The postkitty review board for one podcast post: the Instagram Reel, feed photo, Story and TikTok files, each marked Ready with its size, layout note, alt text and passed checks." width="720"></p>
+![The postkitty review board for one podcast post: the Instagram Reel, feed photo, Story and TikTok files, each marked Ready with its size, layout note, alt text and passed checks.](docs/assets/readme/hero.jpg)
 
-<p align="center"><sub>The review board of one real run on a demo podcast clip and team photo. The people in the demo footage and photos are AI-generated.</sub></p>
+*The review board of one real run on a demo podcast clip and team photo. The people in the demo footage and photos are AI-generated.*
 
 ## How to ask
 
@@ -112,18 +126,16 @@ postkitty never posts, uploads or schedules anything. You upload the files in `r
 
 ## Platforms
 
-| Platform | Files | Text limit |
-|---|---|---|
-| Instagram | Reel and Story 1080×1920, feed photo 1080×1350 | 2,200 characters, 5 hashtags |
-| TikTok | Video 1080×1920 | 2,200 UTF-16 units |
-| YouTube Shorts | Short 1080×1920 | Title up to 100 characters |
-| X | Video 1920×1080, image 1600×900 | 280 weighted characters |
-| LinkedIn | Video 1080×1350, image 1080×1080 | 3,000 characters |
-| Threads | Video 1080×1920, image 1080×1350 | 500 characters |
-| Bluesky | Video 1080×1920, image 1080×1350 | 300 graphemes |
-| Facebook | Reel 1080×1920, feed photo 1080×1350 | 63,206 characters |
+- **Instagram.** Reel and Story 1080×1920, feed photo 1080×1350. Text up to 2,200 characters and 5 hashtags.
+- **TikTok.** Video 1080×1920. Text up to 2,200 UTF-16 units.
+- **YouTube Shorts.** Short 1080×1920. Title up to 100 characters.
+- **X.** Video 1920×1080, image 1600×900. Text up to 280 weighted characters.
+- **LinkedIn.** Video 1080×1350, image 1080×1080. Text up to 3,000 characters.
+- **Threads.** Video 1080×1920, image 1080×1350. Text up to 500 characters.
+- **Bluesky.** Video 1080×1920, image 1080×1350. Text up to 300 graphemes.
+- **Facebook.** Reel 1080×1920, feed photo 1080×1350. Text up to 63,206 characters.
 
-<sub>[docs/platforms.md](docs/platforms.md) lists every limit with the page it came from and the date it was checked. The data lives in [data/platforms.yaml](data/platforms.yaml).</sub>
+[docs/platforms.md](docs/platforms.md) lists every limit with the page it came from and the date it was checked. The data lives in [data/platforms.yaml](data/platforms.yaml).
 
 ## Try it in the browser
 
@@ -133,20 +145,20 @@ The same engine answers over HTTP at `https://postkitty.mertkayacs.com/api`. [do
 
 ## Documentation
 
-| Guide | What is in it |
-|---|---|
-| [How to ask](docs/how-to-ask.md) | Requests that get the right result the first time |
-| [Tools](docs/tools.md) | The five tools, the `/postkitty` command and the settings |
-| [Layouts](docs/layouts.md) | crop, split, speaker, seam, pad and focus, with examples |
-| [Platforms](docs/platforms.md) | Every size and limit with its source |
-| [HTTP API](docs/api.md) | The hosted API behind the playground |
-| [Architecture](docs/architecture.md) | How the code is organised and how a job runs |
-| [Troubleshooting](docs/troubleshooting.md) | What each failure message means and what to do |
+- [How to ask](docs/how-to-ask.md): requests that get the right result the first time
+- [Tools](docs/tools.md): the five tools, the `/postkitty` command and the settings
+- [Layouts](docs/layouts.md): crop, split, speaker, seam, pad and focus, with examples
+- [Platforms](docs/platforms.md): every size and limit with its source
+- [HTTP API](docs/api.md): the hosted API behind the playground
+- [Architecture](docs/architecture.md): how the code is organised and how a job runs
+- [Troubleshooting](docs/troubleshooting.md): what each failure message means and what to do
 
 ## FAQ
 
 <details>
 <summary><b>What it touches on your machine</b></summary>
+
+postkitty touches these things on your machine:
 
 - **Network:** one download. The first time a photo or a video is scanned, postkitty fetches the YuNet face detector from the OpenCV Zoo repository on GitHub, pinned to one commit, and checks its size and SHA-256 before using it. It makes no other request and sends no telemetry.
 - **Files it reads:** the photos, videos and subtitle files you name. It leaves them unchanged.
@@ -156,7 +168,7 @@ The same engine answers over HTTP at `https://postkitty.mertkayacs.com/api`. [do
 - **Credentials:** none. It needs no API key and stores no account data.
 - **The model:** your draft goes to the model your Hermes is set up with, as in any Hermes chat. That model writes the text, the advice and the alt text.
 
-[SECURITY.md](SECURITY.md) says how to report a problem.
+[SECURITY.md](SECURITY.md) says how to report a security problem.
 
 </details>
 
@@ -183,33 +195,31 @@ postkitty/20261111-0930-talk/
 <details>
 <summary><b>Which tools does Hermes call?</b></summary>
 
-Five tools, in this order. [docs/tools.md](docs/tools.md) has the arguments and the results.
+Hermes calls five tools, in this order. [docs/tools.md](docs/tools.md) has their arguments and results.
 
-| Tool | What it does |
-| --- | --- |
-| `postkitty_scan` | Reads your photos, videos and draft, and plans a framing for each platform. Renders nothing. |
-| `postkitty_write` | Counts each platform's text with its real rule and writes the text files. |
-| `postkitty_make` | Renders every file, checks it, repairs failures and builds the review board. |
-| `postkitty_redo` | Makes one photo or video output again with another layout, focus, trim, cover frame or captions. |
-| `postkitty_check` | Checks a file postkitty did not make against one platform. |
+1. `postkitty_scan` reads your photos, videos and draft, and plans a framing for each platform. It renders nothing.
+2. `postkitty_write` counts each platform's text with its real rule and writes the text files.
+3. `postkitty_make` renders every file, checks it, repairs failures and builds the review board.
+4. `postkitty_redo` makes one photo or video output again with another layout, focus, trim, cover frame or captions.
+5. `postkitty_check` checks a file postkitty did not make against one platform.
 
 </details>
 
 <details>
 <summary><b>Which settings can I change?</b></summary>
 
-Set these on the plugin's settings page in Hermes, or under `plugins.entries.postkitty.settings` in `config.yaml`.
+postkitty has three settings. Change them on the plugin's settings page in Hermes, or under `plugins.entries.postkitty.settings` in `config.yaml`.
 
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `output_dir` | empty | Where job folders go. Empty means `./postkitty` in the session's working folder. |
-| `default_platforms` | empty | Platforms to make when you name none. Empty means every platform that fits the input. |
-| `loudness_lufs` | -14 | Loudness target for video audio. |
+- **`output_dir`**, empty by default: where job folders go. Empty means `./postkitty` in the session's working folder.
+- **`default_platforms`**, empty by default: the platforms to make when you name none. Empty means every platform that fits the input.
+- **`loudness_lufs`**, -14 by default: the loudness target for video audio.
 
 </details>
 
 <details>
 <summary><b>A real run: one draft, rewritten for X, Bluesky and LinkedIn</b></summary>
+
+This is one real run: a rough draft, and what came back for X, Bluesky and LinkedIn.
 
 **The draft**
 
@@ -258,6 +268,8 @@ The next message in the same chat asked for a change:
 <details>
 <summary><b>It works in your language: the same post in Turkish and German</b></summary>
 
+The same post works in other languages. Here it is in Turkish and in German.
+
 **Turkish draft**
 
 > two builders'ın yeni bölümü çıktı!! maya ve sam uygulamamızı bir hafta sonunda nasıl yayınladığımızı anlatıyo, neleri kestik gece 2de ne bozuldu ve lansman paylaşımları neden koddan uzun sürdü. kendi başına bir şey geliştiren herkez için şimdiye kadarki en faydalı bölüm bence
@@ -276,12 +288,14 @@ The next message in the same chat asked for a change:
 
 </details>
 
-<sub>The text comes from the model your Hermes uses. These runs used Claude Sonnet 5.5, and postkitty counted and checked every version.</sub>
+*The text in these runs comes from the model Hermes used, Claude Sonnet 5.5. postkitty counted and checked every version.*
 
 </details>
 
 <details>
 <summary><b>How do I update or remove it?</b></summary>
+
+To update or remove postkitty, use the Hermes plugin commands:
 
 ```sh
 hermes plugins update postkitty
@@ -295,7 +309,7 @@ Your job folders stay where they are when you remove the plugin.
 <details>
 <summary><b>What is postkitty built on?</b></summary>
 
-[OpenCV](https://opencv.org) and the [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) face detector, [FFmpeg](https://ffmpeg.org), [Pillow](https://python-pillow.org) and [NumPy](https://numpy.org), with the counting rules of [twitter-text](https://github.com/twitter/twitter-text) and the [AT Protocol lexicons](https://github.com/bluesky-social/atproto). Seam carving can use [caire](https://github.com/esimov/caire) by Endre Simo.
+postkitty is built on [OpenCV](https://opencv.org) and the [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) face detector, [FFmpeg](https://ffmpeg.org), [Pillow](https://python-pillow.org) and [NumPy](https://numpy.org), with the counting rules of [twitter-text](https://github.com/twitter/twitter-text) and the [AT Protocol lexicons](https://github.com/bluesky-social/atproto). Seam carving can use [caire](https://github.com/esimov/caire) by Endre Simo.
 
 </details>
 
