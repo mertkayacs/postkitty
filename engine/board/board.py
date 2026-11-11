@@ -20,6 +20,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from .. import platforms
 from ..text.fit import unit_words
 
 CREAM = "#F7F1E5"
@@ -330,19 +331,25 @@ def pill(status: str) -> str:
     )
 
 
-def safe_area_bands(checks: list[dict]) -> str:
-    for check in checks:
-        measured = check.get("measured")
-        if isinstance(measured, dict) and {"top", "bottom", "side"} <= set(measured):
-            top = float(measured["top"])
-            bottom = float(measured["bottom"])
-            side = float(measured["side"])
-            return (
-                '<div class="safe" style="'
-                f"--top: {top * 100:.2f}%; --bottom: {bottom * 100:.2f}%; --side: {side * 100:.2f}%;"
-                '"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>'
-            )
-    return ""
+@cache
+def _safe_area_bands(target_id: str) -> str:
+    try:
+        spec = platforms.get_target(target_id).limits.get("safe_area")
+    except KeyError:
+        return ""
+    area = getattr(spec, "value", spec) or {}
+    # A safe area gives one inset for both sides, or a left and a right one where the buttons sit on one side.
+    edges = {edge: area.get(edge, area.get("side") if edge in ("left", "right") else 0) or 0
+             for edge in ("top", "bottom", "left", "right")}
+    if not any(edges.values()):
+        return ""
+    style = " ".join(f"--{edge}: {float(inset) * 100:.2f}%;" for edge, inset in edges.items())
+    return f'<div class="safe" style="{style}"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>'
+
+
+def safe_area_bands(target: dict) -> str:
+    """Bands over the parts of the frame where the platform draws its own buttons and text."""
+    return _safe_area_bands(str(target.get("id") or ""))
 
 
 def _upright(image: Image.Image) -> Image.Image:
@@ -610,7 +617,7 @@ def build_card(target: dict, ctx: Ctx) -> str:
         banner = ('<div class="banner" role="alert">'
                   + esc(" ".join(str(c.get("message", "")) for c in hard)) + "</div>")
 
-    bands = safe_area_bands(checks)
+    bands = safe_area_bands(target)
     toggle = ('<button type="button" class="btn tiny safe-toggle" data-toggle-safe-area>'
               'Show safe area</button>' if bands else "")
     note = layout_note(target.get("layout") or {})

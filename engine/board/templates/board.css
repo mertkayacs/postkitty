@@ -167,8 +167,8 @@ main { padding-bottom: 40px; }
 .safe i { position: absolute; background: rgba(224, 122, 95, .38); }
 .safe .t { left: 0; right: 0; top: 0; height: var(--top); }
 .safe .b { left: 0; right: 0; bottom: 0; height: var(--bottom); }
-.safe .l { top: 0; bottom: 0; left: 0; width: var(--side); }
-.safe .r { top: 0; bottom: 0; right: 0; width: var(--side); }
+.safe .l { top: var(--top); bottom: var(--bottom); left: 0; width: var(--left); }
+.safe .r { top: var(--top); bottom: var(--bottom); right: 0; width: var(--right); }
 .safe-toggle { position: absolute; top: 14px; right: 14px; z-index: 2; opacity: .92; }
 .info { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-wrap: anywhere; }
 .specs { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }

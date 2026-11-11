@@ -435,3 +435,28 @@ def test_adjust_requests_are_plain_sentences_that_name_no_tool(tmp_path):
     assert 'data-hermes-send="In job demo-job, change instagram_reel: focus on person 2 (focus person:2)."' in html
     assert "In job demo-job, change instagram_reel: keep the whole frame (layout pad)." in html
     assert "cut it to another part, now 0 s to 41 s (trim 0.0, 41.0)." in html
+
+
+def test_safe_area_bands_come_from_the_platform_data(tmp_path):
+    from postkitty.engine import platforms
+    from postkitty.engine.board.board import safe_area_bands
+
+    targets = [target for platform in platforms.load_platforms().values() for target in platform.targets.values()]
+    covered = [target for target in targets if target.limits.get("safe_area")]
+    # The data uses both forms: one inset for both sides, or a left and a right inset.
+    assert {"side" in target.limits["safe_area"].value for target in covered} == {True, False}
+    for target in covered:
+        area = target.limits["safe_area"].value
+        left, right = (area.get(edge, area.get("side")) for edge in ("left", "right"))
+        assert safe_area_bands({"id": target.id}) == (
+            f'<div class="safe" style="--top: {area["top"] * 100:.2f}%; --bottom: {area["bottom"] * 100:.2f}%; '
+            f'--left: {left * 100:.2f}%; --right: {right * 100:.2f}%;">'
+            '<i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>')
+    plain = next(target for target in targets if not target.limits.get("safe_area"))
+    assert safe_area_bands({"id": plain.id}) == "" and safe_area_bands({"id": "no_such_target"}) == ""
+
+    job_dir = tmp_path / "job"
+    manifest = _manifest(job_dir)
+    html = Path(write_board(job_dir, manifest)["board"]).read_text(encoding="utf-8")
+    ids = {target.id for target in covered}
+    assert html.count("data-toggle-safe-area>") == sum(target["id"] in ids for target in manifest["targets"]) > 0
