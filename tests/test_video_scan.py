@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from engine.video_scan import _build_tracks, make_peek, scan_video
+from engine.video.scan import _build_tracks, make_peek, scan_video
 
 
 @dataclass(frozen=True)

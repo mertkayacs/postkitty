@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 
 from PIL import Image
-from postkitty.engine.board import layout_note, write_board
+from postkitty.engine.board.board import layout_note, write_board
 
 CAP = 6 * 1024 * 1024
 
@@ -181,7 +181,7 @@ def test_write_board_produces_all_deliverables(tmp_path):
 
     # Previews are never cropped: exact aspect, object-fit contain.
     assert "--ar: 1080 / 1350" in html and "--ar: 1080 / 1920" in html
-    css = (Path(__file__).resolve().parent.parent / "engine" / "templates" / "board.css")
+    css = (Path(__file__).resolve().parent.parent / "engine" / "board" / "templates" / "board.css")
     css_text = css.read_text(encoding="utf-8")
     assert "object-fit: contain" in css_text and "object-fit: cover" not in css_text
     assert "aspect-ratio: var(--ar)" in css_text
@@ -203,7 +203,7 @@ def test_write_board_produces_all_deliverables(tmp_path):
 
 
 def test_check_values_are_human_readable():
-    from postkitty.engine.board import checks_html
+    from postkitty.engine.board.board import checks_html
     checks = [
         {"id": "video.container", "status": "pass", "hard": True,
          "measured": ["mov", "mp4"], "expected": ["mp4", "mov"], "message": "ok"},
@@ -228,7 +228,7 @@ def test_check_values_are_human_readable():
 
 
 def test_skipped_check_is_not_shown_as_passed():
-    from postkitty.engine.board import checks_html
+    from postkitty.engine.board.board import checks_html
     checks = [
         {"id": "image.width", "status": "pass", "hard": True, "measured": 1080, "expected": 1080,
          "message": "The image width is exact."},
@@ -262,7 +262,7 @@ def test_adjust_menu_only_offers_what_applies(tmp_path):
 
 
 def test_platform_names_are_cased(tmp_path):
-    from postkitty.engine.board import platform_name
+    from postkitty.engine.board.board import platform_name
     assert platform_name("tiktok") == "TikTok"
     assert platform_name("youtube") == "YouTube"
     assert platform_name("x") == "X"
@@ -271,7 +271,7 @@ def test_platform_names_are_cased(tmp_path):
 
 def test_contact_sheet_keeps_thumbnail_aspect_and_centers_it(tmp_path):
     import numpy as np
-    from postkitty.engine.board import TEMPLATES, write_contact_png
+    from postkitty.engine.board.board import TEMPLATES, write_contact_png
     job_dir = tmp_path / "job"
     (job_dir / "ready" / "x").mkdir(parents=True)
     _make_image(job_dir / "ready" / "x" / "image.jpg", (1920, 1080), "orange")

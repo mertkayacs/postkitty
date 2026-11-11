@@ -3,9 +3,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from engine import camera
-from engine.camera import build_camera_path
-from engine.video_scan import Track, TrackPoint, VideoScan
+from engine.video import camera
+from engine.video.camera import build_camera_path
+from engine.video.scan import Track, TrackPoint, VideoScan
 
 
 @dataclass(frozen=True)
@@ -106,7 +106,7 @@ def test_moving_window_hard_contains_face_margin_without_reversals() -> None:
 
 
 def test_subjects_inside_counts_recorded_face_samples(monkeypatch: object) -> None:
-    from engine.framing import Box
+    from engine.photo.framing import Box
     track = _track(1, [(0.0, 20.0), (1.0, 1000.0)])
 
     def fixed_windows(*args: object) -> list[object]:
@@ -232,7 +232,7 @@ class VideoInfo24:
 def test_speaker_cut_between_frames_keeps_every_subject_inside(monkeypatch) -> None:
     import numpy as np
 
-    from engine import speakers
+    from engine.video import speakers
 
     left = _track(1, [(index / 5, 40.0) for index in range(10)])
     right = _track(2, [(index / 5, 1120.0) for index in range(10)])

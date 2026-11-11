@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from engine import seams
-from engine.framing import Box
+from engine.photo import seams
+from engine.photo.framing import Box
 
 
 def _source(path: Path) -> None:

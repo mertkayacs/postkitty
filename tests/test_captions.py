@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from engine.captions import _ass_document, burn_captions, parse_captions
+from engine.video.captions import _ass_document, burn_captions, parse_captions
 
 
 @dataclass(frozen=True)

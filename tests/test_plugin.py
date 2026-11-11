@@ -5,7 +5,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-from postkitty import register, tools
+from postkitty import register, schemas, tools
 from postkitty.engine import __version__
 from ruamel.yaml import YAML
 
@@ -75,7 +75,7 @@ def test_skill_uses_vision_and_does_not_recheck_generated_files():
 
 
 def test_no_em_dashes_or_emoji_in_shipped_text():
-    for path in [*ROOT.glob("*.py"), *ROOT.glob("engine/*.py"), *ROOT.glob("skills/*/SKILL.md"), ROOT / "plugin.yaml"]:
+    for path in [*ROOT.glob("*.py"), *ROOT.glob("engine/**/*.py"), *ROOT.glob("skills/*/SKILL.md"), ROOT / "plugin.yaml"]:
         text = path.read_text(encoding="utf-8")
         assert "—" not in text, path
         assert not re.search("[\U0001F300-\U0001FAFF☀-➿]", text), path
@@ -101,7 +101,7 @@ def test_plugin_import_and_text_flow_never_load_cv2_numpy_or_pillow(tmp_path):
             def get_config(self, key, default=None): return {str(tmp_path / "out")!r} if key == "output_dir" else default
         mod.register(Ctx())
         scan = json.loads(tools.scan({{"text": "hello world #hi"}}))
-        copy = json.loads(tools.copy({{"job": scan["job"], "drafts": {{"x": "hello"}}}}))
+        copy = json.loads(tools.write({{"job": scan["job"], "drafts": {{"x": "hello"}}}}))
         assert "error" not in scan and copy["all_ok"], (scan, copy)
         bad = [m for m in sys.modules if m.split(".")[0] in {{"cv2", "numpy", "PIL"}}]
         assert not bad, bad
@@ -117,16 +117,16 @@ def test_tool_results_are_json_strings():
 
 
 def test_copy_schema_documents_accepted_key_types():
-    properties = tools.SCHEMAS["postkitty_copy"]["parameters"]["properties"]
+    properties = schemas.SCHEMAS["postkitty_write"]["parameters"]["properties"]
 
     assert "target id" in properties["drafts"]["description"]
     assert "input file name or ready file path" in properties["alt_text"]["description"]
 
 
 def test_tool_descriptions_tell_the_agent_when_to_use_each_tool():
-    describe = {name: schema["description"] for name, schema in tools.SCHEMAS.items()}
+    describe = {name: schema["description"] for name, schema in schemas.SCHEMAS.items()}
 
     assert "only wants a draft fixed" in describe["postkitty_scan"]
-    assert "every later copy change" in describe["postkitty_copy"]
-    assert "For copy changes call postkitty_copy instead." in describe["postkitty_redo"]
+    assert "every later copy change" in describe["postkitty_write"]
+    assert "For copy changes call postkitty_write instead." in describe["postkitty_redo"]
     assert "already checked" in describe["postkitty_check"]

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from engine import models
+from engine.detect import models
 
 
 def test_download_verifies_dummy_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

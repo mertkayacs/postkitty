@@ -64,8 +64,8 @@ class SpeakerDetector:
     name = "test-speakers"
 
     def detect(self, image):
-        from engine.faces import Face
-        from engine.framing import Box
+        from engine.detect.faces import Face
+        from engine.photo.framing import Box
 
         height, width = image.shape[:2]
         x_scale = width / 1280
@@ -132,7 +132,7 @@ def make_speaker_clip(root: Path) -> Path:
 @pytest.fixture(scope="session")
 def speaker_media(tmp_path_factory):
     from engine.probe import probe
-    from engine.video_scan import scan_video
+    from engine.video.scan import scan_video
 
     root = tmp_path_factory.mktemp("speaker-media")
     info = probe(make_speaker_clip(root), "speaker")
@@ -148,7 +148,7 @@ def _no_local_face_detector(monkeypatch, tmp_path):
         return
     import importlib
 
-    for name in ("engine.faces", "postkitty.engine.faces"):
+    for name in ("engine.detect.faces", "postkitty.engine.detect.faces"):
         module = importlib.import_module(name)
         if hasattr(module, "get_detector"):
             monkeypatch.setattr(module, "get_detector", lambda cache_dir: _BlindDetector())

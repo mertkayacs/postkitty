@@ -4,16 +4,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from engine import checks as checks_mod
-from engine import repair as repair_mod
-from engine.checks_video import (
+from engine.photo.framing import Box
+from engine.verify import checks as checks_mod
+from engine.verify import repair as repair_mod
+from engine.video.checks import (
     check_video,
     repair_duration,
     repair_fps,
     repair_subjects,
 )
-from engine.framing import Box
-from engine.video_make import VideoPlan, render_video
+from engine.video.render import VideoPlan, render_video
 
 
 @dataclass(frozen=True)
@@ -298,7 +298,7 @@ def test_audio_bitrate_repair_brings_a_reused_render_under_the_cap(tmp_path: Pat
     # A tiktok render at 160k was reused for instagram_reel and its audio.bitrate_max failure was final.
     import subprocess
 
-    from engine.checks_video import repair_audio_bitrate
+    from engine.video.checks import repair_audio_bitrate
 
     source = tmp_path / "source.mp4"
     subprocess.run(

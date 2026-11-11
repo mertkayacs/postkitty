@@ -1,6 +1,6 @@
 import pytest
 
-from engine import copyfit as c
+from engine.text import fit as c
 
 
 class TestXWeighted:

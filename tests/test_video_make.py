@@ -8,9 +8,9 @@ from typing import Any
 
 import numpy as np
 
-from engine.framing import Box
-from engine.video_make import VideoPlan, export_cover, plan_video, render_video
-from engine.video_scan import Track, TrackPoint, VideoScan
+from engine.photo.framing import Box
+from engine.video.render import VideoPlan, export_cover, plan_video, render_video
+from engine.video.scan import Track, TrackPoint, VideoScan
 
 
 @dataclass(frozen=True)
@@ -223,7 +223,7 @@ def test_render_reuses_matching_master(tmp_path: Path) -> None:
 
 
 def test_render_uses_requested_loudness(tmp_path: Path, monkeypatch: Any) -> None:
-    import engine.video_make as video_make
+    import engine.video.render as video_make
 
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
     info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
@@ -251,7 +251,7 @@ def test_split_panels_have_even_heights_for_odd_half_targets(tmp_path: Path) -> 
     # 1350 / 2 is odd; ffmpeg 6.1 corrupted its heap scaling 4:2:0 panels to 675 rows.
     import re
 
-    from engine.video_make import _crop_filter
+    from engine.video.render import _crop_filter
 
     @dataclass(frozen=True)
     class Info:
@@ -268,7 +268,7 @@ def test_split_panels_have_even_heights_for_odd_half_targets(tmp_path: Path) -> 
 
 
 def test_speaker_layout_uses_the_crop_renderer(tmp_path: Path) -> None:
-    from engine.video_make import _crop_filter
+    from engine.video.render import _crop_filter
 
     @dataclass(frozen=True)
     class Info:
@@ -289,7 +289,7 @@ def test_speaker_layout_uses_the_crop_renderer(tmp_path: Path) -> None:
 def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypatch: Any) -> None:
     # AAC lands a little above its nominal rate: a stereo film clip encoded at "-b:a 128k" measured
     # 128,621 bit/s against Instagram's 128,000 cap and failed the hard check.
-    import engine.video_make as video_make
+    import engine.video.render as video_make
 
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
     info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
@@ -315,7 +315,7 @@ def test_audio_encode_leaves_margin_under_platform_cap(tmp_path: Path, monkeypat
 
 def test_near_silent_audio_is_not_normalised_and_is_flagged(tmp_path: Path, monkeypatch: Any) -> None:
     # Room tone at about -70 dBFS was boosted 55 dB to -14 LUFS with status ready and no advisory.
-    import engine.video_make as video_make
+    import engine.video.render as video_make
 
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
     info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)
@@ -366,7 +366,7 @@ def test_cover_at_the_trim_end_still_writes_a_frame(tmp_path: Path) -> None:
 
 def test_render_reuse_respects_the_audio_cap_of_the_new_target(tmp_path: Path, monkeypatch: Any) -> None:
     # A tiktok render (no audio cap, 160k) was reused for instagram_reel and failed its 128k audio cap.
-    import engine.video_make as video_make
+    import engine.video.render as video_make
 
     info = _moving_video(tmp_path / "moving.mp4", duration=1.0)
     info = InputInfo(info.path, info.sha256, info.width, info.height, info.duration, info.fps, True)

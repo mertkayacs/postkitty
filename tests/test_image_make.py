@@ -8,9 +8,10 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from engine import image_make, seams
-from engine.framing import Box, Layout, subject_box
-from engine.image_make import plan_image, render_image
+from engine.photo import render as image_make
+from engine.photo import seams
+from engine.photo.framing import Box, Layout, subject_box
+from engine.photo.render import plan_image, render_image
 
 
 @dataclass(frozen=True)

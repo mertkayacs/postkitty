@@ -6,15 +6,15 @@ from typing import Any
 
 from PIL import Image
 
-from engine import checks as checks_mod
-from engine import repair as repair_mod
-from engine.checks_image import (
+from engine.photo.checks import (
     check_image,
     register_image_checker,
     register_image_repairs,
     repair_image_size,
     repair_image_subjects,
 )
+from engine.verify import checks as checks_mod
+from engine.verify import repair as repair_mod
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from engine import checks, platforms, repair
+from engine import platforms
+from engine.verify import checks, repair
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +112,7 @@ def test_strategy_exception_is_recorded_not_raised(tmp_path):
 
 
 def test_copy_checks_report_overflow_and_caps():
-    rules = __import__("engine.copyfit", fromlist=["x"]).rules_for("instagram")
+    rules = __import__("engine.text.fit", fromlist=["x"]).rules_for("instagram")
     found = checks.copy_checks("instagram", ["a" * 2201, "#t " * 31], rules)
     failing = {c.id for c in found if c.status == "fail"}
     assert failing == {"copy.limit", "copy.hashtags_max"}

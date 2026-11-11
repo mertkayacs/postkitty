@@ -3,7 +3,7 @@ from __future__ import annotations
 from hypothesis import given
 from hypothesis import strategies as st
 
-from engine.framing import Box, choose_layout, fit_crop, subject_box
+from engine.photo.framing import Box, choose_layout, fit_crop, subject_box
 
 
 @given(

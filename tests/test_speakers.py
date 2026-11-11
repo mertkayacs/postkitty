@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from engine.speakers import cached_activity, mouth_activity, speaker_segments, speech_activity
+from engine.video.speakers import cached_activity, mouth_activity, speaker_segments, speech_activity
 
 
 def _speaker_at(segments: list[tuple[float, float, int]], t: float) -> int:
@@ -84,7 +84,7 @@ def test_clip_without_audio_uses_visual_activity(speaker_media) -> None:
 
 
 def test_scene_activity_cache_avoids_decoding_twice(speaker_media, tmp_path: Path, monkeypatch) -> None:
-    from engine import speakers
+    from engine.video import speakers
 
     info, scan = speaker_media.info, speaker_media.scan
     first = cached_activity(
@@ -104,8 +104,8 @@ def test_scene_activity_cache_avoids_decoding_twice(speaker_media, tmp_path: Pat
 
 
 def test_mouth_region_follows_mouth_landmarks_in_profile() -> None:
-    from engine.speakers import _mouth_region
-    from engine.video_scan import TrackPoint
+    from engine.video.scan import TrackPoint
+    from engine.video.speakers import _mouth_region
 
     # A face turned to the left: the mouth corners sit near the left edge of the face box.
     face = TrackPoint(

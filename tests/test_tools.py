@@ -1,4 +1,5 @@
 import hashlib
+import importlib
 import json
 import os
 import shutil
@@ -10,8 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 from PIL import Image
-from postkitty import tools
-from postkitty.engine import checks, repair
+from postkitty import command, schemas, tools
+from postkitty.engine import pipeline
+from postkitty.engine.verify import checks, repair
 
 LONG_X = " ".join(f"Sentence number {i} is here." for i in range(40))
 
@@ -27,7 +29,7 @@ def text_job(out_dir):
 
 def test_every_handler_returns_json_error_instead_of_raising(out_dir):
     assert "error" in call(tools.scan)
-    assert "error" in call(tools.copy)
+    assert "error" in call(tools.write)
     assert "error" in call(tools.make, job="missing")
     assert "error" in call(tools.redo, job="missing", target="tiktok", layout="pad")
     assert "error" in call(tools.check)
@@ -42,10 +44,10 @@ def test_wrong_argument_types_name_the_argument(out_dir, tmp_path, text_job):
         (tools.scan, {"inputs": str(photo)}, "inputs"),
         (tools.scan, {"text": "hi", "platforms": "instagram"}, "platforms"),
         (tools.scan, {"text": ["a", "b"]}, "text"),
-        (tools.copy, {"job": text_job, "drafts": "hello"}, "drafts"),
-        (tools.copy, {"job": text_job, "alt_text": "hello"}, "alt_text"),
-        (tools.copy, {"job": text_job, "advice": "hello"}, "advice"),
-        (tools.copy, {"job": text_job, "drafts": {"x": "a"}, "split_threads": "no"}, "split_threads"),
+        (tools.write, {"job": text_job, "drafts": "hello"}, "drafts"),
+        (tools.write, {"job": text_job, "alt_text": "hello"}, "alt_text"),
+        (tools.write, {"job": text_job, "advice": "hello"}, "advice"),
+        (tools.write, {"job": text_job, "drafts": {"x": "a"}, "split_threads": "no"}, "split_threads"),
         (tools.make, {"job": text_job, "targets": "x"}, "targets"),
         (tools.make, {"job": text_job, "overrides": ["x_image"]}, "overrides"),
     ]
@@ -65,11 +67,11 @@ def test_text_only_scan(out_dir):
 
 
 def test_full_frame_plan_uses_same_shape_note():
-    info = tools.probe.InputInfo("in1", Path("video.mp4"), "video", "0" * 64, 1920, 1080, 5.0, 30.0, True, 0, False)
+    info = pipeline.probe.InputInfo("in1", Path("video.mp4"), "video", "0" * 64, 1920, 1080, 5.0, 30.0, True, 0, False)
     window = SimpleNamespace(x=0.0, y=0.0, w=1920.0, h=1080.0)
     plan = SimpleNamespace(layout="crop", note="single-subject camera path", windows=[window], trim=(0.0, 5.0))
 
-    summary = tools._plan_summary(info, plan, tools.platforms.get_target("x_video"))
+    summary = pipeline._plan_summary(info, plan, pipeline.platforms.get_target("x_video"))
 
     assert summary["note"] == "Same shape as the source; the full frame is kept."
 
@@ -77,7 +79,7 @@ def test_full_frame_plan_uses_same_shape_note():
 def test_text_only_scan_then_copy_end_to_end(out_dir, text_job):
     advice = {"topic": "Sentences", "audience": "testers", "tone": "dry", "key_message": "Counting works",
               "ranking": [{"platform": "x", "reason": "short text"}], "tips": ["Keep it short"]}
-    out = call(tools.copy, job=text_job, advice=advice,
+    out = call(tools.write, job=text_job, advice=advice,
                drafts={"x": LONG_X, "linkedin": "A short note for LinkedIn."})
     job = out_dir / text_job
     x = out["platforms"]["x"]
@@ -94,38 +96,38 @@ def test_text_only_scan_then_copy_end_to_end(out_dir, text_job):
 
 
 def test_copy_reports_overflow_and_writes_no_ready_file(out_dir, text_job):
-    out = call(tools.copy, job=text_job, drafts={"x": LONG_X}, split_threads=False)
+    out = call(tools.write, job=text_job, drafts={"x": LONG_X}, split_threads=False)
     x = out["platforms"]["x"]
     assert not x["ok"] and x["overflow"] > 0 and x["files"] == [] and out["all_ok"] is False
     assert not (out_dir / text_job / "ready/x/post.txt").exists()
 
 
 def test_rewrite_removes_stale_thread(out_dir, text_job):
-    call(tools.copy, job=text_job, drafts={"x": LONG_X})
+    call(tools.write, job=text_job, drafts={"x": LONG_X})
     assert (out_dir / text_job / "ready/x/thread.txt").exists()
-    call(tools.copy, job=text_job, drafts={"x": "short now"})
+    call(tools.write, job=text_job, drafts={"x": "short now"})
     assert not (out_dir / text_job / "ready/x/thread.txt").exists()
     assert (out_dir / text_job / "ready/x/post.txt").read_text().strip() == "short now"
 
 
 def test_instagram_hashtag_cap_blocks_ready(out_dir, text_job):
-    out = call(tools.copy, job=text_job, drafts={"instagram": " ".join(f"#t{i}" for i in range(31))})
+    out = call(tools.write, job=text_job, drafts={"instagram": " ".join(f"#t{i}" for i in range(31))})
     assert out["platforms"]["instagram"]["ok"] is False and out["platforms"]["instagram"]["hashtags"] == 31
 
 
 def test_recommendation_only_limit_still_writes_file(out_dir, text_job):
-    out = call(tools.copy, job=text_job, drafts={"youtube": "T" * 120})
+    out = call(tools.write, job=text_job, drafts={"youtube": "T" * 120})
     yt = out["platforms"]["youtube"]
     assert yt["ok"] is False and yt["enforcement"] == "recommendation" and yt["files"] and out["all_ok"] is True
 
 
 def test_platform_aliases_map_to_the_canonical_name(out_dir, text_job):
-    out = call(tools.copy, job=text_job, drafts={"twitter": ["only one"], "ig": "hello"})
+    out = call(tools.write, job=text_job, drafts={"twitter": ["only one"], "ig": "hello"})
     assert set(out["platforms"]) == {"x", "instagram"}
 
 
 def test_drafts_accept_targets_and_prefer_platform_keys(out_dir, text_job):
-    out = call(tools.copy, job=text_job, drafts={"x_video": "target", "x": "platform"})
+    out = call(tools.write, job=text_job, drafts={"x_video": "target", "x": "platform"})
 
     assert out["platforms"]["x"]["parts"][0]["text"] == "platform"
     assert out["platforms"]["x"]["notes"] == ["Used the x platform draft instead of the x_video target draft."]
@@ -134,7 +136,7 @@ def test_drafts_accept_targets_and_prefer_platform_keys(out_dir, text_job):
 
 
 def test_two_target_drafts_for_one_platform_say_which_one_was_ignored(out_dir, text_job):
-    out = call(tools.copy, job=text_job, drafts={"x_video": "first", "x_image": "second"})
+    out = call(tools.write, job=text_job, drafts={"x_video": "first", "x_image": "second"})
     x = out["platforms"]["x"]
     assert x["parts"][0]["text"] == "second"
     assert x["notes"] == ["Used the x_image target draft for x; the x_video draft was ignored."]
@@ -149,7 +151,7 @@ def test_redo_rejects_the_unknown_seam_key(out_dir, tmp_path, stub_image_engine)
     photo = tmp_path / "me.jpg"
     Image.new("RGB", (1600, 1200), "orange").save(photo)
     job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
-    assert "seam" not in tools._OVERRIDE_KEYS
+    assert "seam" not in pipeline.OVERRIDE_KEYS
     assert "give at least one" in call(tools.redo, job=job, target="x_image", seam=0.5)["error"]
 
 
@@ -162,7 +164,7 @@ def test_alt_text_by_target_and_file(out_dir, text_job):
     job = out_dir / text_job
     (job / "ready/instagram").mkdir(parents=True, exist_ok=True)
     (job / "ready/instagram/feed.jpg").write_bytes(b"x")
-    out = call(tools.copy, job=text_job, alt_text={"x_image": "A red door.", "feed.jpg": "A cat on a sofa.", "nope": "?"})
+    out = call(tools.write, job=text_job, alt_text={"x_image": "A red door.", "feed.jpg": "A cat on a sofa.", "nope": "?"})
     assert out["alt_text_unmatched"] == ["nope"]
     assert "A red door." in (job / "ready/x/alt.txt").read_text()
     assert (job / "ready/instagram/alt.txt").read_text() == "instagram_feed:\nA cat on a sofa.\n"
@@ -177,8 +179,8 @@ def test_alt_text_accepts_input_name_and_ready_path(out_dir, tmp_path, stub_imag
     call(tools.make, job=job)
     ready = out_dir / job / "ready/x/image.jpg"
 
-    by_input = call(tools.copy, job=job, alt_text={"team.jpg": "A team photo."})
-    by_ready = call(tools.copy, job=job, alt_text={str(ready): "A generated crop."})
+    by_input = call(tools.write, job=job, alt_text={"team.jpg": "A team photo."})
+    by_ready = call(tools.write, job=job, alt_text={str(ready): "A generated crop."})
 
     assert by_input["alt_text_unmatched"] is None
     assert by_ready["alt_text_unmatched"] is None
@@ -186,7 +188,7 @@ def test_alt_text_accepts_input_name_and_ready_path(out_dir, tmp_path, stub_imag
 
 
 def test_make_on_text_only_job_lists_the_copy_files_without_an_error(out_dir, text_job):
-    call(tools.copy, job=text_job, drafts={"x": LONG_X, "linkedin": "A short note."})
+    call(tools.write, job=text_job, drafts={"x": LONG_X, "linkedin": "A short note."})
     out = call(tools.make, job=text_job)
     assert "error" not in out and out["targets"] == [] and out["job_dir"] == str(out_dir / text_job)
     assert sorted(out["files"]) == ["ready/linkedin/post.txt", "ready/x/thread.txt"]
@@ -278,16 +280,16 @@ class FakeLayout:
 
 @pytest.fixture
 def stub_image_engine(monkeypatch):
-    """Install fake faces, image_make and checks_image modules under postkitty.engine."""
+    """Install fake detect.faces, photo.render and photo.checks modules under postkitty.engine."""
     renders = []
 
-    faces = types.ModuleType("postkitty.engine.faces")
+    faces = types.ModuleType("postkitty.engine.detect.faces")
     faces.get_detector = lambda cache_dir: object()
     faces.SUBJECT_MIN_SCORE = 0.75
     faces.detect_image = lambda info, detector, cache_dir: {
         "frames": [{"t": 0.0, "faces": [{"x": 1, "score": 0.9}, {"x": 2, "score": 0.9}]}]}
 
-    image_make = types.ModuleType("postkitty.engine.image_make")
+    image_make = types.ModuleType("postkitty.engine.photo.render")
     image_make.plan_image = lambda info, faces_doc, target, override=None: FakeLayout(
         (override or {}).get("layout") or "crop")
     image_make.load_srgb = lambda path: Image.open(path).convert("RGB")
@@ -299,10 +301,11 @@ def stub_image_engine(monkeypatch):
                                    {"mode": layout.mode, "note": layout.note}, 1.0, {})
 
     image_make.render_image = render_image
-    checks_image = types.ModuleType("postkitty.engine.checks_image")
-    for name, mod in (("faces", faces), ("image_make", image_make), ("checks_image", checks_image)):
-        monkeypatch.setitem(sys.modules, f"postkitty.engine.{name}", mod)
-        monkeypatch.setattr(sys.modules["postkitty.engine"], name, mod, raising=False)
+    checks_image = types.ModuleType("postkitty.engine.photo.checks")
+    for mod in (faces, image_make, checks_image):
+        parent, _, name = mod.__name__.rpartition(".")
+        monkeypatch.setitem(sys.modules, mod.__name__, mod)
+        monkeypatch.setattr(importlib.import_module(parent), name, mod, raising=False)
     monkeypatch.setattr(checks, "_CHECKERS", {"image": [], "video": []})
     monkeypatch.setattr(repair, "_STRATEGIES", {})
     return renders
@@ -369,10 +372,10 @@ def test_photo_scanned_for_a_video_platform_explains_the_mismatch(out_dir, tmp_p
 
 def test_copy_rejects_empty_and_non_string_drafts(out_dir, text_job):
     for value in (None, {"text": "hi"}, 42, "", "   ", [1, 2], [], ["ok", ""]):
-        out = call(tools.copy, job=text_job, drafts={"x": value})
+        out = call(tools.write, job=text_job, drafts={"x": value})
         assert "draft for 'x'" in out["error"], (value, out)
     assert not (out_dir / text_job / "ready/x/post.txt").exists()
-    assert call(tools.copy, job=text_job, drafts={"x": ["first", "second"]})["platforms"]["x"]["ok"]
+    assert call(tools.write, job=text_job, drafts={"x": ["first", "second"]})["platforms"]["x"]["ok"]
 
 
 def test_alt_text_file_name_matching_two_targets_is_ambiguous(out_dir, tmp_path, stub_image_engine):
@@ -382,14 +385,14 @@ def test_alt_text_file_name_matching_two_targets_is_ambiguous(out_dir, tmp_path,
     call(tools.make, job=job)
     ready = out_dir / job / "ready/x/image.jpg"
 
-    out = call(tools.copy, job=job, alt_text={"image.jpg": "which one?"})
+    out = call(tools.write, job=job, alt_text={"image.jpg": "which one?"})
     assert "image.jpg" in out["error"] and "x_image" in out["error"] and "bluesky_image" in out["error"]
     assert not (out_dir / job / "ready/x/alt.txt").exists()
 
-    out = call(tools.copy, job=job, alt_text={"x_image": "A door.", str(ready): "A window."})
+    out = call(tools.write, job=job, alt_text={"x_image": "A door.", str(ready): "A window."})
     assert "x_image" in out["error"] and "twice" in out["error"]
 
-    out = call(tools.copy, job=job, alt_text={str(ready): "A door."})
+    out = call(tools.write, job=job, alt_text={str(ready): "A door."})
     assert out["alt_text_unmatched"] is None
     manifest = json.loads((out_dir / job / "manifest.json").read_text())
     assert manifest["alt_text"] == {"x_image": "A door."}
@@ -466,7 +469,7 @@ def test_rescan_with_new_inputs_drops_stale_targets_and_ready_media(out_dir, tmp
     Image.new("RGB", (1200, 1600), "blue").save(second)
     job = call(tools.scan, inputs=[str(first)], platforms=["x"])["job"]
     call(tools.make, job=job)
-    call(tools.copy, job=job, drafts={"x": "keep me"})
+    call(tools.write, job=job, drafts={"x": "keep me"})
     assert (out_dir / job / "ready/x/image.jpg").is_file()
 
     out = call(tools.scan, job=job, inputs=[str(second)], platforms=["instagram_feed"])
@@ -556,7 +559,7 @@ def test_missing_video_engine_skips_video_targets(out_dir, tmp_path, monkeypatch
     clip = tmp_path / "c.mp4"
     subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=10:d=1", "-pix_fmt",
                     "yuv420p", str(clip)], check=True)
-    monkeypatch.setitem(sys.modules, "postkitty.engine.video_scan", None)  # simulate a missing module
+    monkeypatch.setitem(sys.modules, "postkitty.engine.video.scan", None)  # simulate a missing module
     scan = call(tools.scan, inputs=[str(clip)], platforms=["tiktok"])
     assert scan["inputs"][0]["kind"] == "video" and scan["notes"] and scan["plan"][0]["id"] == "tiktok"
     made = call(tools.make, job=scan["job"])
@@ -564,25 +567,25 @@ def test_missing_video_engine_skips_video_targets(out_dir, tmp_path, monkeypatch
 
 
 def test_slash_command_text():
-    text = tools.targets_overview("")
+    text = command.targets_overview("")
     assert "tiktok: 1080x1920 video" in text and "X: text 280 x_weighted" in text
-    assert tools.targets_overview("platforms x").count("X:") == 1 and "TikTok" not in tools.targets_overview("x")
-    assert tools.targets_overview("zzz") == "No matching platform."
+    assert command.targets_overview("platforms x").count("X:") == 1 and "TikTok" not in command.targets_overview("x")
+    assert command.targets_overview("zzz") == "No matching platform."
 
 
 def test_slash_command_header_explains_postkitty_only_without_a_filter():
-    text = tools.targets_overview("")
+    text = command.targets_overview("")
     header, _, targets = text.partition("Targets")
     assert header.startswith("postkitty: one post in, every platform out.")
     assert "never posts, uploads or schedules" in header and "Try saying:" in header
     assert header.count("\n  ") == 5 and "Will this file upload to TikTok?" in header
     assert "tiktok: 1080x1920 video" in targets and "/postkitty tiktok" in targets
-    filtered = tools.targets_overview("tiktok")
+    filtered = command.targets_overview("tiktok")
     assert filtered.startswith("TikTok:") and "Try saying" not in filtered and "/postkitty" not in filtered
 
 
 def test_speaker_layout_is_exposed_by_the_tool_schema() -> None:
-    layout = tools.SCHEMAS["postkitty_redo"]["parameters"]["properties"]["layout"]
+    layout = schemas.SCHEMAS["postkitty_redo"]["parameters"]["properties"]["layout"]
 
     assert "speaker" in layout["enum"]
     assert "speaker cuts to whoever is talking" in layout["description"]
@@ -640,7 +643,7 @@ def test_image_peek_keeps_16_bit_tones(tmp_path):
     Image.fromarray(ramp.astype(np.uint16)).save(path)
     (tmp_path / "work").mkdir()
 
-    peek = tools._image_peek(SimpleNamespace(work=tmp_path / "work"), probe.probe(path, "in1"))
+    peek = pipeline._image_peek(SimpleNamespace(work=tmp_path / "work"), probe.probe(path, "in1"))
 
     with Image.open(peek) as image:
         mean = float(np.asarray(image.convert("L")).mean())
@@ -661,7 +664,7 @@ def test_scan_reuses_shared_detections_without_building_a_detector(out_dir, tmp_
     def refuse(cache_dir):
         raise AssertionError("a shared cache hit must not build a detector")
 
-    monkeypatch.setattr(sys.modules["postkitty.engine.faces"], "get_detector", refuse)
+    monkeypatch.setattr(sys.modules["postkitty.engine.detect.faces"], "get_detector", refuse)
     out = call(tools.scan, inputs=[str(photo)], platforms=["instagram"])
     assert out["inputs"][0]["people"] == 1
 

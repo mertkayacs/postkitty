@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from engine.faces import (
+from engine.detect.faces import (
     Face,
     FakeDetector,
     ReplayDetector,
@@ -21,7 +21,7 @@ from engine.faces import (
     load_faces,
     saliency_box,
 )
-from engine.framing import Box
+from engine.photo.framing import Box
 
 
 @dataclass(frozen=True)
@@ -181,7 +181,7 @@ def test_get_detector_uses_recording(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 def test_get_detector_loads_the_shared_model_not_a_per_job_copy(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from engine import faces as faces_module
+    from engine.detect import faces as faces_module
 
     requested: list[object] = []
 
