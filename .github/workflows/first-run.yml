@@ -4,6 +4,9 @@ name: first-run
 # with the README command, run the text, photo, video and captions flows and the /postkitty commands through
 # Hermes' own plugin manager, tool registry and command dispatcher, then remove the plugin. Push and manual
 # runs pin the commit under test; the weekly run installs the plugin exactly as a user would.
+#
+# Nothing installs ffmpeg here. Hermes brings its own and puts it first on PATH, so photos, video and captions
+# run on the ffmpeg a user of that Hermes gets.
 
 on:
   workflow_dispatch:
@@ -50,10 +53,10 @@ jobs:
             echo "POSTKITTY_OUTPUT_DIR=$RUNNER_TEMP/postkitty-jobs"
           } >> "$GITHUB_ENV"
 
-      - name: Confirm the runner has no ffmpeg yet
+      - name: Confirm the runner has no ffmpeg of its own
         run: |
           if command -v ffmpeg || command -v ffprobe; then
-            echo "::error::ubuntu-latest now ships ffmpeg; the no-ffmpeg check below cannot run"
+            echo "::error::ubuntu-latest now ships ffmpeg; this run can no longer tell it from the one Hermes brings"
             exit 1
           fi
           echo "ffmpeg and ffprobe are absent, as expected on a clean runner"
@@ -148,18 +151,14 @@ jobs:
           set -o pipefail
           "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" text 2>&1 | tee "$LOG_DIR/phase-text.log"
 
-      - name: A video without ffmpeg gives a clear install message, and so does /postkitty doctor
+      - name: Without any ffmpeg, a video gives a clear install message, and so does /postkitty doctor
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
         working-directory: ${{ runner.temp }}
         run: |
           set -o pipefail
           "$HERMES_PYTHON" "$GITHUB_WORKSPACE/.github/scripts/first_run.py" novideo "$MEDIA_DIR/$CLIP" 2>&1 | tee "$LOG_DIR/phase-novideo.log"
 
-      - name: Install ffmpeg
-        timeout-minutes: 10
-        run: sudo --preserve-env=RUNNER_TEMP,GITHUB_PATH bash "$GITHUB_WORKSPACE/.github/scripts/install_ffmpeg.sh"
-
-      - name: /postkitty doctor finds a complete setup
+      - name: /postkitty doctor finds a complete setup with the ffmpeg Hermes brings
         # Run from a neutral folder, as a user would, not from inside the plugin checkout.
         working-directory: ${{ runner.temp }}
         run: |

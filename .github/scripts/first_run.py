@@ -4,9 +4,13 @@ Run with the interpreter of the Hermes venv after `hermes plugins install mertka
 Plugins are loaded through Hermes' plugin manager and every tool goes through the tool registry, the
 same path the agent loop takes (model_tools.handle_function_call -> tools.registry.registry.dispatch).
 
-Phases (one per invocation, so ffmpeg can be installed in between):
+Hermes brings its own ffmpeg and puts it first on PATH when it starts. Every phase but novideo does the same
+here, so the media phases run on the ffmpeg a user of this Hermes gets.
+
+Phases (one per invocation):
   text                 scan a draft, fit drafts for x, linkedin, threads and bluesky, then read /postkitty
-  novideo <clip>       scan a video while ffmpeg is missing; the error and /postkitty doctor say to install ffmpeg
+  novideo <clip>       scan a video with no ffmpeg at all, as on a Hermes that brings none; the error and
+                       /postkitty doctor say to install ffmpeg
   doctor               /postkitty doctor on a complete setup: text, photos, video and captions all work
   photo <image>        scan, write and make for instagram and x, then check the source photo and a made file by path,
                        with the tool and with /postkitty check
@@ -23,6 +27,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -61,6 +66,16 @@ def check(condition: bool, message: str) -> None:
     print(("ok   " if condition else "FAIL ") + message)
     if not condition:
         _failures.append(message)
+
+
+def use_hermes_tools() -> None:
+    """Put the tools Hermes brings first on PATH, the way the hermes command does when it starts."""
+    try:
+        from pm.install import store_first_path
+    except ImportError:  # a Hermes from before it brought its own tools
+        return
+    os.environ["PATH"] = store_first_path(os.environ.get("PATH", ""))
+    print("ffmpeg on PATH:", shutil.which("ffmpeg"), "| ffprobe:", shutil.which("ffprobe"))
 
 
 def boot():
@@ -351,6 +366,8 @@ def main(argv: list[str]) -> int:
     if phase not in ("text", "novideo", "doctor", "photo", "video"):
         print(__doc__)
         return 2
+    if phase != "novideo":
+        use_hermes_tools()
     call, slash = boot()
     if phase == "text":
         phase_text(call, slash)
