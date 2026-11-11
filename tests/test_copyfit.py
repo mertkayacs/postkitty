@@ -237,6 +237,16 @@ class TestFit:
         assert report.fold_chars <= report.fold_limit and "word " * 100 != report.fold
         assert report.fold.endswith("word")
 
+    def test_fold_never_cuts_inside_an_emoji_or_an_accented_letter(self):
+        family = "👨‍👩‍👧‍👦"  # seven code points, one visible character
+        fold = c.fit("instagram", family * 40).fold
+        assert fold == family * 17 and len(fold) <= 125
+        assert c.fit("instagram", "e\u0301" * 100).fold == "e\u0301" * 62
+
+    def test_fold_of_a_platform_without_a_fold_is_its_whole_limit(self):
+        report = c.fit("youtube", "a" * 150)
+        assert (report.fold_limit, report.fold_chars) == (100, 100)
+
 
 from hypothesis import given, settings  # noqa: E402
 from hypothesis import strategies as st  # noqa: E402

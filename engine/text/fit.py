@@ -479,11 +479,20 @@ _FOLD_LIMITS = {
 
 
 def fold_for(platform: str, text: str) -> tuple[str, int, int]:
-    """Return (shown text, shown length, fold limit) for the advisory fold note."""
-    limit = _FOLD_LIMITS.get(platform, 280)
+    """Return (shown text, shown length, fold limit) for the advisory fold note.
+
+    The cut falls on a space when there is one, and never inside an emoji or an accented letter.
+    """
+    limit = _FOLD_LIMITS.get(platform) or rules_for(platform).limit
     if len(text) <= limit:
         return text, len(text), limit
-    cut = text[:limit]
+    import regex
+
+    cut = ""
+    for cluster in regex.findall(r"\X", text[: limit + 64]):
+        if len(cut) + len(cluster) > limit:
+            break
+        cut += cluster
     if " " in cut:
         cut = cut.rsplit(" ", 1)[0]
     return cut, len(cut), limit
