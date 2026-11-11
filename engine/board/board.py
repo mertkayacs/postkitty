@@ -1,7 +1,7 @@
 """Review board: board.html, board-inline.html and contact.png for a postkitty job.
 
-Only the standard library and Pillow are used. Every value that comes from the
-manifest is passed through html.escape before it reaches the page.
+Uses the standard library and Pillow. The stylesheet, the page script and the logo mark live in
+templates/. Every value that comes from the manifest goes through ``esc`` before it reaches the page.
 """
 
 from __future__ import annotations
@@ -14,140 +14,15 @@ import os
 import re
 from datetime import datetime
 from fractions import Fraction
+from functools import cache
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
-
-PUCCI_SVG = (
-    '<svg viewBox="168 8 688 688" xmlns="http://www.w3.org/2000/svg" '
-    'width="688" height="688" aria-label="Pucci, the postkitty mascot">'
-    '<title>Pucci, the postkitty mascot</title>'
-    '<g transform="translate(61 54) scale(.88)" stroke="#1E2A44" stroke-width="14" '
-    'stroke-linecap="round" stroke-linejoin="round">'
-    '<g id="body">'
-    '<path d="M300 715C244 747 216 798 226 859C182 865 149 903 157 947C168 1002 '
-    '239 1027 318 1026C366 1025 403 1005 402 974L441 988C478 1002 534 1001 565 988 '
-    'C608 1001 664 996 689 979C713 961 700 933 688 917C732 858 711 796 670 757L659 '
-    '657Z" fill="#E8814D" />'
-    '<path d="M667 767C674 825 663 884 654 924" fill="none" />'
-    '<path d="M252 761C295 759 340 786 352 819C361 847 341 833 322 822C295 804 264 '
-    '799 235 803Z" fill="#C8643A" stroke="none" />'
-    '<path d="M229 837C266 830 312 847 327 869C342 891 314 881 293 877C272 873 251 '
-    '874 231 881Z" fill="#C8643A" stroke="none" />'
-    '<path d="M178 899C202 875 225 880 244 893C204 916 192 945 198 974L172 952Z" '
-    'fill="#C8643A" stroke="none" />'
-    '<path d="M275 914C244 945 230 981 246 1017L285 1025C265 985 280 952 312 927Z" '
-    'fill="#C8643A" stroke="none" />'
-    '<path d="M344 937C314 961 305 995 321 1025C370 1026 402 1005 402 974C400 957 '
-    '375 942 344 937Z" fill="#C8643A" stroke="none" />'
-    '<path d="M387 758C430 803 433 855 420 908L433 938" fill="none" stroke-width="11" />'
-    '<path d="M515 690C526 760 538 841 547 924" fill="none" />'
-    '<path d="M425 925C457 898 512 902 544 927C565 945 577 975 562 990C536 1005 '
-    '469 1006 438 994C451 966 441 942 425 925Z" fill="#F7F1E5" />'
-    '<path d="M558 928C585 902 632 901 662 916C691 931 705 960 692 978C666 996 '
-    '598 997 562 985C570 965 565 946 558 928Z" fill="#F7F1E5" />'
-    '<path d="M486 952Q503 977 493 997M530 952Q545 975 538 996M610 950Q622 970 613 '
-    '990M652 949Q665 967 658 987" fill="none" stroke-width="7" />'
-    '<path d="M352 933C379 914 410 918 429 940C448 960 451 982 438 994C420 1005 '
-    '389 1005 372 1000" fill="#F7F1E5" />'
-    '<path d="M404 959Q417 982 407 1000" fill="none" stroke-width="7" />'
-    '<path d="M226 859C229 900 258 915 304 920C350 926 393 939 400 968C410 1006 '
-    '371 1027 318 1026C242 1027 169 1003 157 947C149 903 182 866 226 859" fill="none" />'
-    '</g>'
-    '<g id="arms">'
-    '<path d="M300 531C259 563 251 640 278 683C305 728 368 732 411 699C435 680 457 '
-    '646 463 607Z" fill="#E8814D" />'
-    '<path d="M267 617C294 642 326 645 356 632C379 623 362 658 342 670C316 687 286 '
-    '677 277 666Z" fill="#C8643A" stroke="none" />'
-    '<path d="M602 601C614 646 625 704 666 721C720 741 775 694 796 636L815 551L736 '
-    '526Z" fill="#E8814D" />'
-    '<path d="M721 618C746 638 770 644 794 631C786 657 773 676 755 686C732 685 714 '
-    '666 705 643C697 622 702 606 721 618Z" fill="#C8643A" stroke="none" />'
-    '</g>'
-    '<path id="bib" d="M481 605C454 622 437 661 448 684C453 695 469 679 480 667 '
-    'C469 699 475 739 490 752C501 764 508 734 513 725C519 771 529 815 538 843C564 '
-    '816 582 780 589 746L596 769C621 750 635 704 623 674C643 713 651 681 641 650 '
-    'C633 623 610 608 594 597Z" fill="#F7F1E5" stroke="none" />'
-    '<g id="head">'
-    '<path d="M205 342C170 280 166 190 179 126C189 77 203 47 236 48C293 47 354 84 '
-    '397 119C443 98 494 88 547 92C586 38 645 -31 681 -23C721 -13 777 92 794 225 '
-    'C823 266 853 321 852 371C851 443 800 493 731 536C652 586 542 615 432 607C349 '
-    '602 260 589 220 546C165 489 164 410 205 342Z" fill="#E8814D" />'
-    '<path d="M199 325C174 261 178 163 194 112C203 83 218 65 243 76C280 93 313 130 '
-    '336 168C279 210 235 264 199 325Z" fill="#F2B8A2" stroke="none" />'
-    '<path d="M558 92C602 35 649 -10 676 -7C646 23 632 66 624 109Z" fill="#E8814D" '
-    'stroke="none" />'
-    '<path d="M624 109C637 56 654 4 676 -7C715 7 765 109 780 206C736 157 684 126 '
-    '624 109Z" fill="#F2B8A2" stroke="none" />'
-    '<path d="M243 76C285 96 315 129 343 169C281 215 239 271 209 326M624 109C636 57 '
-    '654 12 672 4" fill="none" stroke-width="9" />'
-    '<path d="M390 133C419 156 443 183 466 214C487 239 495 223 487 198C478 163 458 '
-    '132 438 111Z" fill="#C8643A" stroke="none" />'
-    '<path d="M472 99C504 129 520 167 540 210C553 238 571 229 568 196C565 153 548 '
-    '117 527 93Z" fill="#C8643A" stroke="none" />'
-    '<path d="M562 94C583 122 592 149 601 175C611 202 627 188 628 159C630 135 624 '
-    '119 617 108Z" fill="#C8643A" stroke="none" />'
-    '<path d="M190 377C237 348 287 346 322 363C343 373 336 384 318 386C265 391 221 '
-    '411 181 439Z" fill="#C8643A" stroke="none" />'
-    '<path d="M191 480C224 452 266 438 293 443C315 447 300 459 283 469C247 491 219 '
-    '519 214 537Z" fill="#C8643A" stroke="none" />'
-    '<path d="M822 307C795 310 776 323 773 339C771 351 805 340 839 356Z" '
-    'fill="#C8643A" stroke="none" />'
-    '<path d="M844 384C818 370 787 372 784 384C780 394 816 408 825 436C838 418 845 '
-    '403 844 384Z" fill="#C8643A" stroke="none" />'
-    '<path d="M327 482C358 457 401 459 437 448C488 433 514 372 559 371C602 369 619 '
-    '401 654 401C699 385 741 401 756 436C780 484 725 530 675 553C596 591 512 610 '
-    '432 601C380 597 330 585 310 561Z" fill="#F7F1E5" stroke="none" />'
-    '<path d="M383 410C382 360 422 319 465 333C506 344 527 393 509 430C488 470 426 '
-    '466 400 438Z" fill="#F7F1E5" stroke="none" />'
-    '<path d="M385 410C384 369 420 326 461 330" fill="none" />'
-    '<ellipse cx="475" cy="392" rx="52" ry="59" fill="#1E2A44" stroke="none" />'
-    '<circle cx="487" cy="365" r="17" fill="#F7F1E5" stroke="none" />'
-    '<ellipse cx="691" cy="338" rx="53" ry="62" transform="rotate(-16 691 338)" '
-    'fill="#F7F1E5" stroke="none" />'
-    '<ellipse cx="675" cy="345" rx="44" ry="58" transform="rotate(-16 675 345)" '
-    'fill="#1E2A44" stroke="none" />'
-    '<circle cx="663" cy="319" r="16" fill="#F7F1E5" stroke="none" />'
-    '<path d="M410 303Q437 273 469 290M628 219Q650 195 678 215" fill="none" '
-    'stroke-width="11" />'
-    '<ellipse cx="414" cy="487" rx="41" ry="17" transform="rotate(-8 414 487)" '
-    'fill="#F2B8A2" stroke="none" />'
-    '<ellipse cx="724" cy="422" rx="34" ry="16" transform="rotate(-7 724 422)" '
-    'fill="#F2B8A2" stroke="none" />'
-    '<path d="M579 401C591 390 619 388 628 396C631 407 618 423 608 424C594 423 '
-    '570 414 579 401Z" fill="#E07A5F" stroke="none" />'
-    '<path d="M568 453C582 490 602 509 621 494C637 481 641 452 642 437C624 446 612 '
-    '438 607 432C596 449 584 455 568 453Z" fill="#E07A5F" stroke-width="7" />'
-    '<path d="M608 423L607 432C593 454 574 460 558 449M607 432C624 443 643 441 650 '
-    '430" fill="none" stroke-width="7" />'
-    '</g>'
-    '<g id="viewfinder" fill="none" stroke-width="27">'
-    '<path d="M336 324V263H402" />'
-    '<path d="M667 263H732V322" stroke="#F7F1E5" stroke-width="35" />'
-    '<path d="M667 263H732V322" />'
-    '<path d="M337 486V548H404" />'
-    '<path d="M732 479V543H667" />'
-    '</g>'
-    '<g id="paws" fill="#F7F1E5">'
-    '<path d="M363 548C365 519 340 503 313 513C277 523 255 554 263 589C268 618 '
-    '292 638 321 638C349 638 365 619 360 597C382 578 383 560 363 548Z" />'
-    '<path d="M794 518C770 508 744 517 723 538C707 554 706 574 721 584C705 602 '
-    '716 626 742 631C778 639 808 617 820 588C832 556 820 531 794 518Z" />'
-    '<path d="M305 559C325 544 346 543 363 548M360 597L340 603M721 554C739 543 757 '
-    '549 772 559M721 584C732 579 745 582 754 589" fill="none" stroke-width="8" />'
-    '</g>'
-    '</g>'
-    '</svg>'
-)
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 CREAM = "#F7F1E5"
 NAVY = "#1E2A44"
-GINGER = "#E8814D"
-TERRACOTTA = "#E07A5F"
 MUTED = "#5B6478"
-
-INK = "#243046"
 BORDER = "#D9CFA9"
 SURFACE = "#FFFFFF"
 
@@ -259,15 +134,18 @@ INLINE_CAP = 6 * 1024 * 1024
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 
 
-def load_css() -> str:
-    return (TEMPLATES / "board.css").read_text(encoding="utf-8")
+@cache
+def _template(name: str) -> str:
+    """A file from templates/: the stylesheet, the page script or the logo mark."""
+    return (TEMPLATES / name).read_text(encoding="utf-8")
+
+
+def _mark() -> str:
+    return f'<div class="pucci-mark">{_template("mark.svg").strip()}</div>'
 
 
 def esc(value: Any) -> str:
-    return html.escape(str(value), quote=True)
-
-
-def esc_attr(value: Any) -> str:
+    """Escape a manifest value for HTML text or a quoted attribute."""
     return html.escape(str(value), quote=True)
 
 
@@ -464,18 +342,10 @@ def job_stamp(value: Any) -> str:
 def pill(status: str) -> str:
     key = status if status in ICONS else "skipped"
     return (
-        f'<span class="pill {esc_attr(key)}">'
+        f'<span class="pill {esc(key)}">'
         f'<svg viewBox="0 0 12 12" aria-hidden="true">{ICONS[key]}</svg>'
         f'{esc(STATUS_LABELS.get(status, str(status).title()))}</span>'
     )
-
-
-def target_frame_class(target: dict) -> str:
-    width = int(target.get("width") or 0)
-    height = int(target.get("height") or 0)
-    if width > 0 and height > 0 and (width / height) < 0.9:
-        return "phone"
-    return "feed"
 
 
 def safe_area_bands(checks: list[dict]) -> str:
@@ -493,9 +363,9 @@ def safe_area_bands(checks: list[dict]) -> str:
     return ""
 
 
-def ImageOps_exif_transpose(image: Image.Image) -> Image.Image:
+def _upright(image: Image.Image) -> Image.Image:
+    """Apply the EXIF rotation; an image with broken EXIF is shown as stored."""
     try:
-        from PIL import ImageOps
         return ImageOps.exif_transpose(image)
     except Exception:
         return image
@@ -515,7 +385,7 @@ def image_data_uri_capped(path: Any, cache: dict, max_side: int, quality: int) -
         return ""
     try:
         with Image.open(full) as image:
-            image = ImageOps_exif_transpose(image)
+            image = _upright(image)
             image = image.convert("RGB")
             image.thumbnail((max_side, max_side), Image.LANCZOS)
             buffer = io.BytesIO()
@@ -525,10 +395,6 @@ def image_data_uri_capped(path: Any, cache: dict, max_side: int, quality: int) -
         return ""
     cache[key] = result
     return result
-
-
-def copy_info(manifest: dict, platform: str) -> dict:
-    return (manifest.get("copy") or {}).get(platform, {}) or {}
 
 
 class Ctx:
@@ -577,16 +443,16 @@ def media_html(target: dict, ctx: Ctx, alt: str, overlay: str = "") -> str:
                                                ctx.max_side, ctx.quality)
             if cover_rel:
                 ctx.seen_posters.add(cover_rel)
-            img = (f'<img src="{esc_attr(poster)}" width="{width}" height="{height}" '
-                   f'alt="Poster frame, {esc_attr(label)}">' if poster else "")
+            img = (f'<img src="{esc(poster)}" width="{width}" height="{height}" '
+                   f'alt="Poster frame, {esc(label)}">' if poster else "")
             return f'<div class="frame video" style="{style}">{img}{PLAY_SVG}{overlay}</div>'
         mime = mimetypes.guess_type(file_rel)[0] or "video/mp4"
-        poster_attr = f' poster="{esc_attr(cover_rel)}"' if cover_rel else ""
+        poster_attr = f' poster="{esc(cover_rel)}"' if cover_rel else ""
         return (
             f'<div class="frame video" style="{style}">'
             f'<video controls muted playsinline preload="metadata"{poster_attr} '
-            f'aria-label="{esc_attr(label)} video">'
-            f'<source src="{esc_attr(file_rel)}" type="{esc_attr(mime)}"></video>{overlay}</div>'
+            f'aria-label="{esc(label)} video">'
+            f'<source src="{esc(file_rel)}" type="{esc(mime)}"></video>{overlay}</div>'
         )
     if kind == "image" and file_rel and (ctx.job_dir / file_rel).is_file():
         src = (image_data_uri_capped(ctx.job_dir / file_rel, ctx.cache, ctx.max_side,
@@ -595,8 +461,8 @@ def media_html(target: dict, ctx: Ctx, alt: str, overlay: str = "") -> str:
             return f'<div class="frame" style="{style}">{overlay}</div>'
         return (
             f'<div class="frame image" style="{style}">'
-            f'<img src="{esc_attr(src)}" width="{width}" height="{height}" '
-            f'alt="{esc_attr(alt or "Preview, " + label)}" loading="lazy">{overlay}</div>'
+            f'<img src="{esc(src)}" width="{width}" height="{height}" '
+            f'alt="{esc(alt or "Preview, " + label)}" loading="lazy">{overlay}</div>'
         )
     return f'<div class="frame" style="{style}">{overlay}</div>'
 
@@ -651,13 +517,13 @@ def check_row_html(row: dict) -> str:
     if row["source_url"]:
         when = f", checked {long_date(row['checked_on'])}" if row["checked_on"] else ""
         mono.append(
-            f'source (<a href="{esc_attr(row["source_url"])}" rel="noopener">'
+            f'source (<a href="{esc(row["source_url"])}" rel="noopener">'
             f'{esc(source_label(str(row["source_url"])))}</a>{esc(when)})'
         )
     mono_html = f'<div class="mono">{" · ".join(mono)}</div>' if mono else ""
     return (
-        f'<li title="{esc_attr(", ".join(row["ids"]))}">'
-        f'<span class="dot {esc_attr(row["status"])}"></span>'
+        f'<li title="{esc(", ".join(row["ids"]))}">'
+        f'<span class="dot {esc(row["status"])}"></span>'
         f'<div><div class="msg">{esc(text)}</div>{mono_html}</div></li>'
     )
 
@@ -709,7 +575,7 @@ def adjust_html(target: dict, ctx: Ctx) -> str:
         return ""
     buttons = "".join(
         f'<button type="button" class="btn tiny" '
-        f'data-hermes-send="{esc_attr(redo_prompt(ctx, target, what))}">{esc(label)}</button>'
+        f'data-hermes-send="{esc(redo_prompt(ctx, target, what))}">{esc(label)}</button>'
         for label, what in options
     )
     return (f'<details class="adjust"><summary>Adjust</summary>'
@@ -768,7 +634,7 @@ def build_card(target: dict, ctx: Ctx) -> str:
     alt_html = f'<p class="alt"><b>Alt text</b> {esc(alt)}</p>' if alt else ""
     actions = []
     if file_rel:
-        actions.append(f'<a class="btn" href="{esc_attr(file_rel)}">Open</a>')
+        actions.append(f'<a class="btn" href="{esc(file_rel)}">Open</a>')
     actions.append(adjust_html(target, ctx))
     actions.append('<span class="hermes-status" role="status"></span>')
 
@@ -826,12 +692,12 @@ def build_header(ctx: Ctx) -> str:
     path = str(ctx.job_dir.resolve())
     return (
         '<header class="header"><div class="wrap">'
-        f'<div class="pucci-mark">{PUCCI_SVG}</div>'
+        f'{_mark()}'
         '<div class="title-group">'
         f'<h1>{esc(board_title(manifest))}</h1>'
         f'<p class="meta">{esc(meta_text)}</p>'
         f'<div class="path-chip"><code>{esc(path)}</code>'
-        f'<button type="button" class="btn tiny" data-copy-text="{esc_attr(path)}">Copy</button></div>'
+        f'<button type="button" class="btn tiny" data-copy-text="{esc(path)}">Copy</button></div>'
         '</div>'
         f'<div class="chips" role="group" aria-label="Summary">{"".join(chips)}</div>'
         '</div></header>'
@@ -934,14 +800,14 @@ def build_copy_card(platform: str, info: dict, ctx: Ctx) -> str:
     links = ""
     post = f"ready/{platform}/post.txt"
     if (ctx.job_dir / post).is_file():
-        links = f' <a href="{esc_attr(post)}">post.txt</a>'
+        links = f' <a href="{esc(post)}">post.txt</a>'
     return (
         '<article class="copy-card">'
         f'<div class="copy-head"><h3>{esc(PLATFORM_COPY_NAMES.get(platform, platform_name(platform)))}</h3>'
         f'<span class="counts{" over" if over else ""}">{esc(summary)}</span></div>'
         f'{meter}<div class="parts">{"".join(rendered)}</div>'
         f'<p class="tags">{esc(tag_line + fold_note)}{links}</p>'
-        f'<button type="button" class="btn primary" data-copy-text="{esc_attr(joined)}">Copy text</button>'
+        f'<button type="button" class="btn primary" data-copy-text="{esc(joined)}">Copy text</button>'
         '</article>'
     )
 
@@ -978,7 +844,7 @@ def build_footer(ctx: Ctx) -> str:
             links.append(f'<a href="{name}">{name}</a>')
     return (
         '<footer class="footer"><div class="wrap">'
-        f'<div class="pucci-mark">{PUCCI_SVG}</div>'
+        f'{_mark()}'
         '<span>Made with postkitty</span>'
         f'<nav aria-label="Job files">{"".join(links)}</nav>'
         '</div></footer>'
@@ -990,7 +856,7 @@ def render_page(ctx: Ctx) -> tuple[str, int]:
     if ctx.inline:
         title += " (inline)"
     body = [
-        HTML_HEAD.format(title=title, css=load_css()),
+        HTML_HEAD.format(title=title, css=_template("board.css")),
         build_header(ctx),
         "<main><div class=\"wrap\">",
         build_advice(ctx.manifest),
@@ -998,205 +864,94 @@ def render_page(ctx: Ctx) -> tuple[str, int]:
         build_copy(ctx),
         "</div></main>",
         build_footer(ctx),
-        _script(),
+        f'<script>\n{_template("board.js")}</script>\n',
         "\n</body>\n</html>",
     ]
     text = "".join(body)
     return text, len(text.encode("utf-8"))
 
 
-def render_board_html(job_dir: Path, manifest: dict, inline: bool, cache: dict) -> str:
-    return render_page(Ctx(job_dir, manifest, inline, cache))[0]
-
-
-def _script() -> str:
-    return """\
-<script>
-(function () {
-  var toast = document.createElement("div");
-  toast.className = "toast";
-  toast.setAttribute("role", "status");
-  document.body.appendChild(toast);
-  var timer;
-  function show(message) {
-    toast.textContent = message;
-    toast.classList.add("show");
-    clearTimeout(timer);
-    timer = setTimeout(function () { toast.classList.remove("show"); }, 2200);
-  }
-  function copy(text, done) {
-    function fallback() {
-      var area = document.createElement("textarea");
-      area.value = text;
-      area.style.position = "fixed";
-      area.style.opacity = "0";
-      document.body.appendChild(area);
-      area.select();
-      try { document.execCommand("copy"); done(); } catch (e) { show("Copy failed."); }
-      document.body.removeChild(area);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else {
-      fallback();
-    }
-  }
-  document.body.addEventListener("click", function (event) {
-    var button = event.target.closest("[data-copy-text]");
-    if (button) {
-      event.preventDefault();
-      copy(button.getAttribute("data-copy-text"), function () { show("Copied."); });
-      return;
-    }
-    button = event.target.closest("[data-hermes-send]");
-    if (button) {
-      event.preventDefault();
-      var prompt = button.getAttribute("data-hermes-send");
-      var status = button.closest(".actions").querySelector(".hermes-status");
-      if (window.hermes && typeof window.hermes.send === "function") {
-        status.textContent = "Sending to Hermes...";
-        window.hermes.send(prompt).then(function (result) {
-          status.textContent = "Sent. " + String(result);
-        }).catch(function () { status.textContent = "Send failed."; });
-      } else {
-        copy(prompt, function () {
-          show("Copied. Paste it to Hermes.");
-          status.textContent = "Copied to clipboard.";
-        });
-      }
-      return;
-    }
-    button = event.target.closest("[data-toggle-safe-area]");
-    if (button) {
-      var area = button.closest(".stage").querySelector(".safe");
-      if (area) {
-        area.classList.toggle("show");
-        button.textContent = area.classList.contains("show") ? "Hide safe area" : "Show safe area";
-      }
-    }
-  });
-})();
-</script>
-"""
+def _aspect(target: dict) -> float:
+    """Width over height of a target; 1.0 when the manifest has no usable size."""
+    try:
+        return int(target.get("width") or 0) / int(target.get("height") or 1) or 1.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 1.0
 
 
 def write_contact_png(job_dir: Path, manifest: dict, mark_path: Path) -> Path:
+    """Draw contact.png: one tile per target with its thumbnail, size and status."""
     targets = manifest.get("targets") or []
-    job_name = manifest.get("job", "Review board")
-    created = manifest.get("created", "")
-    width = 1600
-    gap = 24
-    margin = 40
+    width, gap, margin, title_h, mark_size = 1600, 24, 40, 120, 40
     cols = 3 if targets else 1
     tile_w = (width - 2 * margin - (cols - 1) * gap) // cols
-    mark_size = 40
 
     def thumb_box(aspect: float) -> tuple[int, int]:
-        # aspect is width / height: a landscape target gets a wide box, a portrait one a tall box.
-        max_h = 240
-        thumb_w = tile_w - 28
-        h = min(max_h, thumb_w / aspect) if aspect else max_h
-        w = h * aspect if aspect else thumb_w
-        return int(w), int(h)
+        # A landscape target gets a wide box, a portrait one a tall box.
+        height = min(240, (tile_w - 28) / aspect)
+        return int(height * aspect), int(height)
 
-    rows = 0
-    row_heights: list[int] = []
-    index = 0
-    while index < len(targets):
-        row_max = 0
-        for _ in range(min(cols, len(targets) - index)):
-            target = targets[index]
-            aspect = 1.0
-            try:
-                aspect = int(target.get("width") or 0) / int(target.get("height") or 1) or 1.0
-            except (TypeError, ValueError, ZeroDivisionError):
-                aspect = 1.0
-            w, h = thumb_box(aspect)
-            row_max = max(row_max, h + 104)
-            index += 1
-        row_heights.append(row_max)
-        rows += 1
-
-    title_h = 120
-    height = (title_h + gap + sum(row_heights) + (rows - 1) * gap + 60) if rows else (title_h + 80)
+    rows = [targets[index:index + cols] for index in range(0, len(targets), cols)]
+    row_heights = [max(thumb_box(_aspect(target))[1] for target in row) + 104 for row in rows]
+    height = (title_h + gap + sum(row_heights) + (len(rows) - 1) * gap + 60) if rows else (title_h + 80)
     image = Image.new("RGB", (width, height), CREAM)
     draw = ImageDraw.Draw(image)
-
     font_job = ImageFont.load_default(size=22)
     font_small = ImageFont.load_default(size=16)
     font_badge = ImageFont.load_default(size=15)
 
-    mark = None
+    cx = margin
     if mark_path.is_file():
         try:
-            mark = Image.open(mark_path).convert("RGBA")
+            mark = Image.open(mark_path).convert("RGBA").resize((mark_size, mark_size), Image.LANCZOS)
         except Exception:
             mark = None
-
-    cx = margin
-    if mark is not None:
-        mark_s = mark.resize((mark_size, mark_size), Image.LANCZOS)
-        image.paste(mark_s, (cx, (title_h - mark_size) // 2), mark_s)
-        cx += mark_size + 16
-    draw.text((cx, 30), str(job_name), font=font_job, fill=NAVY)
-    draw.text((cx, 64), str(created), font=font_small, fill=MUTED)
+        if mark is not None:
+            image.paste(mark, (cx, (title_h - mark_size) // 2), mark)
+            cx += mark_size + 16
+    draw.text((cx, 30), str(manifest.get("job", "Review board")), font=font_job, fill=NAVY)
+    draw.text((cx, 64), str(manifest.get("created", "")), font=font_small, fill=MUTED)
 
     y = title_h + gap
-    index = 0
-    for row_h in row_heights:
+    for row, row_h in zip(rows, row_heights, strict=True):
         x = margin
-        row_targets = targets[index:index + cols]
-        index += len(row_targets)
-        for target in row_targets:
-            kind = target.get("kind")
-            aspect = 1.0
-            try:
-                aspect = int(target.get("width") or 0) / int(target.get("height") or 1) or 1.0
-            except (TypeError, ValueError, ZeroDivisionError):
-                aspect = 1.0
-            tw, th = thumb_box(aspect)
+        for target in row:
+            tw, th = thumb_box(_aspect(target))
             tx = x + (tile_w - tw) // 2
-            card_bg = SURFACE
-            draw.rounded_rectangle([x, y, x + tile_w, y + row_h], radius=12, fill=card_bg, outline=BORDER, width=1)
+            draw.rounded_rectangle([x, y, x + tile_w, y + row_h], radius=12, fill=SURFACE, outline=BORDER, width=1)
+            source = target.get("file") or ""
+            if target.get("kind") == "video" and target.get("cover"):
+                source = target["cover"]
             thumb = None
-            file_rel = target.get("file") or ""
-            cover_rel = target.get("cover")
-            source = cover_rel if kind == "video" and cover_rel else file_rel
-            full_source = job_dir / source if source and not os.path.isabs(source) \
-                else Path(source)
-            if source and full_source.is_file():
+            if source and (job_dir / source).is_file():
                 try:
-                    with Image.open(full_source) as img:
-                        img = ImageOps_exif_transpose(img).convert("RGB")
-                        img.thumbnail((tw, th), Image.LANCZOS)
-                        thumb = img
+                    with Image.open(job_dir / source) as opened:
+                        thumb = _upright(opened).convert("RGB")
+                        thumb.thumbnail((tw, th), Image.LANCZOS)
                 except Exception:
                     thumb = None
             if thumb is not None:
                 image.paste(thumb, (tx, y + 14))
             else:
-                draw.rounded_rectangle([tx, y + 14, tx + tw, y + 14 + th], radius=8, fill="#1E2A44")
-                draw.text((tx + 6, y + 14 + th / 2 - 8), "media", font=font_small, fill="#F7F1E5")
+                draw.rounded_rectangle([tx, y + 14, tx + tw, y + 14 + th], radius=8, fill=NAVY)
+                draw.text((tx + 6, y + 14 + th / 2 - 8), "media", font=font_small, fill=CREAM)
             ly = y + 14 + th + 12
             draw.text((x + 12, ly), platform_name(str(target.get("platform", ""))), font=font_badge, fill=NAVY)
             draw.text((x + 12, ly + 20), str(target.get("id", "")), font=font_small, fill=MUTED)
             size_text = f"{int(target.get('width') or 0)}x{int(target.get('height') or 0)}"
-            dur = format_duration(target.get("duration"))
-            meta = size_text + (f"  {dur}" if dur else "")
-            draw.text((x + 12, ly + 40), meta, font=font_small, fill=MUTED)
+            duration = format_duration(target.get("duration"))
+            draw.text((x + 12, ly + 40), size_text + (f"  {duration}" if duration else ""), font=font_small, fill=MUTED)
             status = str(target.get("status", "unknown"))
-            color = STATUS_COLORS.get(status, "#5B6478")
             label = STATUS_LABELS.get(status, status)
-            bw = draw.textlength(label, font=font_badge) + 16
-            draw.rounded_rectangle([x + 12, ly + 64, x + 12 + bw, ly + 64 + 22], radius=11, fill=color)
-            draw.text((x + 20, ly + 68), label, font=font_badge, fill="#FFFFFF")
+            badge_w = draw.textlength(label, font=font_badge) + 16
+            draw.rounded_rectangle([x + 12, ly + 64, x + 12 + badge_w, ly + 64 + 22], radius=11,
+                                   fill=STATUS_COLORS.get(status, MUTED))
+            draw.text((x + 20, ly + 68), label, font=font_badge, fill=SURFACE)
             x += tile_w + gap
         y += row_h + gap
     out_path = job_dir / "contact.png"
     image.save(out_path, format="PNG", optimize=True)
     return out_path
-
-
 
 
 def render_inline_html(job_dir: Path, manifest: dict, cache: dict) -> tuple[str, int]:
@@ -1233,7 +988,7 @@ def write_board(job_dir: Path, manifest: dict) -> dict:
 
     cache: dict = {}
 
-    board_html = render_board_html(job_dir, manifest, False, cache)
+    board_html = render_page(Ctx(job_dir, manifest, False, cache))[0]
     board_path = job_dir / "board.html"
     board_path.write_text(board_html, encoding="utf-8")
 
