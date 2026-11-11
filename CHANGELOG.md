@@ -17,6 +17,10 @@ All notable changes to postkitty are recorded here. The format follows [Keep a C
 - Documentation under `docs/`: how to ask, the tool reference, layouts, platform limits with their sources, the HTTP API, the architecture and troubleshooting.
 - `CONTRIBUTING.md`, `SECURITY.md` and this changelog.
 
+### Fixed
+
+- **Platform data.** Every limit was checked again at the platform's own page on 2026-11-11. The Instagram Reel file cap is 300 MB (it was 1 GB). Instagram feed photos, Threads videos and Threads photos have a file size cap now, and Threads video is checked for container, codec and frame rate. `data/platforms.yaml` is validated when it loads, and a limit without a source is rejected.
+
 ## [0.1.0] - 2026-11-08
 
 First release.
