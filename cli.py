@@ -11,13 +11,15 @@ import sys
 from pathlib import Path
 
 from . import command, tools
-from .engine import pipeline, probe
+from .engine import doctor, pipeline, probe
+from .engine.detect import models
 
-USAGE = "Usage: hermes postkitty <make|check|platforms> ..., see hermes postkitty --help"
+USAGE = "Usage: hermes postkitty <make|check|platforms|doctor> ..., see hermes postkitty --help"
 
 
 def setup(subparser: argparse.ArgumentParser) -> None:
     subs = subparser.add_subparsers(dest="postkitty_command")
+    subs.add_parser("doctor", help="Check the setup: Python packages, ffmpeg, the face model, the output folder")
     listing = subs.add_parser("platforms", help="List every target with its size and limits")
     listing.add_argument("name", nargs="?", default="", help="One platform, for example tiktok")
     check = subs.add_parser("check", help="Check a file against one target without rendering")
@@ -42,11 +44,15 @@ def run(args: argparse.Namespace) -> int:
         if sub == "platforms":
             print(command.targets(args.name))
             return 0
+        if sub == "doctor":
+            report = doctor.report(pipeline.jobs_dir())
+            print(doctor.render_text(report))
+            return 0 if report["ok"] else 1
         if sub == "check":
             return _check(args)
         if sub == "make":
             return _make(args)
-    except (ValueError, KeyError, FileNotFoundError, probe.ProbeError, pipeline.Unavailable) as exc:
+    except (ValueError, KeyError, FileNotFoundError, probe.ProbeError, pipeline.Unavailable, models.ModelUnavailable) as exc:
         print(f"postkitty: {tools.message(exc)}", file=sys.stderr)
         return 2
     print(USAGE)

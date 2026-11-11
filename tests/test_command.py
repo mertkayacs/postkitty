@@ -87,3 +87,11 @@ def test_cli_check_and_platforms(out_dir, tmp_path, capsys):
     assert cli.run(parse("platforms")) == 0
     assert "Try saying" not in (listing := capsys.readouterr().out) and "tiktok: 1080x1920 video" in listing
     assert cli.run(parse()) == 2
+
+
+def test_doctor_shows_the_setup_check_from_the_chat_and_the_terminal(out_dir, capsys):
+    chat = command.handle("doctor")
+    assert chat.startswith("```\npostkitty doctor") and "Output folder" in chat and str(out_dir) in chat
+    code = cli.run(parse("doctor"))
+    rows = capsys.readouterr().out.splitlines()
+    assert "Output folder" in "\n".join(rows) and code == (1 if any(row.startswith("no ") for row in rows) else 0)

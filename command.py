@@ -7,7 +7,7 @@ import shlex
 from pathlib import Path
 
 from . import tools
-from .engine import pipeline, platforms
+from .engine import doctor, pipeline, platforms
 
 DOCS = "https://postkitty.mertkayacs.com/docs/"
 CHECK_USAGE = "Usage: /postkitty check <file> [target], for example /postkitty check clip.mp4 tiktok"
@@ -28,14 +28,14 @@ To change a result, say what you want: a shorter text, another person in focus, 
 layout, a different trim or cover frame.
 
 Commands: /postkitty <platform> shows one platform, /postkitty check <file> [target] checks
-a file without the model. Docs: {DOCS}
+a file, /postkitty doctor checks the setup. Docs: {DOCS}
 
 Targets (size, main limits):
 """
 
 
 def handle(raw_args: str = "", **kwargs) -> str:
-    """``/postkitty``, ``/postkitty <platform>`` or ``/postkitty check <file> [target]``."""
+    """``/postkitty``, ``/postkitty <platform>``, ``/postkitty doctor`` or ``/postkitty check <file> [target]``."""
     try:
         words = shlex.split(raw_args or "")
     except ValueError:  # an unbalanced quote
@@ -43,6 +43,10 @@ def handle(raw_args: str = "", **kwargs) -> str:
     try:
         if words and words[0].lower() == "check":
             return check_file(words[1:])
+        if [word.lower() for word in words] == ["doctor"]:
+            tools.apply_settings()
+            # The rows align in a monospace font, which chats give only to a code block.
+            return f"```\n{doctor.render_text(doctor.report(pipeline.jobs_dir()))}\n```"
         return targets_overview(raw_args or "")
     except Exception as exc:  # Hermes does not catch a command handler's exception
         return f"postkitty could not answer: {exc}"
