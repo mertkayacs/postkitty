@@ -25,8 +25,10 @@ It needs no key. Four things to know before you use it:
 | `POST` | `/v1/jobs` | Starts a job: photos or one video, with or without text. Answers `202`. |
 | `GET` | `/v1/jobs/{id}` | The state of a job, its targets, texts and files. |
 | `GET` | `/v1/jobs/{id}/files/{path}` | One output file. |
-| `GET` | `/v1/jobs/{id}/download` | A zip of every ready file. |
-| `DELETE` | `/v1/jobs/{id}` | Deletes the job and its files now. |
+| `GET` | `/v1/jobs/{id}/download` | A zip of every ready file, with the review board. |
+| `DELETE` | `/v1/jobs/{id}` | Deletes the job and its files now. A running job is stopped. |
+
+The OpenAPI document is at `/openapi.json` under the same base URL.
 
 ## Count a text
 
@@ -86,7 +88,7 @@ curl -s https://postkitty.mertkayacs.com/api/v1/check -F 'file=@clip.mp4' -F 'ta
 | `layout` | `auto`, `crop`, `split`, `speaker`, `seam` or `pad`, for every media target ([Layouts](layouts.md)). |
 | `focus` | `auto`, `left`, `center`, `right`, `person:N` or `x:0.0` to `x:1.0`, for every media target. |
 
-The answer is `202` with the job `id`, its `status` and `links` to the status and the download. Ask `GET /v1/jobs/{id}` until `status` is `done` or `failed`.
+The answer is `202` with the job `id`, its `status` and `links` to the status and the download. The links start with `/v1/`, so put the base URL in front of them. The id is the only key to the job, and there is no endpoint that lists jobs. Ask `GET /v1/jobs/{id}` every two seconds until `status` is `done` or `failed`.
 
 ```sh
 curl -s https://postkitty.mertkayacs.com/api/v1/jobs \
@@ -136,7 +138,7 @@ What a job status holds:
 | `text` | The count for each platform, in the shape of `/v1/text`. |
 | `files` | Every ready file with its `path`, `url`, `platform`, `kind` and size. |
 | `expires_at` | When the job and its files are deleted. |
-| `error` | Set when the job failed. |
+| `error` | Set when the job failed. Its `code` is `job_failed` (the engine refused the input, and the message says why), `job_timeout` or `job_crashed`. |
 
 Only targets with the status `ready` or `repaired` have a file.
 
@@ -154,7 +156,9 @@ Only targets with the status `ready` or `repaired` have a file.
 | Waiting jobs | 8. A full queue answers `503`. |
 | Files kept | 60 minutes after the job finishes |
 
-Browsers allow calls from the postkitty site only. Call the API from a script or a server.
+Rates are counted per visitor. Browsers allow calls from the postkitty site only, so call the API from a script or a server.
+
+The service sleeps when nobody uses it. The first request after a pause can be answered with a page that is not JSON, or with a `503`, while it starts. Ask `/v1/health` again until it answers.
 
 ## Errors
 
@@ -166,11 +170,13 @@ Every error has one shape:
 
 | Status | Codes | When |
 |---|---|---|
-| `404` | `job_not_found`, `file_not_found` | The job never existed, was deleted or has expired, or it has no file at that path. |
+| `404` | `not_found`, `job_not_found`, `file_not_found` | No such path. The job never existed, was deleted or has expired, or it has no file at that path. |
+| `405` | `method_not_allowed` | The path does not take this method. |
 | `409` | `job_not_ready` | A download was asked for before the job finished, or the job failed. |
 | `413` | `upload_too_large`, `file_too_large` | The request or one file is over the size limit. |
 | `415` | `unsupported_type` | The file is not a photo or video the service reads. |
-| `422` | `empty_text`, `text_too_long`, `empty_job`, `too_many_files`, `unknown_platform`, `unknown_target`, `no_matching_target`, `wrong_media_kind`, `invalid_layout`, `invalid_focus`, `unreadable_file`, `animated_image`, `image_too_large`, `video_too_large`, `video_too_long`, `check_failed` | Something in the request is wrong. The `message` names it. |
+| `422` | `invalid_request`, `empty_text`, `text_too_long`, `empty_job`, `too_many_files`, `unknown_platform`, `unknown_target`, `no_matching_target`, `wrong_media_kind`, `invalid_layout`, `invalid_focus`, `unreadable_file`, `animated_image`, `image_too_large`, `video_too_large`, `video_too_long`, `check_failed` | Something in the request is wrong. The `message` names it. |
 | `429` | `rate_limited` | Too many requests in the last hour. The `Retry-After` header says how long to wait. |
-| `503` | `queue_full` | The queue is full. Try again shortly. |
+| `500` | `internal_error` | A fault on the server. |
+| `503` | `queue_full` | The queue is full. The `Retry-After` header says how long to wait. |
 | `504` | `check_timeout` | A check did not finish in time and was stopped. |
