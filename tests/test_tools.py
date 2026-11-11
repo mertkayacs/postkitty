@@ -866,3 +866,26 @@ def test_a_zero_setting_is_kept_and_a_bad_loudness_fails_video_with_the_reason(m
     monkeypatch.setattr(tools, "_CTX", None)
     tools.apply_settings()
     assert pipeline._loudness() == -14.0
+
+
+def test_handlers_take_context_keywords_and_answer_garbage_with_an_argument_error(out_dir, text_job):
+    garbage = [None, [], "text", 7, {"job": []}, {"job": {"a": 1}, "target": 5, "layout": []}, {"inputs": [None, 5]},
+               {"text": 5}, {"path": 5, "target": []}, {"job": "x", "drafts": []}, {"job": "x", "overrides": "pad"},
+               {"job": text_job, "advice": {"ranking": "x", "tips": 5}}, {"job": text_job, "drafts": {"x": 5}},
+               {"job": text_job, "alt_text": {"x_image": None}}, {"job": text_job, "target": "x", "focus": 5},
+               {"job": text_job, "targets": [None]}, {"job": text_job, "overrides": {"x_image": None}}]
+    for handler in tools.HANDLERS.values():
+        for args in garbage:
+            raw = handler(args, task_id="t", session_id="s", conversation_id="c", user_task="u", parent_agent=None)
+            out = json.loads(raw)
+            assert isinstance(raw, str) and isinstance(out, dict)
+            assert "Unexpected" not in out.get("hint", ""), (handler.__name__, args, out)
+
+
+def test_make_and_redo_return_the_lines_hermes_shows(out_dir, tmp_path, stub_image_engine):
+    photo = tmp_path / "me.jpg"
+    Image.new("RGB", (1600, 1200), "orange").save(photo)
+    job = call(tools.scan, inputs=[str(photo)], platforms=["x"])["job"]
+    for out in (call(tools.make, job=job), call(tools.redo, job=job, target="x_image", layout="pad")):
+        assert out["media_line"] == f"MEDIA:{out['contact']}" and Path(out["contact"]).is_file()
+        assert out["preview_directive"] == f'::preview{{file="{out["board_inline"]}"}}'
