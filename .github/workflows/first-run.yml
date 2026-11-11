@@ -18,6 +18,7 @@ on:
       - schemas.py
       - tools.py
       - command.py
+      - cli.py
       - engine/**
       - skills/**
       - data/**
