@@ -447,8 +447,13 @@ def scan(args: dict) -> dict:
         raise ValueError("give at least one input file or a draft text")
     wanted = _platform_names(_list_arg(args, "platforms") or _setting("default_platforms", []))
     infos, notes = [], []
-    for index, path in enumerate(paths, start=1):
-        infos.append(probe.probe(_input_path(path), f"in{index}"))  # before create_job: a bad path leaves no folder
+    for path in paths:  # before create_job: a bad path leaves no folder
+        info = probe.probe(_input_path(path), f"in{len(infos) + 1}")
+        same = next((known for known in infos if known.sha256 == info.sha256), None)
+        if same:
+            notes.append(f"{info.path.name} is the same file as {same.id}; it is used once")
+        else:
+            infos.append(info)
     job = jobs.create_job(_out_dir(), paths, text, args.get("job"))
     with _locked(job):
         manifest = jobs.load_manifest(job)
@@ -491,6 +496,9 @@ def scan(args: dict) -> dict:
             except Exception:
                 plan = _plan_summary(info, None, target)
             plans.append({"id": target.id, "input": info.id, "size": f"{target.width}x{target.height}", **plan})
+        used = {plan["input"] for plan in plans}
+        notes.extend(f"{info.id} ({info.path.name}) is not used: each target is made from the first photo or the first video"
+                     for info in infos if plans and info.id not in used)
         jobs.write_json(job.work / "scan.json", {"targets": plans, "inputs": entries, "peek": peek, "notes": notes})
         jobs.save_manifest(job, manifest)
         return {"job": job.id, "job_dir": str(job.root), "inputs": entries, "plan": plans,
