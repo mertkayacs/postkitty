@@ -966,6 +966,14 @@ def test_a_layout_advisory_is_listed_with_the_other_advice():
     assert pipeline._table([entry])[0]["advisory"] == ["Person 2 is outside the crop."]
 
 
+def test_a_cover_frame_that_could_not_be_made_is_listed_with_the_other_advice():
+    entry = {"id": "tiktok", "status": "ready", "checks": [], "repairs": [], "file": "ready/tiktok/tiktok.mp4",
+             "cover_error": "ffmpeg failed while exporting the cover frame: exit code 1"}
+    row = pipeline._table([entry])[0]
+    assert "cover" not in row
+    assert row["advisory"] == ["The cover frame could not be made: ffmpeg failed while exporting the cover frame: exit code 1"]
+
+
 def test_captions_are_burned_into_a_video_target_and_reported(out_dir, tmp_path, speaker_media) -> None:
     shared = Path(os.environ["POSTKITTY_FACES_CACHE"])
     shared.mkdir(parents=True, exist_ok=True)

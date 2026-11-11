@@ -451,6 +451,8 @@ def _table(entries: list[dict]) -> list[dict]:
         advisory = [c["message"] for c in e.get("checks", []) if c["status"] == "advisory"]
         if (e.get("layout") or {}).get("advisory"):  # who a crop the user asked for leaves outside
             advisory.append(e["layout"]["advisory"])
+        if e.get("cover_error"):  # the video is ready; only its cover frame is missing
+            advisory.append(f"The cover frame could not be made: {e['cover_error']}")
         rows.append({k: v for k, v in {
             "target": e["id"], "status": e["status"], "file": e.get("file"), "cover": e.get("cover"),
             "size": f"{e['width']}x{e['height']}" if e.get("width") else None, "layout": e.get("layout"),
