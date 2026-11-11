@@ -37,7 +37,7 @@ def _trim(info: InputInfo | None, target) -> list[float] | None:
     if info is None or info.kind != "video" or info.duration is None:
         return None
     duration_max = target.limits.get("duration_max")
-    if duration_max is not None and info.duration > float(duration_max.value):
+    if duration_max is not None and duration_max.enforcement == "hard" and info.duration > float(duration_max.value):
         return [0.0, float(duration_max.value)]
     return [0.0, round(float(info.duration), 3)]
 

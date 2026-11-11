@@ -34,6 +34,17 @@ def test_video_facts_flag_trim_and_vertical_hint():
     assert tiktok["layout_hint"] == "pad" and tiktok["source_aspect"] == round(1920 / 1080, 4)
 
 
+def test_only_a_hard_length_limit_proposes_a_trim():
+    facts = advise.fit_facts([info("video", 1080, 1920, 90.0)], None, ["instagram_story", "instagram_reel"])
+    targets = {target["id"]: target for target in facts["instagram"]["targets"]}
+    story, reel = targets["instagram_story"], targets["instagram_reel"]
+    assert story["duration_max"] == 60 and story["trim"] == [0.0, 90.0]  # 60 s is a recommendation: nothing is cut
+    assert "Trim" not in story["note"]
+    long = advise.fit_facts([info("video", 1080, 1920, 1000.0)], None, ["instagram_reel"])["instagram"]["targets"][0]
+    assert long["trim"] == [0.0, 900.0] and "Trim the first 900.0 s" in long["note"]  # the reel limit is hard
+    assert reel["trim"] == [0.0, 90.0]
+
+
 def test_video_facts_flag_short_clips_and_low_frame_rates():
     short = advise.fit_facts([info("video", 1920, 1080, 0.5)], None, ["instagram_reel", "linkedin_video"])
     reel = short["instagram"]["targets"][0]
