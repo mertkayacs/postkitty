@@ -128,3 +128,21 @@ def test_a_folder_with_spaces_and_non_ascii_letters_holds_a_job(tmp_path):
     jobs.save_manifest(job, manifest)
     assert job.id.endswith("-dogum-gunu") and job.root.parent == out
     assert jobs.load_manifest(jobs.open_job(out, job.id))["text"] == {"note": "İyi ki doğdun, 日本"}
+
+
+@pytest.mark.parametrize("content", [b"", b'{"schema": "postkitty.manifest/1", "tar', b"\xff\xfe\x00{"],
+                         ids=["empty", "cut-short", "not-utf8"])
+def test_a_damaged_manifest_gives_a_clear_error(tmp_path, content):
+    job = jobs.create_job(tmp_path, [], "hello")
+    job.manifest_path.write_bytes(content)
+    with pytest.raises(ValueError, match=r"manifest\.json is damaged.*postkitty_scan"):
+        jobs.load_manifest(job)
+
+
+def test_a_failed_write_keeps_the_old_manifest(tmp_path):
+    job = jobs.create_job(tmp_path, [], "hello")
+    before = job.manifest_path.read_text(encoding="utf-8")
+    with pytest.raises(TypeError):
+        jobs.save_manifest(job, {"targets": [object()]})
+    assert job.manifest_path.read_text(encoding="utf-8") == before
+    assert sorted(path.name for path in job.root.iterdir()) == ["manifest.json", "ready", "work"]

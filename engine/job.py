@@ -164,8 +164,15 @@ def manifest_template(job_id: str, created: str | None = None) -> dict:
 
 
 def read_json(path: Path) -> dict:
-    with Path(path).open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+    path = Path(path)
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except ValueError as error:  # cut short, or overwritten with something that is no UTF-8 JSON
+        raise ValueError(
+            f"{path.name} is damaged and cannot be read ({error}); run postkitty_scan again to start a new job. "
+            f"File: {path}"
+        ) from error
     if not isinstance(data, dict):
         raise ValueError(f"{path} does not contain a JSON object")
     return data
