@@ -108,6 +108,35 @@ def test_speaker_layout_is_rejected_for_images(tmp_path: Path) -> None:
         plan_image(info, _faces(faces), target, {"layout": "speaker"})
 
 
+def test_focus_on_one_person_keeps_that_person_and_may_drop_the_others(tmp_path: Path) -> None:
+    source = tmp_path / "pair.png"
+    faces = [Box(100, 200, 80, 100), Box(1400, 200, 80, 100)]
+    _scene(source, faces, size=(1600, 900))
+    info = InputInfo(source, "pair", 1600, 900)
+    target = Target("square", 400, 400)
+
+    layout = plan_image(info, _faces(faces), target, {"focus": "person:2"})
+    result = render_image(info, layout, target, tmp_path / "second.jpg")
+
+    assert layout.mode == "crop"
+    assert layout.boxes[0].contains(subject_box(faces[1], 1600, 900))
+    assert not layout.boxes[0].intersect(faces[0]).area
+    assert result.subjects_inside == 1.0
+
+
+def test_crop_override_that_cuts_a_kept_person_is_reported(tmp_path: Path) -> None:
+    source = tmp_path / "pair.png"
+    faces = [Box(100, 200, 80, 100), Box(1400, 200, 80, 100)]
+    _scene(source, faces, size=(1600, 900))
+    info = InputInfo(source, "pair", 1600, 900)
+    target = Target("square", 400, 400)
+
+    layout = plan_image(info, _faces(faces), target, {"layout": "crop"})
+    result = render_image(info, layout, target, tmp_path / "both.jpg")
+
+    assert result.subjects_inside == 0.0
+
+
 def test_plan_uses_saliency_without_faces(tmp_path: Path) -> None:
     source = tmp_path / "salient.png"
     image = Image.new("RGB", (300, 200), "black")

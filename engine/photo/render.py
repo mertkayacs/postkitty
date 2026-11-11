@@ -189,10 +189,10 @@ def plan_image(
         return layout
     if requested in {"auto", "crop"}:
         fit = fit_crop(info.width, info.height, target.aspect, selected, anchor=anchor)
-        cuts = sum(not fit.box.contains(subject) for subject in subjects)
         note = "focus override crop" if focus != "auto" else "crop override"
-        if cuts:
-            note += f" cuts {cuts} subject(s)"
+        # Focus on one person keeps only that person, so the others leaving the frame is no cut.
+        if fit.cut:
+            note += f" cuts {len(fit.cut)} subject(s)"
         return Layout("crop", [fit.box], note)
     if requested == "pad":
         return Layout(
