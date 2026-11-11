@@ -18,6 +18,9 @@ from .camera import build_camera_path
 from .captions import ass_document, load_captions
 from .scan import VideoScan
 
+# Platforms take one or two audio channels, so surround sources are mixed down and mono stays mono.
+_STEREO_AT_MOST = "aformat=channel_layouts=mono|stereo"
+
 
 @dataclass(frozen=True)
 class VideoPlan:
@@ -503,9 +506,9 @@ def render_video(
             + (
                 ""
                 if not info.has_audio
-                else f";[0:a]loudnorm=I={loudness_lufs:g}:TP=-1.5:LRA=11,aresample=48000[a]"
+                else f";[0:a]loudnorm=I={loudness_lufs:g}:TP=-1.5:LRA=11,aresample=48000,{_STEREO_AT_MOST}[a]"
                 if plan.normalize_audio
-                else ";[0:a]aresample=48000[a]"
+                else f";[0:a]aresample=48000,{_STEREO_AT_MOST}[a]"
             ),
             "-map",
             "[v]",

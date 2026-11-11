@@ -549,3 +549,30 @@ def test_trim_past_the_end_stops_at_the_end_of_the_video(tmp_path: Path) -> None
         plan_video(info, _flat_scan(9.96), target, {"trim": [12, 15], "cover_at": 13.0})
     with pytest.raises(ValueError, match=r"cover_at 9.5 s is outside the trim \(1 s to 3 s\)"):
         plan_video(info, _flat_scan(9.96), target, {"trim": [1, 3], "cover_at": 9.5})
+
+
+@pytest.mark.parametrize(("source_channels", "rendered"), [(6, 2), (1, 1)])
+def test_surround_audio_is_mixed_down_to_stereo(tmp_path: Path, source_channels: int, rendered: int) -> None:
+    # Instagram and Facebook take one or two audio channels; a 5.1 camera or screen recording has six.
+    source = tmp_path / "source.mp4"
+    _run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x180:r=10:d=1",
+            "-f", "lavfi", "-i", "sine=frequency=330:d=1", "-ac", str(source_channels), "-c:v", "libx264",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", str(source),
+        ]
+    )
+    info = InputInfo(source, f"audio-{source_channels}", 320, 180, 1.0, 10.0, True)
+    target = Target("square_video", 180, 180)
+    plan = VideoPlan(target.id, "crop", (0.0, 1.0), 0.5, "", [_box(70.0, 0.0, 180.0, 180.0)] * 10)
+
+    result = render_video(info, plan, target, tmp_path / "out.mp4", tmp_path / "work")
+
+    channels = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels",
+         "-of", "default=nw=1:nk=1", str(result.file)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert int(channels) == rendered
