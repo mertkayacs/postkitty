@@ -848,3 +848,19 @@ def test_session_folder_comes_from_hermes_and_falls_back_to_the_process_folder(t
     monkeypatch.setitem(sys.modules, "agent", types.ModuleType("agent"))
     monkeypatch.setitem(sys.modules, "agent.runtime_cwd", runtime)
     assert tools._session_dir() == "/srv/session"
+
+
+def test_a_zero_setting_is_kept_and_a_bad_loudness_fails_video_with_the_reason(monkeypatch):
+    class Ctx:
+        def get_config(self, key, default=None):
+            return {"loudness_lufs": 0, "default_platforms": "x, linkedin"}.get(key, default)
+
+    monkeypatch.setattr(pipeline, "_SETTINGS", dict(pipeline._SETTINGS))
+    monkeypatch.setattr(tools, "_CTX", Ctx())
+    tools.apply_settings()
+    assert pipeline._SETTINGS["default_platforms"] == ["x", "linkedin"]
+    with pytest.raises(ValueError, match="-70 to -5"):
+        pipeline._loudness()
+    monkeypatch.setattr(tools, "_CTX", None)
+    tools.apply_settings()
+    assert pipeline._loudness() == -14.0

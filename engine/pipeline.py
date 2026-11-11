@@ -71,6 +71,13 @@ def _setting(key: str, default: Any) -> Any:
     return _SETTINGS.get(key) or default
 
 
+def _loudness() -> float:
+    level = _number(_SETTINGS.get("loudness_lufs", -14))
+    if level is None or not -70 <= level <= -5:
+        raise ValueError(f"the loudness_lufs setting must be a number from -70 to -5, got {_SETTINGS['loudness_lufs']!r}")
+    return float(level)
+
+
 def _resolve(raw: Any) -> Path:
     """An absolute path; a relative one starts at ``base_dir``."""
     path = Path(str(raw)).expanduser()
@@ -305,7 +312,7 @@ def _render(media: _Media, info: probe.InputInfo, target: platforms.TargetSpec, 
         if info.kind == "image":
             return eng.render.render_image(info, plan, target, out)
         return eng.render.render_video(
-            info, plan, target, out, media.job.work, loudness_lufs=float(_setting("loudness_lufs", -14))
+            info, plan, target, out, media.job.work, loudness_lufs=_loudness()
         )
 
     def rerender(extra: dict) -> checks.RenderResult:

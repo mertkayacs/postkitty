@@ -27,9 +27,10 @@ def _config(key: str, default: Any) -> Any:
     if _CTX is None:
         return default
     try:
-        return _CTX.get_config(key, default=default) or default
+        value = _CTX.get_config(key, default=default)
     except Exception:
         return default
+    return default if value is None or value == "" else value
 
 
 def _session_dir() -> str:
@@ -54,7 +55,10 @@ def _data_dir() -> str | None:
 
 def apply_settings() -> None:
     """Hand the plugin settings and the session's folders to the pipeline, fresh for every call."""
-    pipeline.configure(output_dir=_config("output_dir", ""), default_platforms=_config("default_platforms", []),
+    names = _config("default_platforms", [])
+    if isinstance(names, str):  # a hand-edited config may hold "x, linkedin"
+        names = names.replace(",", " ").split()
+    pipeline.configure(output_dir=_config("output_dir", ""), default_platforms=names,
                        loudness_lufs=_config("loudness_lufs", -14), base_dir=_session_dir(), data_dir=_data_dir())
 
 
