@@ -255,10 +255,6 @@ The next message in the same chat asked for a change:
 >
 > #BuildInPublic #Startups #Podcast
 
-<sub>The text comes from the model your Hermes uses. This run used Claude Sonnet 5.5, and postkitty counted and checked every version.</sub>
-
-</details>
-
 <details>
 <summary><b>It works in your language: the same post in Turkish and German</b></summary>
 
@@ -277,6 +273,10 @@ The next message in the same chat asked for a change:
 **X** · 235 of 280 weighted characters
 
 > Neue Folge von Two Builders ist da. Maya und Sam erzählen, wie wir unsere App an einem Wochenende gelauncht haben: was wir gestrichen haben, was um 2 Uhr nachts kaputt ging und warum die Launch-Posts länger gedauert haben als der Code.
+
+</details>
+
+<sub>The text comes from the model your Hermes uses. These runs used Claude Sonnet 5.5, and postkitty counted and checked every version.</sub>
 
 </details>
 
