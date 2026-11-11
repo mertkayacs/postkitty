@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import tempfile
 import unicodedata
 from collections.abc import Iterable
@@ -223,6 +224,21 @@ def ready_dir(job: Job, platform: str) -> Path:
     path = job.ready / platform
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def prune_work(job: Job, manifest: dict) -> None:
+    """Delete the renders of a finished build. The scan, face, scene and speaker caches stay for redo.
+
+    Call it once the manifest is saved: every passing render then has its copy in ready/ and every
+    failing one in work/failed/, so work/render/ holds only duplicates.
+    """
+    render = job.work / "render"
+    shutil.rmtree(render, ignore_errors=True)
+    render.mkdir(parents=True, exist_ok=True)
+    current = {entry.get("failed_file") for entry in manifest.get("targets", [])}
+    for path in (job.work / "failed").glob("*"):
+        if path.is_file() and path.relative_to(job.root).as_posix() not in current:
+            path.unlink()
 
 
 def write_advice(job: Job, advice: dict) -> Path:

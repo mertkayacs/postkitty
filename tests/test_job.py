@@ -146,3 +146,22 @@ def test_a_failed_write_keeps_the_old_manifest(tmp_path):
         jobs.save_manifest(job, {"targets": [object()]})
     assert job.manifest_path.read_text(encoding="utf-8") == before
     assert sorted(path.name for path in job.root.iterdir()) == ["manifest.json", "ready", "work"]
+
+
+def test_prune_work_drops_renders_and_keeps_what_redo_needs(tmp_path):
+    job = jobs.create_job(tmp_path, [], "x")
+    kept = ["scan.json", "peek.jpg", "faces/abc.json", "scenes/abc.json", "speakers/key.npz", "failed/x_video.mp4"]
+    dropped = ["render/tiktok_video-0.mp4", "render/tiktok_video-1.mp4", "render/reuse-1f.mp4",
+               "render/reuse-1f.commands", "render/tmpab12/carved.png", "failed/tiktok_video.mp4"]
+    for relative in kept + dropped:
+        path = job.work / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+    manifest = {"targets": [{"id": "x_video", "status": "failed", "failed_file": "work/failed/x_video.mp4"},
+                            {"id": "tiktok_video", "status": "ready", "file": "ready/tiktok/video.mp4"}]}
+
+    jobs.prune_work(job, manifest)
+
+    left = sorted(path.relative_to(job.work).as_posix() for path in job.work.rglob("*") if path.is_file())
+    assert left == sorted(kept)
+    assert (job.work / "render").is_dir()
