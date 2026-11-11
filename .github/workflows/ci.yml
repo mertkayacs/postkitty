@@ -127,6 +127,13 @@ jobs:
         run: |
           mkdir -p "$HERMES_HOME"
           "$RUNNER_TEMP/hermes-venv/bin/hermes" plugins validate "$GITHUB_WORKSPACE" --install-deps
+      # Validation passes with a caution verdict, but an unattended install is blocked on it.
+      - name: The install security scan says safe
+        env:
+          HERMES_HOME: ${{ runner.temp }}/hermes-home
+        run: |
+          "$RUNNER_TEMP/hermes-venv/bin/hermes" plugins validate "$GITHUB_WORKSPACE" --json > "$RUNNER_TEMP/validate.json"
+          python .github/scripts/check_scan.py "$RUNNER_TEMP/validate.json"
       # Runs after validate, which installed the Python dependencies Plugin Doctor imports.
       - name: Run Plugin Doctor
         env:
