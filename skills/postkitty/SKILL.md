@@ -28,14 +28,16 @@ Do not use it to publish, schedule, or edit video content beyond framing, trimmi
 
 ## Prerequisites
 
-- `ffmpeg` and `ffprobe` on PATH for video. If a tool reports them missing, tell the user to install ffmpeg.
-- Media tools may report "not available"; text copy and counting still work. Say so and continue with copy.
+- `ffmpeg` and `ffprobe` on PATH for video.
+- When a note, a `reason` or an error says that ffmpeg or a Python package is missing, tell the user to run
+  `/postkitty doctor`. It lists what is missing with one fix line each. Text still works, so continue with the copy.
 
 ## How to Run
 
-Work through the five tools in order. Every tool returns JSON; an `error` key means fix the call or tell the user.
+Work through the five tools in order. Every tool returns JSON. An `error` comes with a `hint`: when the hint
+names `postkitty_scan`, scan again and continue with the new job id; otherwise fix the argument the error names.
 
-1. `postkitty_scan` with `inputs` (absolute paths), `text` (the draft), optional `platforms`.
+1. `postkitty_scan` with `inputs` (file paths), `text` (the draft), optional `platforms`.
 2. Understand the post, then write advice and copy.
 3. `postkitty_write` with `job`, `advice`, `drafts`, `alt_text`. Repeat until every platform is `ok`.
 4. `postkitty_make` with `job` (add `targets` or `overrides` only when needed).
@@ -61,8 +63,9 @@ talking, `seam` squeezes the background so two people fit, `pad` keeps the whole
 
 Call `postkitty_scan` first, even for text only. Read `inputs` (kind, size, duration, `people`, `shots`), `plan`
 (layout, trim and cover proposal per target), `fit` (per-platform facts) and `text` (character, X weighted,
-grapheme, hashtag, mention and URL counts). Keep the `job` id for every later call. Read `notes` too: a note means
-a media step was skipped and says why.
+grapheme, hashtag, mention and URL counts). Keep the `job` id for every later call. Read `notes` too and tell the
+user what they say: a media step that was skipped and why, a file that was given twice, or an input that is not
+used (each target is made from the first photo or the first video).
 
 If a vision tool is available (`vision_analyze` or similar), inspect the scan's `peek` image and every photo input
 before writing advice or alt text. The peek is a still or a keyframe strip of the user's media.
@@ -95,9 +98,9 @@ the draft is the Shorts title.
 Clean up the draft as you adapt it: fix spelling, grammar and punctuation, and rewrite clumsy or run-on sentences.
 Keep the user's voice, language and facts.
 
-Alt text goes in `alt_text`, keyed by target id (for example `instagram_feed`) or file name. Describe only what is
-visible in the image or video: who or what, where, what happens, any text on screen. Do not guess identities,
-emotions or context that is not in the frame. Keep it under about 200 characters.
+Alt text goes in `alt_text`, keyed by target id (for example `instagram_feed`), input id (`in1`) or file name.
+Describe only what is visible in the image or video: who or what, where, what happens, any text on screen. Do not
+guess identities, emotions or context that is not in the frame. Keep it under about 200 characters.
 
 Call `postkitty_write`. For every platform with `ok: false`, rewrite the draft using the reported `overflow`,
 `unit` and `limit`, then call again. Never truncate in the middle of a sentence. X, Threads and Bluesky text that is
@@ -107,9 +110,11 @@ when the user wants a thread, otherwise shorten the text. Hashtag and mention ca
 ### 5. Make
 
 Call `postkitty_make`. Rendering can take a while for video; tell the user it is running. Read the table: a target
-is ready to upload only when `status` is `ready` or `repaired`. For `failed` targets read `problems` and either
-redo with a different layout or explain what blocks it. `skipped` means the media engine for that kind is not
-available. Report every `advisory` honestly, for example a safe-area or bitrate recommendation.
+is ready to upload only when `status` is `ready` or `repaired`. A `failed` row has `problems` (checks that still
+fail) or a `reason` (it could not be rendered): redo with a different layout or explain what blocks it. `skipped`
+means this setup cannot make that kind of file: read `reason` and point the user to `/postkitty doctor`. A failed
+target never costs the others their files. Report every `advisory` honestly, for example a safe-area or bitrate
+recommendation.
 
 `postkitty_make` and `postkitty_redo` already run every check and repair.
 Never call `postkitty_check` on files made by `postkitty_make` or `postkitty_redo`.
