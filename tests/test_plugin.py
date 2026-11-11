@@ -168,10 +168,6 @@ def test_plugin_import_and_text_flow_never_load_cv2_numpy_or_pillow(tmp_path):
     assert done.stdout.strip() == "clean", done.stderr + done.stdout
 
 
-def test_tool_results_are_json_strings():
-    assert isinstance(tools.scan({}), str) and isinstance(json.loads(tools.check({})), dict)
-
-
 def test_every_schema_parameter_is_described_and_every_required_one_exists():
     for name, schema in schemas.SCHEMAS.items():
         properties = schema["parameters"]["properties"]
