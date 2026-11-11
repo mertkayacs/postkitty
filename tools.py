@@ -105,6 +105,7 @@ def _safe(fn: Callable[[dict], Any]) -> Callable[..., str]:
 
 def _with_directives(result: dict) -> dict:
     """Add the lines Hermes acts on: ``MEDIA:`` attaches the contact sheet, ``::preview`` opens the board."""
+    result.pop("board_inline_size", None)  # a number for the HTTP API; the model has no use for it
     contact, inline = result.get("contact"), result.get("board_inline")
     if contact:
         result["media_line"] = f"MEDIA:{contact}"

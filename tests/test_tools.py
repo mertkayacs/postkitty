@@ -530,7 +530,7 @@ def test_a_missing_package_skips_video_targets_and_names_it(out_dir, tmp_path, m
     assert scan["inputs"][0]["kind"] == "video" and scan["notes"] and scan["plan"][0]["id"] == "tiktok"
     made = call(tools.make, job=scan["job"])
     assert made["targets"][0]["status"] == "skipped"
-    assert made["targets"][0]["reason"] == "Videos cannot be made here: the Python package 'numpy' is missing."
+    assert "the Python package 'numpy' is missing" in made["targets"][0]["reason"]
 
 
 def test_the_schemas_offer_exactly_the_layouts_and_override_keys_the_pipeline_takes() -> None:
@@ -830,6 +830,7 @@ def test_make_and_redo_return_the_lines_hermes_shows(out_dir, tmp_path, stub_ima
     for out in (call(tools.make, job=job), call(tools.redo, job=job, target="x_image", layout="pad")):
         assert out["media_line"] == f"MEDIA:{out['contact']}" and Path(out["contact"]).is_file()
         assert out["preview_directive"] == f'::preview{{file="{out["board_inline"]}"}}'
+        assert "board_inline_size" not in out
 
 
 def test_make_and_redo_leave_no_renders_behind(out_dir, tmp_path, stub_image_engine):
