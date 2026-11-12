@@ -8,6 +8,7 @@ Start here. Type this in a Hermes chat:
 
 It checks Python, ffmpeg and ffprobe, caption support, OpenCV, Pillow and the other Python packages, the face model and the output folder. Each problem gets one fix line, and the last line says what works now: text, photos, video, captions. From a terminal, `hermes postkitty doctor` prints the same report. The sections below cover the messages you can meet in a chat.
 
+- [Hermes says postkitty is not in its catalog](#hermes-says-postkitty-is-not-in-its-catalog)
 - [The tools do not show up after installing](#the-tools-do-not-show-up-after-installing)
 - [ffmpeg is missing](#ffmpeg-is-missing)
 - [A media step was skipped](#a-media-step-was-skipped)
@@ -16,6 +17,27 @@ It checks Python, ffmpeg and ffprobe, caption support, OpenCV, Pillow and the ot
 - [A target failed](#a-target-failed)
 - [Other messages](#other-messages)
 - [Report a problem](#report-a-problem)
+
+## Hermes says postkitty is not in its catalog
+
+On Hermes 0.23.0 and older the install command stops with this:
+
+```text
+Error: 'postkitty' is not in the Hermes plugin catalog and is not a Git URL or owner/repo shorthand.
+```
+
+Those versions cannot read the current catalog, because the file has grown past the size they accept. Hermes 0.23.1 reads it. Update Hermes, then install again:
+
+```sh
+hermes update
+hermes plugins install postkitty
+```
+
+To keep your version of Hermes, install from the repository:
+
+```sh
+hermes plugins install mertkayacs/postkitty
+```
 
 ## The tools do not show up after installing
 
