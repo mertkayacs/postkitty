@@ -1,15 +1,27 @@
 name: first-run
 
-# What a new user does on a clean machine: install Hermes with the official installer, install the plugin
-# with the README command, run the text, photo, video and captions flows and the /postkitty commands through
-# Hermes' own plugin manager, tool registry and command dispatcher, then remove the plugin. Push and manual
-# runs pin the commit under test; the weekly run installs the plugin exactly as a user would.
+# What a new user does on a clean machine: install Hermes with the official installer, install the plugin,
+# run the text, photo, video and captions flows and the /postkitty commands through Hermes' own plugin
+# manager, tool registry and command dispatcher, then remove the plugin.
+#
+# There are two ways to install. A push, and a manual run by default, install the commit under test from the
+# repository. The weekly run, and a manual run with install set to catalog, run the README command: Hermes
+# looks the name up in its catalog and installs the commit pinned there. Such a run takes this repository at
+# the pinned commit too, so the test script and the plugin match. Start one by hand after a catalog pin merges.
 #
 # Nothing installs ffmpeg here. Hermes brings its own and puts it first on PATH, so photos, video and captions
 # run on the ffmpeg a user of that Hermes gets.
 
 on:
   workflow_dispatch:
+    inputs:
+      install:
+        description: "commit: this commit, from the repository. catalog: the README command, which installs the commit the Hermes catalog pins."
+        type: choice
+        options:
+          - commit
+          - catalog
+        default: commit
   schedule:
     - cron: "23 5 * * 1"
   push:
@@ -42,7 +54,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Read the commit the Hermes catalog pins
+        id: pin
+        if: github.event_name == 'schedule' || inputs.install == 'catalog'
+        run: |
+          # The file Hermes reads when it looks a catalog name up.
+          curl -fsSL --retry 3 --max-time 60 -o "$RUNNER_TEMP/plugin-catalog.json" \
+            https://hermes-agent.nousresearch.com/docs/api/plugin-catalog.json
+          sha=$(jq -r '.entries[] | select(.name == "postkitty") | .sha' "$RUNNER_TEMP/plugin-catalog.json")
+          version=$(jq -r '.entries[] | select(.name == "postkitty") | .version' "$RUNNER_TEMP/plugin-catalog.json")
+          echo "the catalog pins postkitty $version at $sha"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          test -n "$version"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.pin.outputs.sha || github.sha }}
 
       - name: Choose the work folders
         run: |
@@ -92,29 +121,39 @@ jobs:
           command -v hermes
           echo "hermes launcher:"; cat "$(command -v hermes)"
 
-      - name: Install the plugin with the README command
+      - name: Install the plugin
+        env:
+          PINNED_SHA: ${{ steps.pin.outputs.sha }}
         run: |
           set -o pipefail
-          ref_args=""
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            ref_args="--ref ${{ github.sha }}"
-          fi
           # --yes-deps answers the Python dependency question up front; without it, and without a terminal,
           # Hermes skips the dependencies and leaves the plugin disabled.
-          echo "+ hermes plugins install mertkayacs/postkitty --yes-deps --enable $ref_args"
-          hermes plugins install mertkayacs/postkitty --yes-deps --enable $ref_args 2>&1 | tee "$LOG_DIR/plugin-install.log"
+          if [ -n "$PINNED_SHA" ]; then
+            # The README command.
+            set -- postkitty --yes-deps --enable
+          else
+            set -- mertkayacs/postkitty --yes-deps --enable --ref "${{ github.sha }}"
+          fi
+          echo "+ hermes plugins install $*"
+          hermes plugins install "$@" 2>&1 | tee "$LOG_DIR/plugin-install.log"
 
       - name: Check that postkitty is installed and enabled
+        env:
+          PINNED_VERSION: ${{ steps.pin.outputs.version }}
         run: |
           hermes plugins list | tee "$LOG_DIR/plugins-list.txt"
           hermes plugins list --json > "$LOG_DIR/plugins-list.json"
           python3 - "$LOG_DIR/plugins-list.json" <<'EOF'
-          import json, sys
+          import json, os, sys
           rows = json.load(open(sys.argv[1]))
           row = next((r for r in rows if r["name"] == "postkitty"), None)
           print("postkitty row:", row)
           assert row is not None, "postkitty is not installed"
           assert row["status"] == "enabled", f"postkitty is not enabled: {row['status']}"
+          pinned = os.environ.get("PINNED_VERSION")
+          if pinned:
+              assert row["version"] == pinned, f"the catalog pins {pinned}, Hermes installed {row['version']}"
+              print("the installed version is the one the catalog pins:", pinned)
           EOF
 
       - name: Find the Python interpreter Hermes runs on
