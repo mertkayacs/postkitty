@@ -62,6 +62,8 @@ The Hermes plugin catalog pins one commit of this repository. `.github/catalog-e
 
 The `catalog-gate` workflow runs Hermes' own admission checks from their repository on every change to the plugin: it fills in the entry for that commit and checks it against Hermes' main branch. A pin update is a pull request on NousResearch/hermes-agent that carries the filled-in entry. Their checks start only after a maintainer approves them, so run the workflow by hand with the pull request's number first. It then checks that pull request's merge commit the way their CI will: the catalog gate, the catalog tests and the repository guards.
 
+After the pull request merges, Hermes publishes the new pin with its next site build. When `https://hermes-agent.nousresearch.com/docs/api/plugin-catalog.json` carries the new commit, run the `first-run` workflow by hand with `install` set to `catalog`. It runs the README command on a clean machine and checks that Hermes installed the pinned version.
+
 ## Report a security problem
 
 Please follow [SECURITY.md](SECURITY.md) and keep the details out of public issues.
