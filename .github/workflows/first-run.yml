@@ -44,7 +44,7 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_HERMES: "0.23.0"
+  EXPECTED_HERMES: "0.23.1"
   MIN_HERMES: "0.22.7"
   PHOTO: team.jpg
   CLIP: notld.mp4
